@@ -1186,11 +1186,22 @@ namespace Engine
 
         if(ddi_method != DDI_Method::FFT)
             return;
+    
+        //Regular lattice optimization
+        regular_lattice_optimisation = {false, false, false};
+
+        if(geometry->n_cell_atoms == 1)
+            for (int i=0; i<3; i++)
+                if(boundary_conditions[i] == 1)
+                    regular_lattice_optimisation[i] = true;
+            
 
         n_cells_padded.resize(3);
-        n_cells_padded[0] = (geometry->n_cells[0] > 1) ? 2 * geometry->n_cells[0] : 1;
-        n_cells_padded[1] = (geometry->n_cells[1] > 1) ? 2 * geometry->n_cells[1] : 1;
-        n_cells_padded[2] = (geometry->n_cells[2] > 1) ? 2 * geometry->n_cells[2] : 1;
+        for(int i=0; i<3; i++)
+            if(regular_lattice_optimisation[i])
+                n_cells_padded[i] = geometry->n_cells[i];
+            else
+                n_cells_padded[i] = (geometry->n_cells[i] > 1) ? 2 * geometry->n_cells[0] : 1;
 
         FFT::FFT_Init();
 
@@ -1204,7 +1215,6 @@ namespace Engine
         #endif
 
         sublattice_size = n_cells_padded[0] * n_cells_padded[1] * n_cells_padded[2];
-
         inter_sublattice_lookup.resize(geometry->n_cell_atoms * geometry->n_cell_atoms);
 
         //we dont need to transform over length 1 dims

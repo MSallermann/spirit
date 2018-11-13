@@ -158,7 +158,7 @@ namespace Engine
         // Plans for FT / rFT
         FFT::FFT_Plan fft_plan_spins;
         FFT::FFT_Plan fft_plan_reverse;
-
+        std::array<bool, 3> regular_lattice_optimisation;
         field<FFT::FFT_cpx_type> transformed_dipole_matrices;
 
         bool save_dipole_matrices = true;
