@@ -63,7 +63,7 @@ namespace SimpleFMM
         Box& Get_Box(int idx);
         Box& Get_Parent(Box& box);
 
-        void Upward_Pass(vectorfield& spins, scalarfield& mu_s);
+        void Upward_Pass(const vectorfield& spins, const scalarfield& mu_s);
         void Downward_Pass();
         void Evaluation(const vectorfield& spins, vectorfield& gradient);
         void Direct_Evaluation(const vectorfield& spins, vectorfield& gradient);

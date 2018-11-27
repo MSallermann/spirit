@@ -3,12 +3,13 @@
 #include <array>
 #include <complex>
 #include "Eigen/Core"
+#include "Spirit_Defines.h"
 
 namespace SimpleFMM
 {
-    # ifndef scalar
-    #   define scalar double
-    # endif
+    // # ifndef scalar
+    // #   define scalar double
+    // # endif
 
     using Vector3c   = Eigen::Matrix<std::complex<scalar>, 3, 1>;
     using Vector3 = Eigen::Matrix<scalar, 3, 1>;

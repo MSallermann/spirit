@@ -677,6 +677,9 @@ namespace Engine
                 this->Gradient_DDI_Cutoff(spins, gradient);
             else
                 this->Gradient_DDI_Direct(spins, gradient);
+        } else if( this->ddi_method == DDI_Method::FMM)
+        {
+            Gradient_DDI_FMM(spins, gradient);
         }
     }
 
@@ -847,6 +850,13 @@ namespace Engine
                 gradient[idx1][2] -= (Dxz * m2[0] + Dyz * m2[1] + Dzz * m2[2]) * mu;
             }
         }
+    }
+
+    void Hamiltonian_Heisenberg::Gradient_DDI_FMM(const vectorfield& spins, vectorfield& gradient)
+    {
+        fmm_tree.Upward_Pass(spins, geometry->mu_s);
+        fmm_tree.Downward_Pass();
+        fmm_tree.Evaluation(spins, gradient);
     }
 
 
@@ -1166,86 +1176,88 @@ namespace Engine
 
     void Hamiltonian_Heisenberg::Prepare_DDI()
     {
-        Clean_DDI();
-
-        if( ddi_method != DDI_Method::FFT )
-            return;
-
-        n_cells_padded.resize(3);
-        n_cells_padded[0] = (geometry->n_cells[0] > 1) ? 2 * geometry->n_cells[0] : 1;
-        n_cells_padded[1] = (geometry->n_cells[1] > 1) ? 2 * geometry->n_cells[1] : 1;
-        n_cells_padded[2] = (geometry->n_cells[2] > 1) ? 2 * geometry->n_cells[2] : 1;
-
-        FFT::FFT_Init();
-
-        //workaround for bug in kissfft
-        //kissfft_ndr does not perform one-dimensional ffts properly
-        #ifndef SPIRIT_USE_FFTW
-        int number_of_one_dims = 0;
-        for( int i=0; i<3; i++ )
-            if(n_cells_padded[i] == 1 && ++number_of_one_dims > 1)
-                n_cells_padded[i] = 2;
-        #endif
-
-        sublattice_size = n_cells_padded[0] * n_cells_padded[1] * n_cells_padded[2];
-
-        inter_sublattice_lookup.resize(geometry->n_cell_atoms * geometry->n_cell_atoms);
-
-        //we dont need to transform over length 1 dims
-        std::vector<int> fft_dims;
-        for( int i = 2; i >= 0; i-- ) //notice that reverse order is important!
+        if( ddi_method == DDI_Method::FFT)
         {
-            if(n_cells_padded[i] > 1)
-                fft_dims.push_back(n_cells_padded[i]);
-        }
+            Clean_DDI();
+            n_cells_padded.resize(3);
+            n_cells_padded[0] = (geometry->n_cells[0] > 1) ? 2 * geometry->n_cells[0] : 1;
+            n_cells_padded[1] = (geometry->n_cells[1] > 1) ? 2 * geometry->n_cells[1] : 1;
+            n_cells_padded[2] = (geometry->n_cells[2] > 1) ? 2 * geometry->n_cells[2] : 1;
 
-        //Count how many distinct inter-lattice contributions we need to store
-        n_inter_sublattice = 0;
-        for( int i = 0; i < geometry->n_cell_atoms; i++ )
-        {
-            for( int j = 0; j < geometry->n_cell_atoms; j++ )
+            FFT::FFT_Init();
+
+            //workaround for bug in kissfft
+            //kissfft_ndr does not perform one-dimensional ffts properly
+            #ifndef SPIRIT_USE_FFTW
+            int number_of_one_dims = 0;
+            for( int i=0; i<3; i++ )
+                if(n_cells_padded[i] == 1 && ++number_of_one_dims > 1)
+                    n_cells_padded[i] = 2;
+            #endif
+
+            sublattice_size = n_cells_padded[0] * n_cells_padded[1] * n_cells_padded[2];
+
+            inter_sublattice_lookup.resize(geometry->n_cell_atoms * geometry->n_cell_atoms);
+
+            //we dont need to transform over length 1 dims
+            std::vector<int> fft_dims;
+            for( int i = 2; i >= 0; i-- ) //notice that reverse order is important!
             {
-                if(i != 0 && i==j) continue;
-                n_inter_sublattice++;
+                if(n_cells_padded[i] > 1)
+                    fft_dims.push_back(n_cells_padded[i]);
             }
+
+            //Count how many distinct inter-lattice contributions we need to store
+            n_inter_sublattice = 0;
+            for( int i = 0; i < geometry->n_cell_atoms; i++ )
+            {
+                for( int j = 0; j < geometry->n_cell_atoms; j++ )
+                {
+                    if(i != 0 && i==j) continue;
+                    n_inter_sublattice++;
+                }
+            }
+
+            //Create fft plans.
+            FFT::FFT_Plan fft_plan_dipole  = FFT::FFT_Plan(fft_dims, false, 6 * n_inter_sublattice, sublattice_size);
+            fft_plan_spins   = FFT::FFT_Plan(fft_dims, false, 3 * geometry->n_cell_atoms, sublattice_size);
+            fft_plan_reverse = FFT::FFT_Plan(fft_dims, true, 3 * geometry->n_cell_atoms, sublattice_size);
+
+            #ifdef SPIRIT_USE_FFTW
+                field<int*> temp_s = {&spin_stride.comp, &spin_stride.basis, &spin_stride.a, &spin_stride.b, &spin_stride.c};
+                field<int*> temp_d = {&dipole_stride.comp, &dipole_stride.basis, &dipole_stride.a, &dipole_stride.b, &dipole_stride.c};;
+                FFT::get_strides(temp_s, {3, this->geometry->n_cell_atoms, n_cells_padded[0], n_cells_padded[1], n_cells_padded[2]});
+                FFT::get_strides(temp_d, {6, n_inter_sublattice, n_cells_padded[0], n_cells_padded[1], n_cells_padded[2]});
+                it_bounds_pointwise_mult  = {   (n_cells_padded[0]/2 + 1), // due to redundancy in real fft
+                                                n_cells_padded[1],
+                                                n_cells_padded[2]
+                                            };
+            #else
+                field<int*> temp_s = {&spin_stride.a, &spin_stride.b, &spin_stride.c, &spin_stride.comp, &spin_stride.basis};
+                field<int*> temp_d = {&dipole_stride.a, &dipole_stride.b, &dipole_stride.c, &dipole_stride.comp, &dipole_stride.basis};;
+                FFT::get_strides(temp_s, {n_cells_padded[0], n_cells_padded[1], n_cells_padded[2], 3, this->geometry->n_cell_atoms});
+                FFT::get_strides(temp_d, {n_cells_padded[0], n_cells_padded[1], n_cells_padded[2], 6, n_inter_sublattice});
+                it_bounds_pointwise_mult  = {   n_cells_padded[0],
+                                                n_cells_padded[1],
+                                                n_cells_padded[2]
+                                            };
+                (it_bounds_pointwise_mult[fft_dims.size() - 1] /= 2 )++;
+            #endif
+
+            //perform FFT of dipole matrices
+            int img_a = boundary_conditions[0] == 0 ? 0 : ddi_n_periodic_images[0];
+            int img_b = boundary_conditions[1] == 0 ? 0 : ddi_n_periodic_images[1];
+            int img_c = boundary_conditions[2] == 0 ? 0 : ddi_n_periodic_images[2];
+
+            if(save_dipole_matrices)
+                dipole_matrices = field<Matrix3>(n_inter_sublattice * geometry->n_cells_total);
+
+            FFT_Dipole_Matrices(fft_plan_dipole, img_a, img_b, img_c);
+            transformed_dipole_matrices = std::move(fft_plan_dipole.cpx_ptr);
+        } else if (ddi_method == DDI_Method::FMM)
+        {
+            fmm_tree = SimpleFMM::OcTree(5, geometry->positions, 2, 6);
         }
-
-        //Create fft plans.
-        FFT::FFT_Plan fft_plan_dipole  = FFT::FFT_Plan(fft_dims, false, 6 * n_inter_sublattice, sublattice_size);
-        fft_plan_spins   = FFT::FFT_Plan(fft_dims, false, 3 * geometry->n_cell_atoms, sublattice_size);
-        fft_plan_reverse = FFT::FFT_Plan(fft_dims, true, 3 * geometry->n_cell_atoms, sublattice_size);
-
-        #ifdef SPIRIT_USE_FFTW
-            field<int*> temp_s = {&spin_stride.comp, &spin_stride.basis, &spin_stride.a, &spin_stride.b, &spin_stride.c};
-            field<int*> temp_d = {&dipole_stride.comp, &dipole_stride.basis, &dipole_stride.a, &dipole_stride.b, &dipole_stride.c};;
-            FFT::get_strides(temp_s, {3, this->geometry->n_cell_atoms, n_cells_padded[0], n_cells_padded[1], n_cells_padded[2]});
-            FFT::get_strides(temp_d, {6, n_inter_sublattice, n_cells_padded[0], n_cells_padded[1], n_cells_padded[2]});
-            it_bounds_pointwise_mult  = {   (n_cells_padded[0]/2 + 1), // due to redundancy in real fft
-                                            n_cells_padded[1],
-                                            n_cells_padded[2]
-                                        };
-        #else
-            field<int*> temp_s = {&spin_stride.a, &spin_stride.b, &spin_stride.c, &spin_stride.comp, &spin_stride.basis};
-            field<int*> temp_d = {&dipole_stride.a, &dipole_stride.b, &dipole_stride.c, &dipole_stride.comp, &dipole_stride.basis};;
-            FFT::get_strides(temp_s, {n_cells_padded[0], n_cells_padded[1], n_cells_padded[2], 3, this->geometry->n_cell_atoms});
-            FFT::get_strides(temp_d, {n_cells_padded[0], n_cells_padded[1], n_cells_padded[2], 6, n_inter_sublattice});
-            it_bounds_pointwise_mult  = {   n_cells_padded[0],
-                                            n_cells_padded[1],
-                                            n_cells_padded[2]
-                                        };
-            (it_bounds_pointwise_mult[fft_dims.size() - 1] /= 2 )++;
-        #endif
-
-        //perform FFT of dipole matrices
-        int img_a = boundary_conditions[0] == 0 ? 0 : ddi_n_periodic_images[0];
-        int img_b = boundary_conditions[1] == 0 ? 0 : ddi_n_periodic_images[1];
-        int img_c = boundary_conditions[2] == 0 ? 0 : ddi_n_periodic_images[2];
-
-        if(save_dipole_matrices)
-            dipole_matrices = field<Matrix3>(n_inter_sublattice * geometry->n_cells_total);
-
-        FFT_Dipole_Matrices(fft_plan_dipole, img_a, img_b, img_c);
-        transformed_dipole_matrices = std::move(fft_plan_dipole.cpx_ptr);
     }
 
     void Hamiltonian_Heisenberg::Clean_DDI()

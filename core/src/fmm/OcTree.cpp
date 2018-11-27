@@ -94,7 +94,7 @@ namespace SimpleFMM
         }
     }
 
-    void OcTree::Upward_Pass(vectorfield& spins, scalarfield& mu_s)
+    void OcTree::Upward_Pass(const vectorfield& spins, const scalarfield& mu_s)
     {
         for(auto box = this->begin_level(n_level-1); box != this->end_level(n_level-1); box++)
         {

@@ -10,6 +10,7 @@
 #include <engine/Hamiltonian.hpp>
 #include <data/Geometry.hpp>
 #include <Spirit/Hamiltonian.h>
+#include <fmm/OcTree.hpp>
 #include "FFT.hpp"
 
 namespace Engine
@@ -127,6 +128,7 @@ namespace Engine
         void Gradient_DDI_Cutoff(const vectorfield& spins, vectorfield & gradient);
         void Gradient_DDI_Direct(const vectorfield& spins, vectorfield & gradient);
         void Gradient_DDI_FFT(const vectorfield& spins, vectorfield & gradient);
+        void Gradient_DDI_FMM(const vectorfield& spins, vectorfield & gradient);
 
         // Quadruplet
         void Gradient_Quadruplet(const vectorfield & spins, vectorfield & gradient);
@@ -187,6 +189,8 @@ namespace Engine
         field<int> it_bounds_write_gradients;
         field<int> it_bounds_write_spins;
         field<int> it_bounds_write_dipole;
+
+        SimpleFMM::OcTree fmm_tree;
     };
 
 
