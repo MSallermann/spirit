@@ -1,0 +1,6 @@
+set ( 
+    SOURCE_FMM
+    ${CMAKE_CURRENT_SOURCE_DIR}/Box.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/OcTree.cpp
+    PARENT_SCOPE
+)

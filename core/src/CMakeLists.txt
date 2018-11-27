@@ -3,6 +3,7 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/src/data)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/engine)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/io)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/utility)
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/fmm)
 
 set(SOURCE_SPIRIT_ROOT
     ${SOURCE_SPIRIT_ROOT}
@@ -32,5 +33,10 @@ set(SOURCE_SPIRIT_IO
 
 set(SOURCE_SPIRIT_UTILITY
     ${SOURCE_SPIRIT_UTILITY}
+    PARENT_SCOPE
+)
+
+set(SOURCE_FMM 
+    ${SOURCE_FMM}
     PARENT_SCOPE
 )

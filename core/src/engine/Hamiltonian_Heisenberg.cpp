@@ -6,6 +6,7 @@
 #include <data/Spin_System.hpp>
 #include <utility/Constants.hpp>
 #include <algorithm>
+#include <fmm/OcTree.hpp>
 
 #include <Eigen/Dense>
 #include <Eigen/Core>

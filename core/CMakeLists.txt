@@ -326,6 +326,9 @@ endif( )
 ### flag for fmt to be header-only
 add_definitions( -DFMT_HEADER_ONLY )
 
+### Add the spherical harmonics library
+add_subdirectory( ${PROJECT_SOURCE_DIR}/thirdparty/spherical-harmonics )
+set(GOOGLE_SH_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/thirdparty/spherical-harmonics )
 
 ######### Where to search for library headers
 set( EIGEN_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/thirdparty )
@@ -337,11 +340,13 @@ set( SPIRIT_INCLUDE_DIRS
      ${PROJECT_SOURCE_DIR}/include/io
      ${PROJECT_SOURCE_DIR}/include/Spirit
      ${PROJECT_SOURCE_DIR}/include/utility
+     ${PROJECT_SOURCE_DIR}/include/fmm
      ${PROJECT_SOURCE_DIR}/src/utility
      ${EIGEN_INCLUDE_DIRS}
      ${SPECTRA_INCLUDE_DIRS}
      ${qhull_INCLUDE_DIRS}
      ${FFT_INCLUDE_DIRS}
+     ${GOOGLE_SH_INCLUDE_DIRS}
      )
 include_directories( ${SPIRIT_INCLUDE_DIRS} )
 #############################################
@@ -402,7 +407,9 @@ set( SPIRIT_LIBRARY_SOURCES
     ${SOURCE_SPIRIT_ENGINE}
     ${SOURCE_SPIRIT}
     ${SOURCE_SPIRIT_IO}
-    ${SOURCE_SPIRIT_UTILITY} )
+    ${SOURCE_SPIRIT_UTILITY} 
+    ${SOURCE_FMM}
+    ${GOOGLE_SH_SOURCES})
 
 if( NOT SPIRIT_USE_CUDA )
     ######### Tell CMake to create the object files
