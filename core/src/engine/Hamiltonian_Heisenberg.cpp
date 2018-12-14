@@ -854,9 +854,10 @@ namespace Engine
 
     void Hamiltonian_Heisenberg::Gradient_DDI_FMM(const vectorfield& spins, vectorfield& gradient)
     {
+        scalar mult = C::mu_0 * C::mu_B * C::mu_B / ( 4*C::Pi * 1e-30 );
         fmm_tree.Upward_Pass(spins, geometry->mu_s);
         fmm_tree.Downward_Pass();
-        fmm_tree.Evaluation(spins, geometry->mu_s, gradient);
+        fmm_tree.Evaluation(spins, geometry->mu_s, gradient, mult);
     }
 
 
@@ -1256,7 +1257,7 @@ namespace Engine
             transformed_dipole_matrices = std::move(fft_plan_dipole.cpx_ptr);
         } else if (ddi_method == DDI_Method::FMM)
         {
-            fmm_tree = SimpleFMM::Tree(3, geometry->positions, 3, 3);
+            fmm_tree = SimpleFMM::Tree(3, geometry->positions, 2, 6, 3);
         }
     }
 

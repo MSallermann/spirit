@@ -256,7 +256,7 @@ namespace Engine
         // ToDo: How to update eff_field without numerical overhead?
         // systems[0]->effective_field = Gradient[0];
         // Vectormath::scale(systems[0]->effective_field, -1);
-        Manifoldmath::project_tangential(this->forces[0], *this->systems[0]->spins);
+        // Manifoldmath::project_tangential(this->forces[0], *this->systems[0]->spins);
         Vectormath::set_c_a(1, this->forces[0], this->systems[0]->effective_field);
         // systems[0]->UpdateEffectiveField();
 

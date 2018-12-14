@@ -253,7 +253,7 @@ namespace SimpleFMM {
         }
     }
 
-    inline void Evaluate_Far_Field(Box& box, vectorfield& gradient, int degree_local)
+    inline void Evaluate_Far_Field(Box& box, vectorfield& gradient, int degree_local, scalar prefactor = 1)
     {
        for(int i = 0; i < box.n_spins; i++)
         {               
@@ -265,7 +265,7 @@ namespace SimpleFMM {
                 {
                     auto& moment = box.local_moments[multipole_idx_p(l, m)];
                     auto& cache = box.Farfield_cache[n_moments_p(degree_local) * i + multipole_idx_p(l,m)];
-                    gradient[p_idx] += 2 * (moment * cache).real();
+                    gradient[p_idx] += prefactor * 2 * (moment * cache).real();
                 }
             }
         }

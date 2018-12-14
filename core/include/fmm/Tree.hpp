@@ -50,7 +50,7 @@ namespace SimpleFMM
             }
         }
 
-        void Interact_Directly(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient)
+        void Interact_Directly(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient, scalar prefactor = 1)
         {
             int count=0;
             if(&box1 == &box2)
@@ -63,8 +63,8 @@ namespace SimpleFMM
                         auto& idx2 = box2.pos_indices[j];
                         if(idx1 != idx2)
                         {
-                            gradient[idx1] += mu_s[idx2] * (3 * spins[idx2].dot(directions[count]) * directions[count] - spins[idx2]) / magnitudes3[count];
-                            gradient[idx2] += mu_s[idx1] * (3 * spins[idx1].dot(directions[count]) * directions[count] - spins[idx1]) / magnitudes3[count];                
+                            gradient[idx1] += prefactor * mu_s[idx2] * (3 * spins[idx2].dot(directions[count]) * directions[count] - spins[idx2]) / magnitudes3[count];
+                            gradient[idx2] += prefactor * mu_s[idx1] * (3 * spins[idx1].dot(directions[count]) * directions[count] - spins[idx1]) / magnitudes3[count];                
                         }
                         count++;
                     }
@@ -78,8 +78,8 @@ namespace SimpleFMM
                         auto& idx2 = box2.pos_indices[j];
                         if(idx1 != idx2)
                         {
-                            gradient[idx1] += mu_s[idx2] * (3 * spins[idx2].dot(directions[count]) * directions[count] - spins[idx2]) / magnitudes3[count];
-                            gradient[idx2] += mu_s[idx1] * (3 * spins[idx1].dot(directions[count]) * directions[count] - spins[idx1]) / magnitudes3[count];                
+                            gradient[idx1] += prefactor * mu_s[idx2] * (3 * spins[idx2].dot(directions[count]) * directions[count] - spins[idx2]) / magnitudes3[count];
+                            gradient[idx2] += prefactor * mu_s[idx1] * (3 * spins[idx1].dot(directions[count]) * directions[count] - spins[idx1]) / magnitudes3[count];                
                         }
                         count++;
                     }
@@ -155,7 +155,7 @@ namespace SimpleFMM
 
         void Upward_Pass(const vectorfield& spins, const scalarfield& mu_s);
         void Downward_Pass();
-        void Evaluation(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient);
+        void Evaluation(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient, scalar prefactor = 1);
         void Direct_Evaluation(const vectorfield& spins, vectorfield& gradient);
     };
     

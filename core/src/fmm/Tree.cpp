@@ -150,15 +150,16 @@ namespace SimpleFMM
         }
     }
 
-    void Tree::Evaluation(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient)
+    void Tree::Evaluation(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient, scalar prefactor)
+
     {
         for(auto leaf_box = begin_level(n_level-1); leaf_box != end_level(n_level-1); leaf_box++)
         {
-            Evaluate_Far_Field(*leaf_box, gradient, degree_local);
+            Evaluate_Far_Field(*leaf_box, gradient, degree_local, prefactor);
         }
         for(auto pair : this->direct_interaction_pairs)
         {
-            pair.Interact_Directly(spins, mu_s, gradient);
+            pair.Interact_Directly(spins, mu_s, gradient, prefactor);
         }
     }
 
