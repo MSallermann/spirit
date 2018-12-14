@@ -1,8 +1,9 @@
 set(HEADER_FMM
     ${HEADER_FMM}
-    ${CMAKE_CURRENT_SOURCE_DIR}/OcTree.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Tree.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Box.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/SimpleFMM_Defines.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Spherical_Harmonics.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Utiltiy.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Formulas.hpp
 )

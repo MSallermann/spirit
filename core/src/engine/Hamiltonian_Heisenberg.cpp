@@ -6,7 +6,7 @@
 #include <data/Spin_System.hpp>
 #include <utility/Constants.hpp>
 #include <algorithm>
-#include <fmm/OcTree.hpp>
+#include <fmm/Tree.hpp>
 
 #include <Eigen/Dense>
 #include <Eigen/Core>
@@ -856,7 +856,7 @@ namespace Engine
     {
         fmm_tree.Upward_Pass(spins, geometry->mu_s);
         fmm_tree.Downward_Pass();
-        fmm_tree.Evaluation(spins, gradient);
+        fmm_tree.Evaluation(spins, geometry->mu_s, gradient);
     }
 
 
@@ -1256,7 +1256,7 @@ namespace Engine
             transformed_dipole_matrices = std::move(fft_plan_dipole.cpx_ptr);
         } else if (ddi_method == DDI_Method::FMM)
         {
-            fmm_tree = SimpleFMM::OcTree(5, geometry->positions, 2, 6);
+            fmm_tree = SimpleFMM::Tree(3, geometry->positions, 3, 3);
         }
     }
 

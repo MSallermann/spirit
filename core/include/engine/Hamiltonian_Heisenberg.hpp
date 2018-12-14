@@ -10,7 +10,7 @@
 #include <engine/Hamiltonian.hpp>
 #include <data/Geometry.hpp>
 #include <Spirit/Hamiltonian.h>
-#include <fmm/OcTree.hpp>
+#include <fmm/Tree.hpp>
 #include "FFT.hpp"
 
 namespace Engine
@@ -190,7 +190,7 @@ namespace Engine
         field<int> it_bounds_write_spins;
         field<int> it_bounds_write_dipole;
 
-        SimpleFMM::OcTree fmm_tree;
+        SimpleFMM::Tree fmm_tree;
     };
 
 

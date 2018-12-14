@@ -13,7 +13,7 @@ namespace SimpleFMM
         //calculate (a!/b!)
         inline scalar factorial(int a, int b = 1)
         {
-            if(a < 0 | b < 0)
+            if((a < 0) | (b < 0))
                 throw std::invalid_argument("Factorial of a negative number is undefined!");
             scalar result = 1;
             for(int i=std::min(a,b)+1; i<=std::max(a,b); i++)
@@ -21,6 +21,27 @@ namespace SimpleFMM
             return (a>b) ? result : 1/result;
         }
 
+        //compute (-1)^exponent
+        inline scalar minus_one_power(int exponent)
+        {
+            //Compiler optimization should take care of the modulo
+            return (exponent % 2 == 0) ? 1.0 : -1.0;
+        }    
+
+        //compute (i)^exponent
+        inline std::complex<scalar> i_power(int exponent)
+        {
+            auto mod4 = exponent % 4;
+            if(mod4 == 0)
+                return std::complex<scalar>(1,0);
+            else if (mod4 == 1)
+                return std::complex<scalar>(0,1);
+            else if (mod4 == 2)
+                return std::complex<scalar>(-1,0);
+            else if (mod4 == 3)
+                return std::complex<scalar>(0,-1);
+        }    
+    
         inline void get_cartesian(const Vector3& spherical_in, Vector3& cartesian_out)
         {
             cartesian_out[0] = spherical_in[0] * std::sin(spherical_in[1]) * std::cos(spherical_in[2]);
@@ -58,12 +79,26 @@ namespace SimpleFMM
         //              etc
         inline int multipole_idx(int l, int m, int l_min = 0)
         {
-            return m + l * (l + 1) - l_min * l_min;
+            return m + l*(l+1) - l_min*l_min;
         }
 
         inline int n_moments(int l_max, int l_min = 0)
         {
             return multipole_idx(l_max, l_max, l_min) + 1;
+        }
+
+        inline int multipole_idx_p(int l, int m, int l_min = 0)
+        {
+            #ifdef FMM_DEBUG
+                if(m < 0 || m > l)
+                    throw std::invalid_argument("Invalid arguments for idx_pos!");
+            #endif
+            return m + l*(l+1)/2 - l_min*(l_min+1)/2;
+        }
+
+        inline int n_moments_p(int l_max, int l_min = 0)
+        {
+            return multipole_idx_p(l_max, l_max, l_min) + 1;
         }
 
         //reverse of multipole_idx
