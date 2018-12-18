@@ -561,6 +561,11 @@
              <string>Cutoff</string>
             </property>
            </item>
+           <item>
+            <property name="text">
+             <string>Macrocell</string>
+            </property>
+           </item>
           </widget>
          </item>
          <item row="20" column="1">

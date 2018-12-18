@@ -146,21 +146,6 @@ namespace Engine
             }
         }
 
-        // Dipole-dipole (cutoff)
-        scalar radius = this->ddi_cutoff_radius;
-        if( this->ddi_method != DDI_Method::Cutoff )
-            radius = 0;
-        this->ddi_pairs      = Engine::Neighbours::Get_Pairs_in_Radius(*this->geometry, radius);
-        this->ddi_magnitudes = scalarfield(this->ddi_pairs.size());
-        this->ddi_normals    = vectorfield(this->ddi_pairs.size());
-
-        for( unsigned int i = 0; i < this->ddi_pairs.size(); ++i )
-        {
-            Engine::Neighbours::DDI_from_Pair(
-                *this->geometry,
-                { this->ddi_pairs[i].i, this->ddi_pairs[i].j, this->ddi_pairs[i].translations },
-                this->ddi_magnitudes[i], this->ddi_normals[i]);
-        }
         // Dipole-dipole
         this->Prepare_DDI();
 
@@ -332,6 +317,9 @@ namespace Engine
                 this->E_DDI_Cutoff(spins, Energy);
             else
                 this->E_DDI_Direct(spins, Energy);
+        } else if ( this->ddi_method == DDI_Method::Macrocell )
+        {
+            this->E_DDI_MacroCells(spins, Energy);
         }
     }
 
@@ -675,6 +663,10 @@ namespace Engine
             else
                 this->Gradient_DDI_Direct(spins, gradient);
         }
+        else if( this->ddi_method == DDI_Method::Macrocell )
+        {
+            this->Gradient_DDI_MacroCells(spins, gradient);
+        }
     }
 
     void Hamiltonian_Heisenberg::Gradient_DDI_Cutoff(const vectorfield & spins, vectorfield & gradient)
@@ -844,7 +836,6 @@ namespace Engine
             }
         }
     }
-
 
     void Hamiltonian_Heisenberg::Gradient_Quadruplet(const vectorfield & spins, vectorfield & gradient)
     {
@@ -1161,88 +1152,360 @@ namespace Engine
         FFT::batch_Four_3D(fft_plan_dipole);
     }
 
+    void Hamiltonian_Heisenberg::Update_MacroSpins(const vectorfield & spins)
+    {
+        std::cout << "start update mc" << std::endl;
+
+        // Get Macrospins
+        Vector3 macrospin;
+        this->macrospins = vectorfield(n_mc_total, Vector3::Zero());
+
+        // Loop over macro cells
+        for (unsigned int p_mc = 0; p_mc < n_mc_total; ++p_mc)
+        {
+            macrospin.setZero();
+            // Loop over atoms in the mc
+            for (int atom_mc = 0; atom_mc < n_mc_atoms; ++atom_mc)
+            {
+                int& id = atom_id_mc[p_mc][atom_mc];
+                // Moment contribution of each atom in the mc
+                macrospin += geometry->mu_s[id] * spins[id];
+            }
+            // Total moment in the macro cell
+            macrospins[p_mc] = macrospin;
+        }
+        std::cout << "end update mc" << std::endl;
+    }
+
+    void Hamiltonian_Heisenberg::Gradient_DDI_MacroCells(const vectorfield& spins, vectorfield & gradient)
+    {
+        std::cout << "start grad mc" << std::endl;
+        this->Update_MacroSpins(spins);
+
+        // Contribution inside the macro-cell  (for squared mc should be zero)
+        Matrix3 D_tmp;
+        const scalar mult = C::mu_0 * C::mu_B * C::mu_B / ( 4*C::Pi * 1e-30 );
+
+        // First calculate the interaction of each macro sell 'with itself'
+        for (unsigned int p_mc = 0; p_mc < n_mc_total; ++p_mc)
+        {
+            for (int atom_i = 0; atom_i < n_mc_atoms; ++atom_i)
+            {
+                int  id_i = atom_id_mc[p_mc][atom_i];
+                for (int atom_j = 0; atom_j < n_mc_atoms; ++atom_j)
+                {
+                    // Exclude self-interactions
+                    if (atom_i != atom_j)
+                    {
+                        int id_j = atom_id_mc[p_mc][atom_j];
+
+                        Vector3 r_vec = geometry->positions[id_j] - geometry->positions[id_i];
+                        scalar r = r_vec.norm();
+                        scalar x = r_vec[0];
+                        scalar y = r_vec[1];
+                        scalar z = r_vec[2];
+
+                        // Get dipole-dipole matrix for the atoms in the macro-cell
+                        D_tmp << (3*x*x - r*r), (3*x*y), (3*x*z),
+                                 (3*x*y), (3*y*y - r*r), (3*y*z),
+                                 (3*x*z), (3*y*z), (3*z*z - r*r);
+
+                        // Gradient
+                        gradient[id_i] -= mult / std::pow(r, 5.0) * D_tmp * spins[id_j] * geometry->mu_s[id_j];
+                    }
+                }// End loop over atom_i
+            }// End loop over atom_i
+        }// End loop over macro cell
+
+        // Next calculate the interactions between macrocells
+        for (unsigned int q_mc = 0; q_mc < n_mc_total; ++q_mc)
+        {
+            for (unsigned int p_mc = 0; p_mc < n_mc_total; ++p_mc)
+            {
+                // Exclude self-interactions
+                if (q_mc != p_mc)
+                {
+                    for (int atom_i = 0; atom_i < n_mc_atoms; ++atom_i)
+                    {
+                        int  id_i = atom_id_mc[q_mc][atom_i];
+                        // grad_E_mc[id_i] += 0.5 * D_inter[q_mc][p_mc]*macrospins[p_mc];
+                        gradient[id_i] -= D_inter[q_mc][p_mc] * macrospins[p_mc];
+                    }
+                }
+            }//end loop over macro-cells p
+        }//end loop over macro-cells q
+        std::cout << "end grad mc" << std::endl;
+    }
+
+    void Hamiltonian_Heisenberg::E_DDI_MacroCells(const vectorfield & spins, scalarfield & Energy)
+    {
+        std::cout << "start e_mc" << std::endl;
+        this->Update_MacroSpins(spins);
+
+        scalar mult = C::mu_0 * C::mu_B * C::mu_B / ( 4*C::Pi * 1e-30 );
+
+        Matrix3 D_tmp;
+        // Loop over macro cells
+        for (unsigned int p_mc = 0; p_mc < n_mc_total; ++p_mc)
+        {
+            for (int atom_i = 0; atom_i < n_mc_atoms; ++atom_i)
+            {
+                int  id_i = atom_id_mc[p_mc][atom_i];
+                for (int atom_j = 0; atom_j < n_mc_atoms; ++atom_j)
+                {
+                    // Exclude self-interactions
+                    if (atom_i != atom_j)
+                    {
+                        int  id_j = atom_id_mc[p_mc][atom_j];
+
+                        // Relative distances between atom_i and atom_j in the mc
+                        Vector3 r_vec = geometry->positions[id_j] - geometry->positions[id_i];
+
+                        scalar  r = r_vec.norm();
+
+                        scalar x = r_vec[0];
+                        scalar y = r_vec[1];
+                        scalar z = r_vec[2];
+
+                        //scalar term = mu_s[0] * mu_s[0] * Constants::mu_B / (4 * M_PI*std::pow(r, 5));
+                        scalar term = mult / std::pow(r, 5.0) * geometry->mu_s[id_i] * geometry->mu_s[id_j];
+
+                        //Get dipole-dipole matrix for the atoms in the macro-cell
+                        D_tmp << (3*x*x - r*r), (3*x*y), (3*x*z),
+                                 (3*x*y), (3*y*y - r*r), (3*y*z),
+                                 (3*x*z), (3*y*z), (3*z*z - r*r);
+
+                        //Sum of the energy contributions
+                        Energy[id_i] -= 0.5 * term * spins[id_i].dot(D_tmp * spins[id_j]);
+                    }
+                }
+            }
+        }//End loop over macro cell
+
+        // Energy contribution between macro-cells (inter)
+        for (unsigned int q_mc = 0; q_mc < n_mc_total; ++q_mc)
+        {
+            // Loop over p macro cell
+            for (unsigned int p_mc = 0; p_mc < n_mc_total; ++p_mc)
+            {
+                // Exclude self-interactions
+                if (q_mc != p_mc)
+                {
+                    for (int atom_i = 0; atom_i < n_mc_atoms; ++atom_i)
+                    {
+                        int  id_i = atom_id_mc[p_mc][atom_i];
+                        Energy[id_i] -= 0.5 * macrospins[q_mc].dot(D_inter[q_mc][p_mc]*macrospins[p_mc]) / n_mc_atoms;
+                    }
+                }
+            }//end loop over macro-cells p
+        }//end loop over macro-cells q
+        std::cout << "end e_mc" << std::endl;
+    }
+
     void Hamiltonian_Heisenberg::Prepare_DDI()
     {
         Clean_DDI();
-
-        if( ddi_method != DDI_Method::FFT )
-            return;
-
-        n_cells_padded.resize(3);
-        n_cells_padded[0] = (geometry->n_cells[0] > 1) ? 2 * geometry->n_cells[0] : 1;
-        n_cells_padded[1] = (geometry->n_cells[1] > 1) ? 2 * geometry->n_cells[1] : 1;
-        n_cells_padded[2] = (geometry->n_cells[2] > 1) ? 2 * geometry->n_cells[2] : 1;
-
-        FFT::FFT_Init();
-
-        //workaround for bug in kissfft
-        //kissfft_ndr does not perform one-dimensional ffts properly
-        #ifndef SPIRIT_USE_FFTW
-        int number_of_one_dims = 0;
-        for( int i=0; i<3; i++ )
-            if(n_cells_padded[i] == 1 && ++number_of_one_dims > 1)
-                n_cells_padded[i] = 2;
-        #endif
-
-        sublattice_size = n_cells_padded[0] * n_cells_padded[1] * n_cells_padded[2];
-
-        inter_sublattice_lookup.resize(geometry->n_cell_atoms * geometry->n_cell_atoms);
-
-        //we dont need to transform over length 1 dims
-        std::vector<int> fft_dims;
-        for( int i = 2; i >= 0; i-- ) //notice that reverse order is important!
+        if( ddi_method == DDI_Method::FFT )
         {
-            if(n_cells_padded[i] > 1)
-                fft_dims.push_back(n_cells_padded[i]);
-        }
+            n_cells_padded.resize(3);
+            n_cells_padded[0] = (geometry->n_cells[0] > 1) ? 2 * geometry->n_cells[0] : 1;
+            n_cells_padded[1] = (geometry->n_cells[1] > 1) ? 2 * geometry->n_cells[1] : 1;
+            n_cells_padded[2] = (geometry->n_cells[2] > 1) ? 2 * geometry->n_cells[2] : 1;
 
-        //Count how many distinct inter-lattice contributions we need to store
-        n_inter_sublattice = 0;
-        for( int i = 0; i < geometry->n_cell_atoms; i++ )
-        {
-            for( int j = 0; j < geometry->n_cell_atoms; j++ )
+            FFT::FFT_Init();
+
+            //workaround for bug in kissfft
+            //kissfft_ndr does not perform one-dimensional ffts properly
+            #ifndef SPIRIT_USE_FFTW
+            int number_of_one_dims = 0;
+            for( int i=0; i<3; i++ )
+                if(n_cells_padded[i] == 1 && ++number_of_one_dims > 1)
+                    n_cells_padded[i] = 2;
+            #endif
+
+            sublattice_size = n_cells_padded[0] * n_cells_padded[1] * n_cells_padded[2];
+
+            inter_sublattice_lookup.resize(geometry->n_cell_atoms * geometry->n_cell_atoms);
+
+            //we dont need to transform over length 1 dims
+            std::vector<int> fft_dims;
+            for( int i = 2; i >= 0; i-- ) //notice that reverse order is important!
             {
-                if(i != 0 && i==j) continue;
-                n_inter_sublattice++;
+                if(n_cells_padded[i] > 1)
+                    fft_dims.push_back(n_cells_padded[i]);
             }
+
+            //Count how many distinct inter-lattice contributions we need to store
+            n_inter_sublattice = 0;
+            for( int i = 0; i < geometry->n_cell_atoms; i++ )
+            {
+                for( int j = 0; j < geometry->n_cell_atoms; j++ )
+                {
+                    if(i != 0 && i==j) continue;
+                    n_inter_sublattice++;
+                }
+            }
+
+            //Create fft plans.
+            FFT::FFT_Plan fft_plan_dipole  = FFT::FFT_Plan(fft_dims, false, 6 * n_inter_sublattice, sublattice_size);
+            fft_plan_spins   = FFT::FFT_Plan(fft_dims, false, 3 * geometry->n_cell_atoms, sublattice_size);
+            fft_plan_reverse = FFT::FFT_Plan(fft_dims, true, 3 * geometry->n_cell_atoms, sublattice_size);
+
+            #ifdef SPIRIT_USE_FFTW
+                field<int*> temp_s = {&spin_stride.comp, &spin_stride.basis, &spin_stride.a, &spin_stride.b, &spin_stride.c};
+                field<int*> temp_d = {&dipole_stride.comp, &dipole_stride.basis, &dipole_stride.a, &dipole_stride.b, &dipole_stride.c};;
+                FFT::get_strides(temp_s, {3, this->geometry->n_cell_atoms, n_cells_padded[0], n_cells_padded[1], n_cells_padded[2]});
+                FFT::get_strides(temp_d, {6, n_inter_sublattice, n_cells_padded[0], n_cells_padded[1], n_cells_padded[2]});
+                it_bounds_pointwise_mult  = {   (n_cells_padded[0]/2 + 1), // due to redundancy in real fft
+                                                n_cells_padded[1],
+                                                n_cells_padded[2]
+                                            };
+            #else
+                field<int*> temp_s = {&spin_stride.a, &spin_stride.b, &spin_stride.c, &spin_stride.comp, &spin_stride.basis};
+                field<int*> temp_d = {&dipole_stride.a, &dipole_stride.b, &dipole_stride.c, &dipole_stride.comp, &dipole_stride.basis};;
+                FFT::get_strides(temp_s, {n_cells_padded[0], n_cells_padded[1], n_cells_padded[2], 3, this->geometry->n_cell_atoms});
+                FFT::get_strides(temp_d, {n_cells_padded[0], n_cells_padded[1], n_cells_padded[2], 6, n_inter_sublattice});
+                it_bounds_pointwise_mult  = {   n_cells_padded[0],
+                                                n_cells_padded[1],
+                                                n_cells_padded[2]
+                                            };
+                (it_bounds_pointwise_mult[fft_dims.size() - 1] /= 2 )++;
+            #endif
+
+            //perform FFT of dipole matrices
+            int img_a = boundary_conditions[0] == 0 ? 0 : ddi_n_periodic_images[0];
+            int img_b = boundary_conditions[1] == 0 ? 0 : ddi_n_periodic_images[1];
+            int img_c = boundary_conditions[2] == 0 ? 0 : ddi_n_periodic_images[2];
+
+            if(save_dipole_matrices)
+                dipole_matrices = field<Matrix3>(n_inter_sublattice * geometry->n_cells_total);
+
+            FFT_Dipole_Matrices(fft_plan_dipole, img_a, img_b, img_c);
+            transformed_dipole_matrices = std::move(fft_plan_dipole.cpx_ptr);
+        } else if (ddi_method == DDI_Method::Cutoff)
+        {
+            // Dipole-dipole (cutoff)
+            scalar radius = this->ddi_cutoff_radius;
+            if( this->ddi_method != DDI_Method::Cutoff )
+                radius = 0;
+            this->ddi_pairs      = Engine::Neighbours::Get_Pairs_in_Radius(*this->geometry, radius);
+            this->ddi_magnitudes = scalarfield(this->ddi_pairs.size());
+            this->ddi_normals    = vectorfield(this->ddi_pairs.size());
+
+            for( unsigned int i = 0; i < this->ddi_pairs.size(); ++i )
+            {
+                Engine::Neighbours::DDI_from_Pair(
+                    *this->geometry,
+                    { this->ddi_pairs[i].i, this->ddi_pairs[i].j, this->ddi_pairs[i].translations },
+                    this->ddi_magnitudes[i], this->ddi_normals[i]);
+            }
+        } else if (ddi_method == DDI_Method::FMM)
+        {
+            // TODO
+        } else if (ddi_method == DDI_Method::Macrocell)
+        {
+            // Number of basis cells in a macrocell (along a b c)
+            intfield n_cells_in_mc = intfield({10, 10, 1});
+
+            // Number of atoms in the macro cell
+            this->n_mc_atoms = this->geometry->n_cell_atoms * n_cells_in_mc[0] * n_cells_in_mc[1] * n_cells_in_mc[2];
+
+            const int Na = geometry->n_cells[0];
+            const int Nb = geometry->n_cells[1];
+            const int Nc = geometry->n_cells[2];
+
+            // Number of macro cells
+            this->n_cells_macro = intfield({ Na/n_cells_in_mc[0], Nb/n_cells_in_mc[1], Nc/n_cells_in_mc[2] });
+            this->n_mc_total    = n_cells_macro[0] * n_cells_macro[1] * n_cells_macro[2];
+
+            const int na_mc = n_cells_macro[0];
+            const int nb_mc = n_cells_macro[1];
+            const int nc_mc = n_cells_macro[2];
+
+            // Initialization
+            this->atom_id_mc = std::vector<intfield> (n_mc_total, intfield(n_mc_atoms, -1) );
+
+            // Determine the indices and positions of atoms in the macrocells
+            for(int a_mc = 0; a_mc < n_cells_macro[0]; a_mc++)
+            {
+                for(int b_mc = 0; b_mc < n_cells_macro[1]; b_mc++)
+                {
+                    for(int c_mc = 0; c_mc < n_cells_macro[2]; c_mc++)
+                    {
+                        // The number of spins in this macro cell
+                        int n_spins_mc = 0;
+
+                        // The linear idx of this macro cell in a 3D array
+                        int mc_linear_idx = a_mc + na_mc * ( b_mc + nb_mc * c_mc);
+
+                        // Index of the first spin in this macro-cell
+                        int mc_first_index = geometry->n_cell_atoms * (a_mc * n_cells_in_mc[0] + Na * ( b_mc * n_cells_in_mc[1] + Nb * ( c_mc * n_cells_in_mc[2])));
+
+                        // Loop over spins in the macrocell
+                        for (int idx_c = 0; idx_c < n_cells_in_mc[2]; ++idx_c)
+                        {
+                            for (int idx_b = 0; idx_b < n_cells_in_mc[1]; ++idx_b)
+                            {
+                                for (int idx_a = 0; idx_a < n_cells_in_mc[0]; ++idx_a)
+                                {
+                                    for(int idx_basis = 0; idx_basis < geometry->n_cell_atoms; idx_basis++)
+                                    {
+                                        // Calculate the index of the current spin
+                                        int spin_idx = mc_first_index + idx_basis + geometry->n_cell_atoms * (idx_a + Na * ( idx_b + Nb * ( idx_c )));
+                                        atom_id_mc[mc_linear_idx][n_spins_mc] = spin_idx;
+                                        ++n_spins_mc;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }//end loop over macro-cells
+
+            // Calculate the dipole-dipole matrices between macrocell pairs (inter)
+            this->D_inter = std::vector<std::vector<Matrix3>>(n_mc_total, std::vector<Matrix3>(n_mc_total, Matrix3::Zero()));
+            Matrix3 D_tmp;
+            const scalar mult = C::mu_0 * C::mu_B * C::mu_B / ( 4*C::Pi * 1e-30 );
+
+            // Loop over q macro cell
+            for (unsigned int q_mc = 0; q_mc < n_mc_total; ++q_mc)
+            {
+                // Loop over p macro cell
+                for (unsigned int p_mc = 0; p_mc < n_mc_total; ++p_mc)
+                {
+                    // Exclude self-interactions
+                    if (q_mc != p_mc)
+                    {
+                        // Loop over atom_j in q_mc -> qj
+                        for (int atom_j = 0; atom_j < n_mc_atoms; ++atom_j)
+                        {
+                            int& id_j = atom_id_mc[q_mc][atom_j];
+
+                            // Loop over atom_i in p_mc -> pi
+                            for (int atom_i = 0; atom_i < n_mc_atoms; ++atom_i)
+                            {
+                                int& id_i = atom_id_mc[p_mc][atom_i];
+                                Vector3 r_vec = geometry->positions[id_j] - geometry->positions[id_i];
+
+                                scalar  r = r_vec.norm();
+
+                                scalar x = r_vec[0];
+                                scalar y = r_vec[1];
+                                scalar z = r_vec[2];
+
+                                // Get Effective dipole matrix
+                                D_tmp << (3*x*x - r*r), (3*x*y), (3*x*z),
+                                         (3*x*y), (3*y*y - r*r), (3*y*z),
+                                         (3*x*z), (3*y*z), (3*z*z - r*r);
+
+                                // Add it to the inter dipole dipole matrix
+                                this->D_inter[q_mc][p_mc] += mult / (n_mc_atoms * n_mc_atoms * std::pow(r, 5.0)) * D_tmp;
+                            }
+                        }
+                    }
+                }//End loop over macro-cells p
+            }//End loop over macro-cells q
         }
-
-        //Create fft plans.
-        FFT::FFT_Plan fft_plan_dipole  = FFT::FFT_Plan(fft_dims, false, 6 * n_inter_sublattice, sublattice_size);
-        fft_plan_spins   = FFT::FFT_Plan(fft_dims, false, 3 * geometry->n_cell_atoms, sublattice_size);
-        fft_plan_reverse = FFT::FFT_Plan(fft_dims, true, 3 * geometry->n_cell_atoms, sublattice_size);
-
-        #ifdef SPIRIT_USE_FFTW
-            field<int*> temp_s = {&spin_stride.comp, &spin_stride.basis, &spin_stride.a, &spin_stride.b, &spin_stride.c};
-            field<int*> temp_d = {&dipole_stride.comp, &dipole_stride.basis, &dipole_stride.a, &dipole_stride.b, &dipole_stride.c};;
-            FFT::get_strides(temp_s, {3, this->geometry->n_cell_atoms, n_cells_padded[0], n_cells_padded[1], n_cells_padded[2]});
-            FFT::get_strides(temp_d, {6, n_inter_sublattice, n_cells_padded[0], n_cells_padded[1], n_cells_padded[2]});
-            it_bounds_pointwise_mult  = {   (n_cells_padded[0]/2 + 1), // due to redundancy in real fft
-                                            n_cells_padded[1],
-                                            n_cells_padded[2]
-                                        };
-        #else
-            field<int*> temp_s = {&spin_stride.a, &spin_stride.b, &spin_stride.c, &spin_stride.comp, &spin_stride.basis};
-            field<int*> temp_d = {&dipole_stride.a, &dipole_stride.b, &dipole_stride.c, &dipole_stride.comp, &dipole_stride.basis};;
-            FFT::get_strides(temp_s, {n_cells_padded[0], n_cells_padded[1], n_cells_padded[2], 3, this->geometry->n_cell_atoms});
-            FFT::get_strides(temp_d, {n_cells_padded[0], n_cells_padded[1], n_cells_padded[2], 6, n_inter_sublattice});
-            it_bounds_pointwise_mult  = {   n_cells_padded[0],
-                                            n_cells_padded[1],
-                                            n_cells_padded[2]
-                                        };
-            (it_bounds_pointwise_mult[fft_dims.size() - 1] /= 2 )++;
-        #endif
-
-        //perform FFT of dipole matrices
-        int img_a = boundary_conditions[0] == 0 ? 0 : ddi_n_periodic_images[0];
-        int img_b = boundary_conditions[1] == 0 ? 0 : ddi_n_periodic_images[1];
-        int img_c = boundary_conditions[2] == 0 ? 0 : ddi_n_periodic_images[2];
-
-        if(save_dipole_matrices)
-            dipole_matrices = field<Matrix3>(n_inter_sublattice * geometry->n_cells_total);
-
-        FFT_Dipole_Matrices(fft_plan_dipole, img_a, img_b, img_c);
-        transformed_dipole_matrices = std::move(fft_plan_dipole.cpx_ptr);
     }
 
     void Hamiltonian_Heisenberg::Clean_DDI()

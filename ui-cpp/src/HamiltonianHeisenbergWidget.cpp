@@ -119,6 +119,8 @@ void HamiltonianHeisenbergWidget::Load_Contents()
         this->comboBox_ddi_method->setCurrentIndex(1);
     else if( ddi_method == SPIRIT_DDI_METHOD_CUTOFF )
         this->comboBox_ddi_method->setCurrentIndex(2);
+    else if( ddi_method == SPIRIT_DDI_METHOD_MACROCELL )
+        this->comboBox_ddi_method->setCurrentIndex(3);
     this->spinBox_ddi_n_periodic_a->setValue(ddi_n_periodic_images[0]);
     this->spinBox_ddi_n_periodic_b->setValue(ddi_n_periodic_images[1]);
     this->spinBox_ddi_n_periodic_c->setValue(ddi_n_periodic_images[2]);
@@ -456,6 +458,8 @@ void HamiltonianHeisenbergWidget::set_ddi()
                 method = SPIRIT_DDI_METHOD_FMM;
             else if( this->comboBox_ddi_method->currentIndex() == 2 )
                 method = SPIRIT_DDI_METHOD_CUTOFF;
+            else if( this->comboBox_ddi_method->currentIndex() == 3 )
+                method = SPIRIT_DDI_METHOD_MACROCELL;
         }
 
         int n_periodic_images[3];

@@ -9,10 +9,12 @@ struct State;
 #define SPIRIT_CHIRALITY_BLOCH_INVERSE -1
 #define SPIRIT_CHIRALITY_NEEL_INVERSE  -2
 
-#define SPIRIT_DDI_METHOD_NONE   0
-#define SPIRIT_DDI_METHOD_FFT    1
-#define SPIRIT_DDI_METHOD_FMM    2
-#define SPIRIT_DDI_METHOD_CUTOFF 3
+#define SPIRIT_DDI_METHOD_NONE      0
+#define SPIRIT_DDI_METHOD_FFT       1
+#define SPIRIT_DDI_METHOD_FMM       2
+#define SPIRIT_DDI_METHOD_CUTOFF    3
+#define SPIRIT_DDI_METHOD_MACROCELL 4
+
 
 // Set the Hamiltonian's parameters
 DLLEXPORT void Hamiltonian_Set_Boundary_Conditions(State *state, const bool* periodical, int idx_image=-1, int idx_chain=-1) noexcept;

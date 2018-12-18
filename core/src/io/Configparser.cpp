@@ -1449,6 +1449,8 @@ namespace IO
                     ddi_method = Engine::DDI_Method::FMM;
                 else if( ddi_method_str == "cutoff" )
                     ddi_method = Engine::DDI_Method::Cutoff;
+                else if( ddi_method_str == "macrocell")
+                    ddi_method = Engine::DDI_Method::Macrocell;
                 else
                 {
                     Log(Log_Level::Warning, Log_Sender::IO, fmt::format(

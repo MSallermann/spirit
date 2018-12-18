@@ -274,7 +274,8 @@ namespace IO
         else if (ham->ddi_method == Engine::DDI_Method::FFT) ddi_method = "fft";
         else if (ham->ddi_method == Engine::DDI_Method::FMM) ddi_method = "fmm";
         else if (ham->ddi_method == Engine::DDI_Method::Cutoff) ddi_method = "cutoff";
-        config += "### Dipole-dipole interaction caclulation method\n### (fft, fmm, cutoff, none)";
+        else if (ham->ddi_method == Engine::DDI_Method::Macrocell) ddi_method = "macrocell";
+        config += "### Dipole-dipole interaction caclulation method\n### (fft, fmm, cutoff, none, macrocell)";
         config += fmt::format("ddi_method                 {}\n", ddi_method);
         config += "### DDI number of periodic images in (a b c)";
         config += fmt::format("ddi_n_periodic_images      {} {} {}\n", ham->ddi_n_periodic_images[0], ham->ddi_n_periodic_images[1], ham->ddi_n_periodic_images[2]);

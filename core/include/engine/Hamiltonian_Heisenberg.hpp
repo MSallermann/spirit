@@ -16,10 +16,11 @@ namespace Engine
 {
     enum class DDI_Method
     {
-        FFT    = SPIRIT_DDI_METHOD_FFT,
-        FMM    = SPIRIT_DDI_METHOD_FMM,
-        Cutoff = SPIRIT_DDI_METHOD_CUTOFF,
-        None   = SPIRIT_DDI_METHOD_NONE
+        FFT       = SPIRIT_DDI_METHOD_FFT,
+        FMM       = SPIRIT_DDI_METHOD_FMM,
+        Cutoff    = SPIRIT_DDI_METHOD_CUTOFF,
+        None      = SPIRIT_DDI_METHOD_NONE,
+        Macrocell = SPIRIT_DDI_METHOD_MACROCELL
     };
 
     /*
@@ -127,6 +128,7 @@ namespace Engine
         void Gradient_DDI_Cutoff(const vectorfield& spins, vectorfield & gradient);
         void Gradient_DDI_Direct(const vectorfield& spins, vectorfield & gradient);
         void Gradient_DDI_FFT(const vectorfield& spins, vectorfield & gradient);
+		void Gradient_DDI_MacroCells(const vectorfield& spins, vectorfield & gradient);
 
         // Quadruplet
         void Gradient_Quadruplet(const vectorfield & spins, vectorfield & gradient);
@@ -147,6 +149,7 @@ namespace Engine
         void E_DDI_Direct(const vectorfield& spins, scalarfield & Energy);
         void E_DDI_Cutoff(const vectorfield& spins, scalarfield & Energy);
         void E_DDI_FFT(const vectorfield& spins, scalarfield & Energy);
+		void E_DDI_MacroCells(const vectorfield& spins, scalarfield & Energy);
 
         // Quadruplet
         void E_Quadruplet(const vectorfield & spins, scalarfield & Energy);
@@ -154,6 +157,25 @@ namespace Engine
         // Preparations for DDI-Convolution Algorithm
         void Prepare_DDI();
         void Clean_DDI();
+
+        // Macrocell
+      	int n_mc_total; // Total number macro cell
+        int n_mc_atoms; // Total number of atoms in a macro cell
+        intfield n_cells_macro; // Number of macrocells
+        std::vector<intfield> atom_id_mc; //id atoms in each macro cell
+        vectorfield macrospins; //Total moment in each macro cell
+        std::vector<Matrix3> D; //Dipole-dipole matrix inside mc
+        std::vector<std::vector<Matrix3>> D_inter; //Inter dipole dipole matrix
+        
+        //Vector3 grad_E_in;
+        //Vector3 grad_E_mc;
+        vectorfield grad_E_in;
+        vectorfield grad_E_mc;
+        vectorfield grad_E;
+        void Prepare_MacroCells();
+        void Update_MacroSpins(const vectorfield & spins);
+        void Energies_MacroCells(const vectorfield & spins);
+        void Gradient_MacroCells(const vectorfield & spins);
 
         // Plans for FT / rFT
         FFT::FFT_Plan fft_plan_spins;
@@ -188,7 +210,5 @@ namespace Engine
         field<int> it_bounds_write_spins;
         field<int> it_bounds_write_dipole;
     };
-
-
 }
 #endif

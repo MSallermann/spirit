@@ -15,6 +15,7 @@ DDI_METHOD_NONE         = 0
 DDI_METHOD_FFT          = 1
 DDI_METHOD_FMM          = 2
 DDI_METHOD_CUTOFF       = 3
+DDI_METHOD_MACROCELL    = 4
 
 ### ---------------------------------- Set ----------------------------------
 
