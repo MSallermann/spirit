@@ -156,7 +156,7 @@ namespace SimpleFMM
         void Upward_Pass(const vectorfield& spins, const scalarfield& mu_s);
         void Downward_Pass();
         void Evaluation(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient, scalar prefactor = 1);
-        void Direct_Evaluation(const vectorfield& spins, vectorfield& gradient);
+        void Direct_Evaluation(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient);
     };
     
 }

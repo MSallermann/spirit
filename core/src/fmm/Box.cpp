@@ -8,39 +8,50 @@
 namespace SimpleFMM 
 {
     using Utility::multipole_idx;
+    using Utility::multipole_idx_p;
     using Utility::n_moments;
     using Utility::n_moments_p;
     using Utility::get_spherical;
     using Utility::idx_from_tupel;
     using Utility::tupel_from_idx;
 
-    Box::Box(const vectorfield & pos) : 
-    pos(pos)
-    { }
+    Box::Box(const vectorfield & pos, int level, int l_max) :
+    level(level), pos(pos), n_spins(pos.size()), l_max(l_max)
+    {
+        this->pos_indices.resize(n_spins);
+        for(int i=0; i<n_spins; ++i)
+        {
+            this->pos_indices[i] = i;
+        }
+        Get_Boundaries();
+        Update(l_max);
+    }
 
     Box::Box(const vectorfield & pos, intfield indices, int level, int l_max):
     level(level), pos(pos), pos_indices(indices), l_max(l_max), n_spins(indices.size())
     {
+        Get_Boundaries();
         Update(l_max);
     }
 
     Box::Box(const vectorfield & pos, intfield indices, int level, Vector3 min, Vector3 max, int l_max):
     level(level), pos(pos), pos_indices(indices), l_max(l_max), n_spins(indices.size()), min(min), max(max)
     {
-        Update(l_max);
         this->center = 0.5 * (min + max);
+        Update(l_max);
     }
 
     void Box::Update(int l_max)
     {
+        this->l_max = l_max;
         this->multipole_moments.resize(n_moments(l_max, l_min));
         this->multipole_moments.shrink_to_fit();
         this->local_moments.resize(n_moments_p(l_max));
         this->local_moments.shrink_to_fit();
     }
 
-    //Divides a Box evenly by cutting it in two in every dimension
-    //TODO: Use normal1 and normal2 ...
+    // Divides a Box evenly by cutting it in two in every dimension
+    // TODO: Use normal1 and normal2 ...
     std::vector<Box> Box::Divide_Evenly(int n_dim, Vector3 normal1, Vector3 normal2)
     {
         // std::vector<Box> result(8);
@@ -56,24 +67,23 @@ namespace SimpleFMM
         std::vector<Vector3>  max(n_children);
         this->n_children = std::pow(2, n_dim);
 
-        //Build the indice lists of the new boxes
+        // Build the indice lists of the new boxes
         intfield tupel(n_dim);
         intfield maxVal(n_dim, 2);
         for(int idx = 0; idx < pos_indices.size(); idx++)
         {
             auto& i = pos_indices[idx];
-            for(int dim=0; dim<n_dim; dim++)
+            for(int dim = 0; dim < n_dim; dim++)
             {
                 tupel[dim] = (pos[i][dim] < center[dim]) ? 0 : 1;
             }
             result_indices[idx_from_tupel(tupel, maxVal)].push_back(i);
         }
 
-     
-        for(int i=0; i<this->n_children; i++)
+        for(int i = 0; i < this->n_children; i++)
         {
             tupel_from_idx(i, tupel, maxVal);
-            for(int j=0; j<n_dim; j++)
+            for(int j = 0; j < n_dim; j++)
             {
                 min[i][j] = (tupel[j] == 0) ? this->min[j]    : this->center[j];
                 max[i][j] = (tupel[j] == 0) ? this->center[j] : this->max[j];
@@ -113,11 +123,8 @@ namespace SimpleFMM
     //Computes the extents of a box 
     void Box::Get_Boundaries()
     {
-        middle = {0, 0, 0};
-
         min = pos[pos_indices[0]];
         max = pos[pos_indices[0]];
-        
         for(int idx = 0; idx < pos_indices.size(); idx++)
         {
             auto& i = pos_indices[idx];
@@ -147,7 +154,7 @@ namespace SimpleFMM
         return on_the_same_level && !Is_Near_Neighbour(other_box);
     }
 
-    void Box::Evaluate_Near_Field(const vectorfield& spins, vectorfield& gradient)
+    void Box::Evaluate_Near_Field(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient)
     {
         //TODO check if this is working correctly
         for(int i = 0; i < pos_indices.size(); i++)
@@ -158,15 +165,15 @@ namespace SimpleFMM
                 auto& idx2 = pos_indices[j];
                 auto r12 = pos[idx1] - pos[idx2];
                 auto r = r12.norm();
-                gradient[idx1] += 3 * spins[idx2].dot(r12) * r12 / std::pow(r, 5) - spins[idx2] / std::pow(r,3);
-                gradient[idx2] += 3 * spins[idx1].dot(r12) * r12 / std::pow(r, 5) - spins[idx1] / std::pow(r,3);
+                gradient[idx1] += (3 * spins[idx2].dot(r12) * r12 / std::pow(r, 5) - spins[idx2] / std::pow(r,3)) * mu_s[idx2];
+                gradient[idx2] += (3 * spins[idx1].dot(r12) * r12 / std::pow(r, 5) - spins[idx1] / std::pow(r,3)) * mu_s[idx1];
             }
         }
     }
 
     Vector3 Box::Evaluate_Directly_At(Vector3 r, vectorfield& spins)
     {
-        Vector3 result;
+        Vector3 result = {0,0,0};
         for(auto p_idx : pos_indices)
         {
             auto r12 = pos[p_idx] - r;
@@ -180,12 +187,12 @@ namespace SimpleFMM
     {
         Vector3 p_sph;
         get_spherical(r - this->center, p_sph);
-        Vector3 temp;
+        Vector3 temp = {0,0,0};
         for(int l = 0; l <= l_max; l++)
         {
             for(int m=-l; m<=l; m++)
             {
-                auto& moment = this->local_moments[multipole_idx(l,m)];        
+                auto& moment = this->local_moments[multipole_idx_p(l,m)];        
                 temp += (moment * Spherical_Harmonics::R(l, m, p_sph[0], p_sph[1], p_sph[2])).real();
             }
         }
@@ -194,7 +201,7 @@ namespace SimpleFMM
 
     Vector3c Box::Evaluate_Multipole_Expansion_At(Vector3 r)
     {
-        Vector3c result;
+        Vector3c result = {0,0,0};
         Vector3 r_sph;
         get_spherical(r - this->center, r_sph);
         for(auto l = l_min; l <= l_max; l++)
@@ -207,29 +214,40 @@ namespace SimpleFMM
         return result;
     }
 
+    void Box::Clear_Moments()
+    {
+        for (Vector3c& m : this->local_moments)
+        {
+            m = {0, 0, 0};
+        }
+        for (Vector3c& m : this->multipole_moments)
+        {
+            m = {0, 0, 0};
+        }
+    }
+
     //Mainly for debugging
     void Box::Print_Info(bool print_multipole_moments, bool print_local_moments)
     {
         std::cout   << "-------------- Box Info --------------" << std::endl
-                    << "ID = "<< id <<", Level = " << level << std::endl
-                    << "n_children = " << this->n_children << std::endl
-                    << "Number of Particles = " 
-                    << pos_indices.size()
-                    << std::endl
-                    << "Middle              = " 
-                    << middle[0] << " "
-                    << middle[1] << " "
-                    << middle[2] << " " << std::endl
-                    << "center      = " 
+                    << " ID          = " << id << std::endl
+                    << " Level       = " << level << std::endl
+                    << " n_children  = " << this->n_children << std::endl
+                    << " n_particles = " << pos_indices.size() << std::endl
+                    // << "Middle              = " 
+                    // << middle[0] << " "
+                    // << middle[1] << " "
+                    // << middle[2] << " " << std::endl
+                    << " center      = " 
                     << center[0] << " "
                     << center[1] << " "
                     << center[2] << " " << std::endl
-                    << "Radius = " << radius << std::endl
-                    << "Min / Max "             << std::endl
-                    << "  x: " << min[0] << " / " << max[0] << std::endl
-                    << "  y: " << min[1] << " / " << max[1] << std::endl
-                    << "  z: " << min[2] << " / " << max[2] << std::endl
-                    << "Number of Interaction Boxes = " << interaction_list.size() << std::endl;
+                    << " Radius      = " << radius << std::endl
+                    << " Min / Max "             << std::endl
+                    << "   x: " << min[0] << " / " << max[0] << std::endl
+                    << "   y: " << min[1] << " / " << max[1] << std::endl
+                    << "   z: " << min[2] << " / " << max[2] << std::endl
+                    << " n_interaction = " << interaction_list.size() << std::endl;
                     if(print_multipole_moments)
                     {
                         std::cout << "== Multipole Moments == " << std::endl;
@@ -247,18 +265,16 @@ namespace SimpleFMM
                         std::cout << "== Local Moments == " << std::endl;
                         for(auto l = 0; l <= l_max; l++)
                         {
-                            for(auto m=-l; m<=l; m++) 
+                            for(auto m = 0; m <= l; m++) 
                             {       
                                 std::cout << ">> --- l = "<< l << ", m = " << m << " -- <<" << std::endl;
-                                std::cout << local_moments[multipole_idx(l, m)] << std::endl;
+                                std::cout << local_moments[multipole_idx_p(l, m)] << std::endl;
                             }
                         }
                     }
-                    std::cout << "Interaction List: " << std::endl;
-                    for(auto i : interaction_list)
-                        std::cout << i << " ";
+        std::cout << "Interaction List: " << std::endl;
+        for(auto i : interaction_list)
+            std::cout << i << " ";
         std::cout << std::endl;                
     }
-
-    
 }

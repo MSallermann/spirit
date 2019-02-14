@@ -22,16 +22,13 @@ namespace SimpleFMM
         using Utility::minus_one_power;
         using Utility::factorial;
         
-        static const scalar PI = 3.14159265359;
-
-        //Thid should produce the ortho-normal spherical harmonics with condon-shortley phase
+        static constexpr scalar PI = 3.1415926535897932384626433;
+        // This should produce the ortho-normal spherical harmonics with condon-shortley phase
         inline std::complex<scalar> Spherical_Harm(int l, int m, scalar phi, scalar theta)
         {
-            if(m > 0)
-            {
+            if(m > 0) {
                 return 1/std::sqrt(2) * cplx(sh::EvalSH(l, m, phi, theta), sh::EvalSH(l, -m, phi, theta));
-            } else if (m < 0)
-            {
+            } else if (m < 0) {
                 return 1/std::sqrt(2) * cplx(minus_one_power(m) * sh::EvalSH(l, -m, phi, theta), minus_one_power(m+1) * sh::EvalSH(l, m, phi, theta));
             } else {
                 return sh::EvalSH(l, m, phi, theta);
@@ -40,7 +37,7 @@ namespace SimpleFMM
 
         inline scalar R_prefactor(int l, int m)
         {
-            return sqrt(4 * PI / ((2*l + 1) * factorial(l+m) *factorial(l-m)));
+            return sqrt(4*PI / ( (2*l + 1) * factorial(l+m) * factorial(l-m) ) );
         }
 
         inline std::complex<scalar> R(int l, int m, scalar r, scalar phi, scalar theta)
@@ -50,7 +47,7 @@ namespace SimpleFMM
 
         inline scalar S_prefactor(int l, int m)
         {
-            return sqrt(4 * PI / (2*l + 1) * factorial(l+m) * factorial(l-m));
+            return sqrt(4*PI / (2*l + 1) * factorial(l+m) * factorial(l-m));
         }
 
         inline std::complex<scalar> S(int l, int m, scalar r, scalar phi, scalar theta)

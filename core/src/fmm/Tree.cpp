@@ -11,7 +11,7 @@ namespace SimpleFMM
 
     Tree::Tree() {};
 
-    //The Tree constructor does the following
+    // The Tree constructor does the following
     //  1. Create a tree with n_level levels of boxes
     //  2. Each box on level l gets divided into 8 equally sized boxes from which level l+1 is formed
     //  3. Determine the interaction lists according to the MAC
@@ -23,29 +23,26 @@ namespace SimpleFMM
         this->n_boxes          = 0;
         this->children_per_box = std::pow(2, n_dim);
 
-        //could be replaced by formula for geometric sum
+        // Could be replaced by formula for geometric sum
         for(int i = 0; i < n_level; i++)
         {
             n_boxes += std::pow(children_per_box, i);
         }
 
-        //This is important to avoid iterator invalidation on boxes.push_back(..)
+        // This is important to avoid iterator invalidation on boxes.push_back(..)
         boxes.reserve(n_boxes);
-
-        auto indices = SimpleFMM::intfield(pos.size());
-        for(int i = 0; i < pos.size(); i++)
-            indices[i] = i;
         
-        //push back the root box
-        this->boxes.push_back(Box(pos, indices, 0, l_max));
+        // Push back the root box
+        this->boxes.push_back(Box(pos, 0, l_max));
         start_idx_level.push_back(0);
         n_boxes_on_level.push_back(1);
         Get_Box(0).id = 0;
         Get_Box(0).Get_Boundaries();
+
         for(int level = 1; level < n_level; level++)
         {
             start_idx_level.push_back(boxes.size());
-            //push back the children of all the boxes on the previous level 
+            // Push back the children of all the boxes on the previous level 
             for(auto it = begin_level(level-1); it != end_level(level-1); it++)
             {
                 for(auto box : it->Divide_Evenly(n_dim))
@@ -56,17 +53,17 @@ namespace SimpleFMM
             }
             n_boxes_on_level.push_back(boxes.size() - start_idx_level[level]);
             
-            //build the interaction lists
-            //TODO: more efficient implementation
-            //iterate over the parent level
+            // Build the interaction lists
+            // TODO: more efficient implementation
+            // Iterate over the parent level
             for(auto it_par = begin_level(level-1); it_par != end_level(level-1); it_par++)
             {
-                //find boxes at the parent level which are near neighbours
+                // Find boxes at the parent level which are near neighbours
                 for(auto it_par_2 = begin_level(level-1); it_par_2 != end_level(level-1); it_par_2++)
                 {
                     if(it_par->Is_Near_Neighbour(*it_par_2))
                     {
-                        //if the children fulfill the mac at this level add them to the interactions list
+                        // If the children fulfill the mac at this level add them to the interactions list
                         for(auto it_ch = begin_children(*it_par); it_ch != end_children(*it_par); it_ch++)
                         {
                             for(auto it_ch_2 = begin_children(*it_par_2); it_ch_2 != end_children(*it_par_2); it_ch_2++)
@@ -87,7 +84,7 @@ namespace SimpleFMM
             this->Build_Caches(*box);
         }
 
-        //The boxes on the last level calculate the hessian of their estatic multipole moments and find the indices of their near neighbours
+        // The boxes on the last level calculate the hessian of their estatic multipole moments and find the indices of their near neighbours
         for(auto it_last = begin_level(n_level-1); it_last != end_level(n_level-1); it_last++)
         {
             Get_Multipole_Hessians(*it_last, l_min, l_max, 1e-3);
@@ -120,18 +117,18 @@ namespace SimpleFMM
         }
     }
 
-    //Performs a naive O(N^2) summation for the gradient
-    void Tree::Direct_Evaluation(const vectorfield& spins, vectorfield& gradient)
+    // Performs a naive O(N^2) summation for the gradient
+    void Tree::Direct_Evaluation(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient)
     {
-        boxes[0].Evaluate_Near_Field(spins, gradient);
+        boxes[0].Evaluate_Near_Field(spins, mu_s, gradient);
     }
 
     void Tree::Downward_Pass()
     {
-        //From the coarset level to the finest
+        // From the coarset level to the finest
         for(int lvl = 0; lvl < n_level; lvl++)
         {
-            //Each box calculates its local expansion due to the multipole expansions of the boxes in its interaction list
+            // Each box calculates its local expansion due to the multipole expansions of the boxes in its interaction list
             for(auto box = begin_level(lvl); box != end_level(lvl); box++)
             {
                 for(auto interaction_id : box->interaction_list)
@@ -140,7 +137,7 @@ namespace SimpleFMM
                     M2L(*box, boxes[interaction_id], l_min, l_max, degree_local);
                 }
 
-                //Then the local expansions get translated down to the children
+                // Then the local expansions get translated down to the children
                 if (lvl != n_level - 1)
                     for(auto child = begin_children(*box); child != end_children(*box); child++)
                         // box->Add_Local_Moments(*child);
@@ -164,13 +161,13 @@ namespace SimpleFMM
     }
 
 
-    //helper for M2L
+    // Helper for M2L
     std::complex<scalar> _M2L_prefactor1(Vector3 diff_sph, int l, int lp, int m, int mp)
     {
         return minus_one_power(lp) * Spherical_Harmonics::S(l+lp, m+mp, diff_sph[0], diff_sph[1], diff_sph[2]);
     }
 
-    //Build Cached function values for M2M, M2L, L2L
+    // Build Cached function values for M2M, M2L, L2L
     void Tree::Build_Caches(Box& box)
     {
         //M2M Cache
@@ -182,7 +179,7 @@ namespace SimpleFMM
             }
         }
 
-        //L2L Cache
+        // L2L Cache
         if(box.level != n_level-1)
         {
             for(auto child = begin_children(box); child != end_children(box); child++)
@@ -191,7 +188,7 @@ namespace SimpleFMM
             }
         }
 
-        //M2L Cache
+        // M2L Cache
         for(auto interaction_idx : box.interaction_list)
         {
             Box& source_box = this->boxes[interaction_idx];

@@ -40,28 +40,26 @@ namespace SimpleFMM
         BRU_Corner,
         BLD_Corner,
         BLU_Corner,
-        //Center
+        // Center
         Bulk,
-        //Default (i.e did not care to specify)
+        // Default (i.e did not care to specify)
         Default
     };
 
     struct Box
     {
-        //=== DATA ===
-        //Tree Structure
+        // === DATA ===
+        // Tree Structure
         int id         = -1;
         int level      = -1;
         int n_children = -1;
 
-        //Information about the geometry of the box
+        // Information about the geometry of the box
         const vectorfield & pos; //refers to a Vector3 of positions
         intfield pos_indices; //the positions at these indices are 'contained' in the box
         int n_spins;
         Vector3 center;
-        
 
-        Vector3 middle;
         scalar radius;
         Vector3 min;
         Vector3 max;
@@ -73,7 +71,7 @@ namespace SimpleFMM
         std::map<int, complexfield> L2L_cache;
         complexfield Farfield_cache;
 
-        //Multipole Expansion
+        // Multipole Expansion
         intfield interaction_list; //the ids of the boxes with which this box interacts via multipoles
         int l_min = 2;
         int l_max;
@@ -81,9 +79,12 @@ namespace SimpleFMM
         std::vector<Vector3c> multipole_moments;
         std::vector<Vector3c> local_moments;
 
-        //=== METHODS ===
-        Box(const vectorfield & pos);
+        // === METHODS ===
+        // Constructs a box that contains all the positions in the vectorfield and calculates its boundaries
+        Box(const vectorfield & pos, int level, int l_max=6);
+        // Constructs a box that contains all the positions that are contained in 'indices' and calculates the boundaries
         Box(const vectorfield & pos, intfield indices, int level, int l_max=6);
+        // Constructs a box that contains all the positions that are contained in 'indices' and takes the bondaries as arguments
         Box(const vectorfield & pos, intfield indices, int level, Vector3 min, Vector3 max, int l_max=6);
         void Update(int l_max);
 
@@ -93,8 +94,10 @@ namespace SimpleFMM
         bool Is_Near_Neighbour(Box& other_box);
         bool Fulfills_MAC(Box& other_box);
 
-        //These are functions that are mainly used for debugging
-        void Evaluate_Near_Field(const vectorfield& spins, vectorfield& gradient);
+        void Clear_Moments();
+
+        // These are functions that are mainly used for debugging
+        void Evaluate_Near_Field(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient);
         // void Evaluate_Far_Field(vectorfield& gradient);
         // void Build_Far_Field_Cache();
         Vector3  Evaluate_Directly_At(Vector3 r, vectorfield& spins);

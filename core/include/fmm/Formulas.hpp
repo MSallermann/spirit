@@ -14,9 +14,8 @@ namespace SimpleFMM {
 
 
     // ============================================  
-    //             P2M functions    
+    //               P2M functions
     // ============================================  
-    //Get the hessian of the estatic multipole moments via finite difference
     inline void Get_Multipole_Hessians(Box& box, int l_min, int l_max, scalar epsilon = 1e-3)
     {
         for(int l = l_min; l <= l_max; l++)
@@ -64,6 +63,7 @@ namespace SimpleFMM {
 
     inline void Calculate_Multipole_Moments(Box& box, const vectorfield& spins, const scalarfield& mu_s, int l_min, int l_max)
     {
+        assert(box.multipole_moments.size() == n_moments(l_max, l_min));
         for(int i = 0; i < box.pos_indices.size(); i++)
         {
             auto p_idx = box.pos_indices[i];
@@ -78,7 +78,7 @@ namespace SimpleFMM {
     }
 
     // ============================================  
-    //             M2M functions    
+    //                M2M functions
     // ============================================  
     inline void Cache_M2M_values(Box& parent_box, const Box& child_box, int l_max)
     {
@@ -115,7 +115,7 @@ namespace SimpleFMM {
     }
     
     // ============================================  
-    //             M2L functions    
+    //               M2L functions
     // ============================================  
     inline void Cache_M2L_values(Box& target_box, const Box& source_box, int l_max, int degree_local, int l_min)
     {
@@ -140,10 +140,10 @@ namespace SimpleFMM {
         }
     }
 
-    //Transform multipole moments of source_Box into local moments around target_box center
+    // Transform multipole moments of source_Box into local moments around target_box center
     inline void M2L(Box& target_box, const Box& source_box, int l_min, int l_max, int degree_local)
     {
-        // fetch the transfer matrix
+        // Fetch the transfer matrix
         using MatrixXc_row = Eigen::Matrix<std::complex<scalar>, Eigen::Dynamic, 3, Eigen::RowMajor>;
 
         MatrixXc& T = target_box.M2L_cache[source_box.id];
@@ -193,11 +193,12 @@ namespace SimpleFMM {
     //     }
     // }
 
-    // ============================================  
-    //             L2L functions    
-    // ============================================ 
+    // ============================================
+    //               L2L functions
+    // ============================================
 
-    inline void Cache_L2L_values(Box& parent_box, Box& child_box, int l_max)
+    // Cache the transition functions for
+    inline void Cache_L2L_values(Box& parent_box, const Box& child_box, int l_max)
     {
         parent_box.L2L_cache[child_box.id] = complexfield(n_moments(2*l_max));
         Vector3 diff_sph;
@@ -211,21 +212,25 @@ namespace SimpleFMM {
         }
     }
 
-    //Add local moments of parent_box to child_box
+    // Add local moments of parent_box to child_box
     inline void Add_Local_Moments(const Box& parent_box, Box& child_box, int degree_local)
     {
+        assert(child_box.local_moments.size() == n_moments_p(degree_local));
         Vector3 diff_sph;
-        get_spherical(parent_box.center - child_box.center, diff_sph);
+        get_spherical(child_box.center - parent_box.center, diff_sph);
         for(int l = 0; l <= degree_local; l++)
         {
             for(int m = 0; m <= l; m++)
             {
                 for(int lp = l; lp <= degree_local; lp++)
                 {
-                    for(int mp = std::max(-lp, m-lp+l); mp <= std::min(lp+1, m+lp-l); mp++)
+                    for(int mp = -lp; mp <= lp; mp++)
                     {
-                        auto moment = (mp < 0) ? minus_one_power(m) * parent_box.local_moments[multipole_idx_p(lp, -mp)].conjugate() : parent_box.local_moments[multipole_idx_p(lp, mp)];
-                        child_box.local_moments[multipole_idx_p(l, m)] += moment * std::conj(Spherical_Harmonics::R(lp-l, mp-m, diff_sph[0], diff_sph[1], diff_sph[2]));
+                        if(lp-l >= std::abs(mp-m))
+                        {
+                            auto moment = (mp < 0) ? minus_one_power(mp) * parent_box.local_moments[multipole_idx_p(lp, -mp)].conjugate() : parent_box.local_moments[multipole_idx_p(lp, mp)];
+                            child_box.local_moments[multipole_idx_p(l, m)] += moment * Spherical_Harmonics::R(lp-l, mp-m, diff_sph[0], diff_sph[1], diff_sph[2]);
+                        }
                     }
                 }
             }
@@ -238,7 +243,7 @@ namespace SimpleFMM {
 
     inline void Build_Far_Field_Cache(Box& box, int degree_local)
     {
-        for(int i=0; i < box.n_spins; i++)
+        for(int i = 0; i < box.n_spins; i++)
         {               
             auto& p_idx = box.pos_indices[i];
             Vector3 p_sph;
@@ -253,7 +258,7 @@ namespace SimpleFMM {
         }
     }
 
-    inline void Evaluate_Far_Field(Box& box, vectorfield& gradient, int degree_local, scalar prefactor = 1)
+    inline void Evaluate_Far_Field(const Box& box, vectorfield& gradient, int degree_local, scalar prefactor = 1)
     {
        for(int i = 0; i < box.n_spins; i++)
         {               
@@ -271,9 +276,9 @@ namespace SimpleFMM {
         }
     }
 
-    inline Vector3 Evaluate_Multipole_Expansion_At(Vector3 r, Box& box, int l_min, int l_max)
+    inline Vector3 Evaluate_Multipole_Expansion_At(Vector3 r, const Box& box, int l_min, int l_max)
     {
-        Vector3 result;
+        Vector3 result = {0,0,0};
         Vector3 r_sph;
         get_spherical(r - box.center, r_sph);
         for(auto l = l_min; l <= l_max; l++)

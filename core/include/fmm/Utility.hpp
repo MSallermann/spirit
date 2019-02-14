@@ -13,8 +13,7 @@ namespace SimpleFMM
         //calculate (a!/b!)
         inline scalar factorial(int a, int b = 1)
         {
-            if((a < 0) | (b < 0))
-                throw std::invalid_argument("Factorial of a negative number is undefined!");
+            assert(a >= 0 && b >= 0);
             scalar result = 1;
             for(int i=std::min(a,b)+1; i<=std::max(a,b); i++)
                     result *= i;
@@ -38,15 +37,15 @@ namespace SimpleFMM
                 return std::complex<scalar>(0,1);
             else if (mod4 == 2)
                 return std::complex<scalar>(-1,0);
-            else if (mod4 == 3)
+            else // mod4 == 3
                 return std::complex<scalar>(0,-1);
         }    
     
         inline void get_cartesian(const Vector3& spherical_in, Vector3& cartesian_out)
         {
-            cartesian_out[0] = spherical_in[0] * std::sin(spherical_in[1]) * std::cos(spherical_in[2]);
+            cartesian_out[0] = spherical_in[0] * std::cos(spherical_in[1]) * std::sin(spherical_in[2]);
             cartesian_out[1] = spherical_in[0] * std::sin(spherical_in[1]) * std::sin(spherical_in[2]);
-            cartesian_out[2] = spherical_in[0] * std::cos(spherical_in[1]);
+            cartesian_out[2] = spherical_in[0] * std::cos(spherical_in[2]);
         }
 
         //calculates spherical coordinates from cartesian input
@@ -79,25 +78,32 @@ namespace SimpleFMM
         //              etc
         inline int multipole_idx(int l, int m, int l_min = 0)
         {
+            assert(l >= std::abs(m));
+            assert(l >= l_min);
             return m + l*(l+1) - l_min*l_min;
         }
 
         inline int n_moments(int l_max, int l_min = 0)
         {
+            assert(l_max >= 0);
+            assert(l_min >= 0);
+            assert(l_max >= l_min);
             return multipole_idx(l_max, l_max, l_min) + 1;
         }
 
         inline int multipole_idx_p(int l, int m, int l_min = 0)
         {
-            #ifdef FMM_DEBUG
-                if(m < 0 || m > l)
-                    throw std::invalid_argument("Invalid arguments for idx_pos!");
-            #endif
+            assert(l >= std::abs(m));
+            assert(l >= l_min);
+            assert(m >= 0);
             return m + l*(l+1)/2 - l_min*(l_min+1)/2;
         }
 
         inline int n_moments_p(int l_max, int l_min = 0)
         {
+            assert(l_max >= 0);
+            assert(l_min >= 0);
+            assert(l_max >= l_min);
             return multipole_idx_p(l_max, l_max, l_min) + 1;
         }
 
