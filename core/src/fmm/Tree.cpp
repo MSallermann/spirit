@@ -101,6 +101,7 @@ namespace SimpleFMM
 
     void Tree::Upward_Pass(const vectorfield& spins, const scalarfield& mu_s)
     {
+        this->Cleaning_Pass();
         for(auto box = this->begin_level(n_level-1); box != this->end_level(n_level-1); box++)
         {
             Calculate_Multipole_Moments(*box, spins, mu_s, l_min, l_max);
@@ -123,6 +124,17 @@ namespace SimpleFMM
         boxes[0].Evaluate_Near_Field(spins, mu_s, gradient);
     }
 
+    void Tree::Cleaning_Pass()
+    {
+        for(int lvl = 0; lvl < n_level; lvl++)
+        {
+            for(auto box = begin_level(lvl); box != end_level(lvl); box++)
+            {
+                box->Clear_Moments();
+            }
+        }
+    }
+
     void Tree::Downward_Pass()
     {
         // From the coarset level to the finest
@@ -133,7 +145,6 @@ namespace SimpleFMM
             {
                 for(auto interaction_id : box->interaction_list)
                 {
-                    // box->M2L(boxes[interaction_id]);
                     M2L(*box, boxes[interaction_id], l_min, l_max, degree_local);
                 }
 
@@ -142,13 +153,11 @@ namespace SimpleFMM
                     for(auto child = begin_children(*box); child != end_children(*box); child++)
                         // box->Add_Local_Moments(*child);
                         Add_Local_Moments(*box, *child, degree_local);
-
             }
         }
     }
 
     void Tree::Evaluation(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient, scalar prefactor)
-
     {
         for(auto leaf_box = begin_level(n_level-1); leaf_box != end_level(n_level-1); leaf_box++)
         {
@@ -159,7 +168,6 @@ namespace SimpleFMM
             pair.Interact_Directly(spins, mu_s, gradient, prefactor);
         }
     }
-
 
     // Helper for M2L
     std::complex<scalar> _M2L_prefactor1(Vector3 diff_sph, int l, int lp, int m, int mp)

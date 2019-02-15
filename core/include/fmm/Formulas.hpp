@@ -64,13 +64,13 @@ namespace SimpleFMM {
     inline void Calculate_Multipole_Moments(Box& box, const vectorfield& spins, const scalarfield& mu_s, int l_min, int l_max)
     {
         assert(box.multipole_moments.size() == n_moments(l_max, l_min));
-        for(int i = 0; i < box.pos_indices.size(); i++)
+        for(int l = l_min; l <= l_max; l++)
         {
-            auto p_idx = box.pos_indices[i];
-            for(int l = l_min; l <= l_max; l++)
+            for(int m = -l; m <= l; m++)
             {
-                for(int m = -l; m <= l; m++)
+                for(int i = 0; i < box.pos_indices.size(); i++)
                 {
+                    auto p_idx = box.pos_indices[i];
                     box.multipole_moments[multipole_idx(l, m, l_min)] += box.multipole_hessians[multipole_idx(l, m, l_min) * box.pos_indices.size() + i] * spins[p_idx] * mu_s[p_idx];
                 }
             }
@@ -265,7 +265,7 @@ namespace SimpleFMM {
             auto& p_idx = box.pos_indices[i];
             for(int l = 0; l <= degree_local; l++)
             {
-                gradient[p_idx] += (box.local_moments[multipole_idx_p(l, 0)] * box.Farfield_cache[n_moments_p(degree_local) * i + multipole_idx_p(l,0)]).real();
+                gradient[p_idx] += prefactor * (box.local_moments[multipole_idx_p(l, 0)] * box.Farfield_cache[n_moments_p(degree_local) * i + multipole_idx_p(l,0)]).real();
                 for(int m = 1; m <= l; m++)
                 {
                     auto& moment = box.local_moments[multipole_idx_p(l, m)];

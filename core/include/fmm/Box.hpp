@@ -94,6 +94,8 @@ namespace SimpleFMM
         bool Is_Near_Neighbour(Box& other_box);
         bool Fulfills_MAC(Box& other_box);
 
+        void Clear_Multipole_Moments();
+        void Clear_Local_Moments();
         void Clear_Moments();
 
         // These are functions that are mainly used for debugging

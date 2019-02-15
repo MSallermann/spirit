@@ -154,6 +154,7 @@ namespace SimpleFMM
         void Build_Caches(Box& box);
 
         void Upward_Pass(const vectorfield& spins, const scalarfield& mu_s);
+        void Cleaning_Pass();
         void Downward_Pass();
         void Evaluation(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient, scalar prefactor = 1);
         void Direct_Evaluation(const vectorfield& spins, const scalarfield& mu_s, vectorfield& gradient);

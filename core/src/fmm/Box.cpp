@@ -214,16 +214,26 @@ namespace SimpleFMM
         return result;
     }
 
-    void Box::Clear_Moments()
+    void Box::Clear_Local_Moments()
     {
-        for (Vector3c& m : this->local_moments)
+        for (Vector3c& l : this->local_moments)
         {
-            m = {0, 0, 0};
+            l = {0, 0, 0};
         }
+        }
+
+    void Box::Clear_Multipole_Moments()
+    {
         for (Vector3c& m : this->multipole_moments)
         {
             m = {0, 0, 0};
         }
+    }
+
+    void Box::Clear_Moments()
+    {
+        this->Clear_Local_Moments();
+        this->Clear_Multipole_Moments();
     }
 
     //Mainly for debugging
