@@ -1257,7 +1257,9 @@ namespace Engine
             transformed_dipole_matrices = std::move(fft_plan_dipole.cpx_ptr);
         } else if (ddi_method == DDI_Method::FMM)
         {
-            fmm_tree = SimpleFMM::Tree(5, geometry->positions, 2, 4, 2);
+            int& d = geometry->dimensionality;
+            int n_level  = int( std::log(geometry->nos) / (d * std::log(2) ) - 1);
+            fmm_tree = SimpleFMM::Tree(4, geometry->positions, geometry->dimensionality, 4, 2);
         }
     }
 
