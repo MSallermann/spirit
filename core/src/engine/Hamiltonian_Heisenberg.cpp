@@ -1259,7 +1259,7 @@ namespace Engine
         {
             int& d = geometry->dimensionality;
             int n_level  = int( std::log(geometry->nos) / (d * std::log(2) ) - 1);
-            fmm_tree = SimpleFMM::Tree(4, geometry->positions, geometry->dimensionality, 4, 2);
+            fmm_tree = SimpleFMM::Tree(n_level, geometry->positions, geometry->dimensionality, 4, 2);
         }
     }
 
