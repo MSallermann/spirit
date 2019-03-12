@@ -133,7 +133,42 @@ catch( ... )
     return 0;
 }
 
-void System_Get_Energy_Array(State * state, float * energies, int idx_image, int idx_chain) noexcept
+void System_Get_Eigenvalues(State * state, float * eigenvalues, int idx_image, int idx_chain) noexcept
+try
+{
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+ 
+    for (unsigned int i=0; i<image->eigenvalues.size(); ++i)
+    {
+        eigenvalues[i] = (float)image->eigenvalues[i];
+    }
+}
+catch( ... )
+{
+    spirit_handle_exception_api(idx_image, idx_chain);
+}
+
+int System_Get_Number_of_Energies(State * state, int idx_image, int idx_chain) noexcept
+try
+{
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+
+    return image->E_array.size();
+}
+catch( ... )
+{
+    spirit_handle_exception_api(idx_image, idx_chain);
+}
+
+void System_Get_Energy_Names(State * state, const char** names, int idx_image, int idx_chain) noexcept
 try
 {
     std::shared_ptr<Data::Spin_System> image;
@@ -144,7 +179,7 @@ try
 
     for (unsigned int i=0; i<image->E_array.size(); ++i)
     {
-        energies[i] = (float)image->E_array[i].second;
+        names[i] = image->E_array[i].first.c_str();
     }
 }
 catch( ... )
@@ -152,7 +187,7 @@ catch( ... )
     spirit_handle_exception_api(idx_image, idx_chain);
 }
 
-void System_Get_Eigenvalues(State * state, float * eigenvalues, int idx_image, int idx_chain) noexcept
+void System_Get_Energy_Array(State * state, float * energies, int idx_image, int idx_chain) noexcept
 try
 {
     std::shared_ptr<Data::Spin_System> image;
@@ -160,10 +195,10 @@ try
 
     // Fetch correct indices and pointers
     from_indices( state, idx_image, idx_chain, image, chain );
-
-    for (unsigned int i=0; i<image->eigenvalues.size(); ++i)
+    scalar nd = 1/(scalar)image->nos;
+    for (unsigned int i=0; i<image->E_array.size(); ++i)
     {
-        eigenvalues[i] = (float)image->eigenvalues[i];
+        energies[i] = nd * (float)image->E_array[i].second;
     }
 }
 catch( ... )

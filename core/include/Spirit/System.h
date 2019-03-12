@@ -53,6 +53,12 @@ PREFIX float System_Get_Rx(State * state, int idx_image=-1, int idx_chain=-1) SU
 // Returns the energy of a spin system.
 PREFIX float System_Get_Energy(State * state, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
+// Returns the number of energy contributions of a spin system
+PREFIX int System_Get_Number_of_Energies(State * state, int idx_image=-1, int idx_chain=-1) SUFFIX;
+
+// Returns the names of the energy contributions of a spin system
+PREFIX void System_Get_Energy_Names(State * state, const char** names, int idx_image=-1, int idx_chain=-1) SUFFIX;
+
 // Retrieves the energy contributions of a spin system.
 PREFIX void System_Get_Energy_Array(State * state, float * energies, int idx_image=-1, int idx_chain=-1) SUFFIX;
 

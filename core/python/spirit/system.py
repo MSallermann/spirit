@@ -98,16 +98,31 @@ def get_eigenvalues(p_state, idx_image=-1, idx_chain=-1):
     _Get_Eigenvalues(ctypes.c_void_p(p_state), eigenvalues, ctypes.c_int(idx_image), ctypes.c_int(idx_chain))
     return eigenvalues
 
+_Get_Number_of_Energies          = _spirit.System_Get_Number_of_Energies
+_Get_Number_of_Energies.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+_Get_Number_of_Energies.restype  = ctypes.c_int
+def get_number_of_energies(p_state, idx_image=-1, idx_chain=-1):
+    return int(_Get_Number_of_Energies(ctypes.c_void_p(p_state), ctypes.c_int(idx_image), ctypes.c_int(idx_chain)))
+
+# _Get_Energy_Names          = _spirit.System_Get_Energy_Names
+# _Get_Energy_Names.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int, ctypes.c_int]
+# _Get_Energy_Names.restype  = None
+# def get_energy_names(p_state, idx_image=-1, idx_chain=-1):
+#     print( "NUMBER\n\n\n" )
+#     return int(_Get_Number_of_Energies(ctypes.c_void_p(p_state), ctypes.c_int(idx_image), ctypes.c_int(idx_chain)))
+
+
 # NOTE: excluded since there is no clean way to get the C++ pairs
-### Get Energy array
-# _Get_Energy_Array          = _spirit.System_Get_Energy_Array
-# _Get_Energy_Array.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_float),
-#                               ctypes.c_int, ctypes.c_int]
-# _Get_Energy_Array.restype  = None
-# def Get_Energy_Array(p_state, idx_image=-1, idx_chain=-1):
-#     Energies
-#     _Get_Energy_Array(ctypes.c_void_p(p_state), energies,
-#                       ctypes.c_int(idx_image), ctypes.c_int(idx_chain))
+## Get Energy array
+_Get_Energy_Array          = _spirit.System_Get_Energy_Array
+_Get_Energy_Array.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.c_int]
+_Get_Energy_Array.restype  = None
+def get_energy_array(p_state, idx_image=-1, idx_chain=-1):
+    n_cont = get_number_of_energies(p_state, idx_image, idx_chain)
+    energies = ( ctypes.c_float * n_cont )()
+    _Get_Energy_Array(ctypes.c_void_p(p_state), energies,
+                      ctypes.c_int(idx_image), ctypes.c_int(idx_chain))
+    return [energies[i] for i in range(n_cont)]
 
 ### Get Chain number of images
 _Update_Data            = _spirit.System_Update_Data
