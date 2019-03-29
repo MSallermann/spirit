@@ -3,6 +3,9 @@ SPIRIT
 **SPIN SIMULATION FRAMEWORK**<br />
 
 
+![Logo](https://imgur.com/iWc1kuE.png "Spirit Logo")
+
+
 &nbsp;
 
 
@@ -27,7 +30,7 @@ SPIRIT
 
 The code is released under [MIT License](LICENSE.txt).<br />
 If you intend to *present and/or publish* scientific results or visualisations for which you used Spirit,
-please read the [REFERENCE.md](docs/REFERENCE.md)
+please cite `G. P. Müller et al., arXiv:1901.11350` and read the [REFERENCE.md](docs/REFERENCE.md).
 
 **This is an open project and contributions and collaborations are always welcome!!**
 See [CONTRIBUTING.md](docs/CONTRIBUTING.md) on how to contribute or write an email to g.mueller@fz-juelich.de<br />
@@ -109,7 +112,6 @@ or in the [Reference section](docs/README.md) including
 - [Framework build instructions](docs/BUILD.md)
 - [Core build instructions](core/docs/BUILD.md)
 - [Core API Reference](core/docs/API.md)
-- [Python API Reference](core/docs/API_Python.md)
 - [Input File Reference](core/docs/INPUT.md)
 
 There is also a [Wiki](https://iffwiki.fz-juelich.de/index.php/Spirit "Click me..."),
@@ -162,7 +164,7 @@ or simply use
 
     pip install spirit
 
-With this package you have access to powerful [Python APIs](core/docs/API_Python.md) to run and control
+With this package you have access to powerful Python APIs to run and control
 dynamics simulations or optimizations.
 This is especially useful for work on clusters, where you can now script your
 workflow, never having to re-compile when testing, debugging or adding features.

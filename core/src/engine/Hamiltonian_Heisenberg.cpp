@@ -345,7 +345,7 @@ namespace Engine
 
         #pragma omp parallel for
         for( int ispin = 0; ispin < geometry->nos; ispin++ )
-            Energy[ispin] += 0.5 * geometry->mu_s[ispin] * spins[ispin].dot(gradients_temp[ispin]);
+            Energy[ispin] += 0.5 * spins[ispin].dot(gradients_temp[ispin]);
     }
 
     void Hamiltonian_Heisenberg::E_DDI_Cutoff(const vectorfield & spins, scalarfield & Energy)
@@ -374,9 +374,7 @@ namespace Engine
                             if( jspin >= 0 )
                             {
                                 Energy[ispin] -= 0.5 * mu_s[ispin] * mu_s[jspin] * mult / std::pow(ddi_magnitudes[i_pair], 3.0) *
-                                    (3 * spins[ispin].dot(ddi_normals[i_pair]) * spins[ispin].dot(ddi_normals[i_pair]) - spins[ispin].dot(spins[ispin]));
-                                Energy[jspin] -= 0.5 * mu_s[ispin] * mu_s[jspin] * mult / std::pow(ddi_magnitudes[i_pair], 3.0) *
-                                    (3 * spins[ispin].dot(ddi_normals[i_pair]) * spins[ispin].dot(ddi_normals[i_pair]) - spins[ispin].dot(spins[ispin]));
+                                    (3 * spins[ispin].dot(ddi_normals[i_pair]) * spins[jspin].dot(ddi_normals[i_pair]) - spins[ispin].dot(spins[jspin]));
                             }
                         }
                     }
@@ -419,8 +417,8 @@ namespace Engine
         #pragma omp parallel for
         for( int ispin = 0; ispin < geometry->nos; ispin++ )
         {
-            Energy[ispin] += 0.5 * geometry->mu_s[ispin] * spins[ispin].dot(gradients_temp[ispin]);
-            Energy_DDI    += 0.5 * geometry->mu_s[ispin] * spins[ispin].dot(gradients_temp[ispin]);
+            Energy[ispin] += 0.5 * spins[ispin].dot(gradients_temp[ispin]);
+            // Energy_DDI    += 0.5 * spins[ispin].dot(gradients_temp[ispin]);
         }
     }
 
@@ -708,8 +706,7 @@ namespace Engine
                             int jspin = idx_from_pair(ispin, boundary_conditions, geometry->n_cells, geometry->n_cell_atoms, geometry->atom_types, ddi_pairs[i_pair]);
                             if( jspin >= 0 )
                             {
-                                gradient[ispin] -= mu_s[jspin] * skalar_contrib * (3 * ddi_normals[i_pair] * spins[jspin].dot(ddi_normals[i_pair]) - spins[jspin]);
-                                gradient[jspin] -= mu_s[ispin] * skalar_contrib * (3 * ddi_normals[i_pair] * spins[ispin].dot(ddi_normals[i_pair]) - spins[ispin]);
+                                gradient[ispin] -= mu_s[jspin] * mu_s[ispin] * skalar_contrib * (3 * ddi_normals[i_pair] * spins[jspin].dot(ddi_normals[i_pair]) - spins[jspin]);
                             }
                         }
                     }
@@ -735,17 +732,21 @@ namespace Engine
 
         int idx_b1, idx_b2, idx_d;
 
+        // Workaround for compability with intel compiler
+        const int c_n_cell_atoms = geometry->n_cell_atoms;
+        const int * c_it_bounds_pointwise_mult = it_bounds_pointwise_mult.data();
+
         // Loop over basis atoms (i.e sublattices)
         #pragma omp parallel for collapse(5)
-        for( int i_b1 = 0; i_b1 < geometry->n_cell_atoms; ++i_b1 )
+        for( int i_b1 = 0; i_b1 <c_n_cell_atoms; ++i_b1 )
         {
-            for( int c = 0; c < it_bounds_pointwise_mult[2]; ++c )
+            for( int c = 0; c < c_it_bounds_pointwise_mult[2]; ++c )
             {
-                for( int b = 0; b < it_bounds_pointwise_mult[1]; ++b )
+                for( int b = 0; b < c_it_bounds_pointwise_mult[1]; ++b )
                 {
-                    for( int a = 0; a < it_bounds_pointwise_mult[0]; ++a )
+                    for( int a = 0; a < c_it_bounds_pointwise_mult[0]; ++a )
                     {
-                        for( int i_b2 = 0; i_b2 < geometry->n_cell_atoms; ++i_b2 )
+                        for( int i_b2 = 0; i_b2 < c_n_cell_atoms; ++i_b2 )
                         {
                             // Look up at which position the correct D-matrices are saved
                             int& b_inter = inter_sublattice_lookup[i_b1 + i_b2 * geometry->n_cell_atoms];
@@ -770,28 +771,30 @@ namespace Engine
                             FFT::addTo(res_mult[idx_b1 + 2 * spin_stride.comp], FFT::mult3D(fD_xz, fD_yz, fD_zz, fs_x, fs_y, fs_z), i_b2 == 0);
                         }
                     }
-                }//end iteration over padded lattice cells
-            }//end iteration over second sublattice
+                }// end iteration over padded lattice cells
+            }// end iteration over second sublattice
         }
 
-        //Inverse Fourier Transform
+        // Inverse Fourier Transform
         FFT::batch_iFour_3D(fft_plan_reverse);
 
-        #pragma omp parallel for collapse(4)
-        //Place the gradients at the correct positions and mult with correct mu
-        for( int c = 0; c < geometry->n_cells[2]; ++c )
+        // Workaround for compability with intel compiler
+        const int * c_n_cells = geometry->n_cells.data();
+
+        // Place the gradients at the correct positions and mult with correct mu
+        for( int c = 0; c < c_n_cells[2]; ++c )
         {
-            for( int b = 0; b < geometry->n_cells[1]; ++b )
+            for( int b = 0; b < c_n_cells[1]; ++b )
             {
-                for( int a = 0; a < geometry->n_cells[0]; ++a )
+                for( int a = 0; a < c_n_cells[0]; ++a )
                 {
-                    for( int i_b1 = 0; i_b1 < geometry->n_cell_atoms; ++i_b1 )
+                    for( int i_b1 = 0; i_b1 < c_n_cell_atoms; ++i_b1 )
                     {
                         int idx_orig = i_b1 + geometry->n_cell_atoms * (a + Na * (b + Nb * c));
                         int idx = i_b1 * spin_stride.basis + a * spin_stride.a + b * spin_stride.b + c * spin_stride.c;
-                        gradient[idx_orig][0] -= res_iFFT[idx                       ] / sublattice_size;
-                        gradient[idx_orig][1] -= res_iFFT[idx + 1 * spin_stride.comp] / sublattice_size;
-                        gradient[idx_orig][2] -= res_iFFT[idx + 2 * spin_stride.comp] / sublattice_size;
+                        gradient[idx_orig][0] -= geometry->mu_s[idx_orig] * res_iFFT[idx                       ] / sublattice_size;
+                        gradient[idx_orig][1] -= geometry->mu_s[idx_orig] * res_iFFT[idx + 1 * spin_stride.comp] / sublattice_size;
+                        gradient[idx_orig][2] -= geometry->mu_s[idx_orig] * res_iFFT[idx + 2 * spin_stride.comp] / sublattice_size;
                     }
                 }
             }
@@ -824,9 +827,9 @@ namespace Engine
                     {
                         for( int c_pb = -img_c; c_pb <= img_c; c_pb++ )
                         {
-                            diff_img = diff + a_pb * geometry->n_cells[0] * geometry->bravais_vectors[0]
-                                            + b_pb * geometry->n_cells[1] * geometry->bravais_vectors[1]
-                                            + c_pb * geometry->n_cells[2] * geometry->bravais_vectors[2];
+                            diff_img = diff + a_pb * geometry->n_cells[0] * geometry->bravais_vectors[0] * geometry->lattice_constant
+                                            + b_pb * geometry->n_cells[1] * geometry->bravais_vectors[1] * geometry->lattice_constant
+                                            + c_pb * geometry->n_cells[2] * geometry->bravais_vectors[2] * geometry->lattice_constant;
                             d = diff_img.norm();
                             if( d > 1e-10 )
                             {
@@ -843,11 +846,9 @@ namespace Engine
                     }
                 }
 
-                auto& mu = geometry->mu_s[idx2];
-
-                gradient[idx1][0] -= (Dxx * m2[0] + Dxy * m2[1] + Dxz * m2[2]) * mu;
-                gradient[idx1][1] -= (Dxy * m2[0] + Dyy * m2[1] + Dyz * m2[2]) * mu;
-                gradient[idx1][2] -= (Dxz * m2[0] + Dyz * m2[1] + Dzz * m2[2]) * mu;
+                gradient[idx1][0] -= (Dxx * m2[0] + Dxy * m2[1] + Dxz * m2[2]) * geometry->mu_s[idx1] * geometry->mu_s[idx2];
+                gradient[idx1][1] -= (Dxy * m2[0] + Dyy * m2[1] + Dyz * m2[2]) * geometry->mu_s[idx1] * geometry->mu_s[idx2];
+                gradient[idx1][2] -= (Dxz * m2[0] + Dyz * m2[1] + Dzz * m2[2]) * geometry->mu_s[idx1] * geometry->mu_s[idx2];
             }
         }
     }
@@ -1051,15 +1052,11 @@ namespace Engine
         int Na = geometry->n_cells[0];
         int Nb = geometry->n_cells[1];
         int Nc = geometry->n_cells[2];
-        //bravais vectors
-        Vector3 ta = geometry->bravais_vectors[0];
-        Vector3 tb = geometry->bravais_vectors[1];
-        Vector3 tc = geometry->bravais_vectors[2];
-        int B = geometry->n_cell_atoms;
+        int n_cell_atoms = geometry->n_cell_atoms;
 
         auto& fft_spin_inputs = fft_plan_spins.real_ptr;
 
-            //iterate over the **original** system
+        //iterate over the **original** system
         #pragma omp parallel for collapse(4)
         for( int c = 0; c < Nc; ++c )
         {
@@ -1067,10 +1064,10 @@ namespace Engine
             {
                 for( int a = 0; a < Na; ++a )
                 {
-                    for( int bi = 0; bi < B; ++bi )
+                    for( int bi = 0; bi < n_cell_atoms; ++bi )
                     {
-                        int idx_orig = bi + B * (a + Na * (b + Nb * c));
-                        int idx = bi * spin_stride.basis + a * spin_stride.a + b * spin_stride.b + c * spin_stride.c;
+                        int idx_orig = bi + n_cell_atoms * (a + Na * (b + Nb * c));
+                        int idx      = bi * spin_stride.basis + a * spin_stride.a + b * spin_stride.b + c * spin_stride.c;
 
                         fft_spin_inputs[idx                        ] = spins[idx_orig][0] * geometry->mu_s[idx_orig];
                         fft_spin_inputs[idx + 1 * spin_stride.comp ] = spins[idx_orig][1] * geometry->mu_s[idx_orig];
@@ -1084,17 +1081,13 @@ namespace Engine
 
     void Hamiltonian_Heisenberg::FFT_Dipole_Matrices(FFT::FFT_Plan & fft_plan_dipole, int img_a, int img_b, int img_c)
     {
-        //prefactor of ddi interaction
+        // Prefactor of ddi interaction
         scalar mult = C::mu_0 * C::mu_B * C::mu_B / ( 4*C::Pi * 1e-30 );
 
-        //size of original geometry
+        // Size of original geometry
         int Na = geometry->n_cells[0];
         int Nb = geometry->n_cells[1];
         int Nc = geometry->n_cells[2];
-        //bravais vectors
-        Vector3 ta = geometry->bravais_vectors[0];
-        Vector3 tb = geometry->bravais_vectors[1];
-        Vector3 tc = geometry->bravais_vectors[2];
 
         auto& fft_dipole_inputs = fft_plan_dipole.real_ptr;
 
@@ -1111,30 +1104,32 @@ namespace Engine
                 b_inter++;
                 inter_sublattice_lookup[i_b1 + i_b2 * geometry->n_cell_atoms] = b_inter;
 
-                //iterate over the padded system
+                // Iterate over the padded system
+                const int * c_n_cells_padded = n_cells_padded.data();
                 #pragma omp parallel for collapse(3)
-                for( int c = 0; c < n_cells_padded[2]; ++c )
+                for( int c = 0; c < c_n_cells_padded[2]; ++c )
                 {
-                    for( int b = 0; b < n_cells_padded[1]; ++b )
+                    for( int b = 0; b < c_n_cells_padded[1]; ++b )
                     {
-                        for( int a = 0; a < n_cells_padded[0]; ++a )
+                        for( int a = 0; a < c_n_cells_padded[0]; ++a )
                         {
                             int a_idx = a < Na ? a : a - n_cells_padded[0];
                             int b_idx = b < Nb ? b : b - n_cells_padded[1];
                             int c_idx = c < Nc ? c : c - n_cells_padded[2];
                             scalar Dxx = 0, Dxy = 0, Dxz = 0, Dyy = 0, Dyz = 0, Dzz = 0;
                             Vector3 diff;
-                            //iterate over periodic images
-
+                            // Iterate over periodic images
                             for( int a_pb = - img_a; a_pb <= img_a; a_pb++ )
                             {
                                 for( int b_pb = - img_b; b_pb <= img_b; b_pb++ )
                                 {
                                     for( int c_pb = -img_c; c_pb <= img_c; c_pb++ )
                                     {
-                                        diff =    (a_idx + a_pb * Na + geometry->cell_atoms[i_b1][0] - geometry->cell_atoms[i_b2][0]) * ta
-                                                + (b_idx + b_pb * Nb + geometry->cell_atoms[i_b1][1] - geometry->cell_atoms[i_b2][1]) * tb
-                                                + (c_idx + c_pb * Nc + geometry->cell_atoms[i_b1][2] - geometry->cell_atoms[i_b2][2]) * tc;
+                                        diff =  geometry->lattice_constant * (
+                                              (a_idx + a_pb * Na + geometry->cell_atoms[i_b1][0] - geometry->cell_atoms[i_b2][0]) * geometry->bravais_vectors[0]
+                                            + (b_idx + b_pb * Nb + geometry->cell_atoms[i_b1][1] - geometry->cell_atoms[i_b2][1]) * geometry->bravais_vectors[1]
+                                            + (c_idx + c_pb * Nc + geometry->cell_atoms[i_b1][2] - geometry->cell_atoms[i_b2][2]) * geometry->bravais_vectors[2] );
+
                                         if( diff.norm() > 1e-10 )
                                         {
                                             auto d = diff.norm();
@@ -1153,14 +1148,14 @@ namespace Engine
 
                             int idx = b_inter * dipole_stride.basis + a * dipole_stride.a + b * dipole_stride.b + c * dipole_stride.c;
 
-                            fft_dipole_inputs[idx                    ] = Dxx;
+                            fft_dipole_inputs[idx                         ] = Dxx;
                             fft_dipole_inputs[idx + 1 * dipole_stride.comp] = Dxy;
                             fft_dipole_inputs[idx + 2 * dipole_stride.comp] = Dxz;
                             fft_dipole_inputs[idx + 3 * dipole_stride.comp] = Dyy;
                             fft_dipole_inputs[idx + 4 * dipole_stride.comp] = Dyz;
                             fft_dipole_inputs[idx + 5 * dipole_stride.comp] = Dzz;
 
-                            //We explicitly ignore the different strides etc. here
+                            // We explicitly ignore the different strides etc. here
                             if( save_dipole_matrices && a < Na && b < Nb && c < Nc )
                             {
                                 dipole_matrices[b_inter + n_inter_sublattice * (a + Na * (b + Nb * c))] <<  Dxx, Dxy, Dxz,
