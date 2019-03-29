@@ -443,13 +443,22 @@ namespace IO
             Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        a = {}", bravais_vectors[0].transpose()));
             Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        b = {}", bravais_vectors[1].transpose()));
             Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        c = {}", bravais_vectors[2].transpose()));
-            Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("Basis: {}  atom(s) at the following positions:", n_cell_atoms));
-            if( !cell_composition.disordered )
+            Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("Basis cell: {}  atom(s)", n_cell_atoms));
+            Log(Log_Level::Parameter, Log_Sender::IO, "Relative positions (first 10):");
+            for( int iatom = 0; iatom < n_cell_atoms && iatom < 10; ++iatom )
+                Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        atom {} at ({}), mu_s={}", iatom, cell_atoms[iatom].transpose(), cell_composition.mu_s[iatom]));
+
+            Log(Log_Level::Parameter, Log_Sender::IO, "Absolute atom positions (first 10):", n_cell_atoms);
+            for( int iatom = 0; iatom < n_cell_atoms && iatom < 10; ++iatom )
             {
-                for (int iatom = 0; iatom < n_cell_atoms; ++iatom)
-                    Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        atom {} at ({}), mu_s={}", iatom, cell_atoms[iatom].transpose(), cell_composition.mu_s[iatom]));
+                Vector3 cell_atom = lattice_constant * (
+                      bravais_vectors[0] * cell_atoms[iatom][0]
+                    + bravais_vectors[1] * cell_atoms[iatom][1]
+                    + bravais_vectors[2] * cell_atoms[iatom][2] );
+                Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        atom {} at ({})", iatom, cell_atom.transpose()));
             }
-            else
+
+            if( cell_composition.disordered )
                 Log(Log_Level::Parameter, Log_Sender::IO, "Note: the lattice has some disorder!");
 
             // Defects

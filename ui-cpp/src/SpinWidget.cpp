@@ -1,6 +1,6 @@
 // #include <fstream>
 #include <sstream>
-#include <algorithm> 
+#include <algorithm>
 
 #include "SpinWidget.hpp"
 
@@ -15,7 +15,6 @@
 #include <VFRendering/VectorSphereRenderer.hxx>
 #include <VFRendering/CoordinateSystemRenderer.hxx>
 
-#include <locale>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "Spirit/Geometry.h"
@@ -45,7 +44,7 @@ SpinWidget::SpinWidget(std::shared_ptr<State> state, QWidget *parent) : QOpenGLW
 
     setColormapGeneral(Colormap::HSV);
     setColormapArrows(Colormap::HSV);
-    setColormapRotationInverted(0, false, false);
+    setColormapRotationInverted(0, false, false, glm::vec3{1,0,0}, glm::vec3{0,1,0}, glm::vec3{0,0,1});
 
     m_view.setOption<VFRendering::ArrowRenderer::Option::CONE_RADIUS>(0.125f);
     m_view.setOption<VFRendering::ArrowRenderer::Option::CONE_HEIGHT>(0.3f);
@@ -83,12 +82,12 @@ SpinWidget::SpinWidget(std::shared_ptr<State> state, QWidget *parent) : QOpenGLW
     this->show_miniview = true;
     this->show_coordinatesystem = true;
 
-    // 		Initial camera position
+    //         Initial camera position
     this->_reset_camera = false;
     this->m_camera_rotate_free = false;
     this->m_camera_projection_perspective = true;
 
-    //		Initial drag mode settings
+    //        Initial drag mode settings
     drag_radius = 80;
     this->mouse_decoration = new MouseDecoratorWidget(drag_radius);
     this->mouse_decoration->setMinimumSize(2 * drag_radius, 2 * drag_radius);
@@ -99,10 +98,10 @@ SpinWidget::SpinWidget(std::shared_ptr<State> state, QWidget *parent) : QOpenGLW
     this->m_timer_drag_decoration = new QTimer(this);
     this->m_dragging = false;
 
-    // 		Setup Arrays
+    //         Setup Arrays
     this->updateData();
 
-    // 		Read persistent settings
+    //         Read persistent settings
     this->readSettings();
     this->show_arrows      = this->user_show_arrows;
     this->show_surface     = this->user_show_surface;
@@ -272,7 +271,7 @@ void SpinWidget::initializeGL()
     glm::vec3 bounding_box_side_lengths = { bounds_max[0] - bounds_min[0], bounds_max[1] - bounds_min[1], bounds_max[2] - bounds_min[2] };
 
     // Create renderers
-    //	System
+    //    System
     this->m_renderer_arrows = std::make_shared<VFRendering::ArrowRenderer>(m_view, m_vf);
 
     float indi_length = glm::length(bounds_max - bounds_min)*0.05;
@@ -311,10 +310,10 @@ void SpinWidget::initializeGL()
 
     this->m_system = std::make_shared<VFRendering::CombinedRenderer>(m_view, renderers);
 
-    //	Sphere
+    //    Sphere
     this->m_sphere = std::make_shared<VFRendering::VectorSphereRenderer>(m_view, m_vf);
 
-    //	Coordinate cross
+    //    Coordinate cross
     this->m_coordinatesystem = std::make_shared<VFRendering::CoordinateSystemRenderer>(m_view);
     this->m_coordinatesystem->setOption<VFRendering::CoordinateSystemRenderer::Option::NORMALIZE>(true);
 
@@ -339,7 +338,6 @@ void SpinWidget::teardownGL()
 void SpinWidget::resizeGL(int width, int height)
 {
     m_view.setFramebufferSize(width*devicePixelRatio(), height*devicePixelRatio());
-    //update();
     QTimer::singleShot(1, this, SLOT(update()));
 }
 
@@ -367,7 +365,7 @@ void SpinWidget::updateVectorFieldGeometry()
 
     // ToDo: Update the pointer to our Data instead of copying Data?
     // Positions
-    //		get pointer
+    //        get pointer
     scalar *spin_pos;
     int *atom_types;
     spin_pos = Geometry_Get_Positions(state.get());
@@ -495,7 +493,7 @@ void SpinWidget::updateVectorFieldDirections()
 
     // ToDo: Update the pointer to our Data instead of copying Data?
     // Directions
-    //		get pointer
+    //        get pointer
     scalar *spins;
     int *atom_types;
     atom_types = Geometry_Get_Atom_Types(state.get());
@@ -505,7 +503,7 @@ void SpinWidget::updateVectorFieldDirections()
         spins = System_Get_Effective_Field(state.get());
     else
         spins = System_Get_Spin_Directions(state.get());
-    //		copy
+    //        copy
     /*positions.assign(spin_pos, spin_pos + 3*nos);
     directions.assign(spins, spins + 3*nos);*/
     int icell = 0;
@@ -526,7 +524,7 @@ void SpinWidget::updateVectorFieldDirections()
             }
         }
     }
-    //		rescale if effective field
+    //        rescale if effective field
     if (this->m_source == 1)
     {
         float max_length = 0;
@@ -696,7 +694,7 @@ void SpinWidget::mouseMoveEvent(QMouseEvent *event)
                 movement_mode = VFRendering::CameraMovementModes::TRANSLATE;
             }
             m_view.mouseMove(previous_mouse_position, current_mouse_position, movement_mode);
-            
+
             QTimer::singleShot(1, this, SLOT(update()));
         }
     }
@@ -730,7 +728,7 @@ void SpinWidget::wheelEvent(QWheelEvent *event)
     {
         float wheel_delta = event->angleDelta().y();
         m_view.mouseScroll(-wheel_delta * 0.1 * scale);
-        
+
         QTimer::singleShot(1, this, SLOT(update()));
     }
 }
@@ -765,7 +763,7 @@ void SpinWidget::rotateCamera(float theta, float phi)
 {
     if (this->m_suspended)
         return;
-        
+
     if (this->m_interactionmode == InteractionMode::DRAG)
     {
         theta = 0;
@@ -1114,7 +1112,7 @@ glm::vec2 SpinWidget::surfaceZRange() const
 }
 
 
-/////	enable
+/////    enable
 void SpinWidget::enableSystem(bool arrows, bool boundingbox, bool surface, bool isosurface)
 {
     this->show_arrows = arrows;
@@ -1187,7 +1185,7 @@ void SpinWidget::moveSlab(int amount)
 }
 
 
-/////	Arrows
+/////    Arrows
 void SpinWidget::setArrows(float size, int lod)
 {
     if (lod < 3) lod = 3;
@@ -1218,11 +1216,14 @@ void SpinWidget::setArrows(float size, int lod)
     density /= n_cell_step;
 
     makeCurrent();
-    m_view.setOption<VFRendering::ArrowRenderer::Option::CONE_HEIGHT>(coneheight * size / density);
-    m_view.setOption<VFRendering::ArrowRenderer::Option::CONE_RADIUS>(coneradius * size / density);
-    m_view.setOption<VFRendering::ArrowRenderer::Option::CYLINDER_HEIGHT>(cylinderheight* size / density);
-    m_view.setOption<VFRendering::ArrowRenderer::Option::CYLINDER_RADIUS>(cylinderradius * size / density);
-    m_view.setOption<VFRendering::ArrowRenderer::Option::LEVEL_OF_DETAIL>(lod);
+    if( this->m_renderer_arrows )
+    {
+        this->m_renderer_arrows->setOption<VFRendering::ArrowRenderer::Option::CONE_HEIGHT>(coneheight * size / density);
+        this->m_renderer_arrows->setOption<VFRendering::ArrowRenderer::Option::CONE_RADIUS>(coneradius * size / density);
+        this->m_renderer_arrows->setOption<VFRendering::ArrowRenderer::Option::CYLINDER_HEIGHT>(cylinderheight * size / density);
+        this->m_renderer_arrows->setOption<VFRendering::ArrowRenderer::Option::CYLINDER_RADIUS>(cylinderradius * size / density);
+        this->m_renderer_arrows->setOption<VFRendering::ArrowRenderer::Option::LEVEL_OF_DETAIL>(lod);
+    }
 
     QTimer::singleShot(1, this, SLOT(update()));
 }
@@ -1259,7 +1260,7 @@ int SpinWidget::arrowLOD() const
 }
 
 
-/////	Overall Range Directions
+/////    Overall Range Directions
 glm::vec2 SpinWidget::xRangeDirection() const {
     return m_x_range_direction;
 }
@@ -1279,7 +1280,7 @@ void SpinWidget::setOverallDirectionRange(glm::vec2 x_range, glm::vec2 y_range, 
     this->updateIsVisibleImplementation();
 }
 
-/////	Overall Range Position
+/////    Overall Range Position
 glm::vec2 SpinWidget::xRangePosition() const {
     return m_x_range_position;
 }
@@ -1304,7 +1305,7 @@ void SpinWidget::updateIsVisibleImplementation()
     std::ostringstream sstream;
     std::string is_visible_implementation;
     sstream << "bool is_visible(vec3 position, vec3 direction) {";
-    //		position
+    //        position
     // X
     if (m_x_range_position.x >= m_x_range_position.y)
     {
@@ -1340,7 +1341,7 @@ void SpinWidget::updateIsVisibleImplementation()
         sstream << m_z_range_position.y;
         sstream << "; bool is_visible_z_pos = position.z <= z_max_pos && position.z >= z_min_pos;";
     }
-    //		direction
+    //        direction
     // X
     if (m_x_range_direction.x <= -1 && m_x_range_direction.y >= 1)
     {
@@ -1550,7 +1551,9 @@ SpinWidget::Colormap SpinWidget::colormap_arrows() const
 void SpinWidget::setColormapGeneral(Colormap colormap)
 {
     m_colormap_general = colormap;
-    auto colormap_implementation = getColormapRotationInverted(m_colormap_general, colormap_rotation(), m_colormap_invert_z, m_colormap_invert_xy);
+    auto colormap_implementation = getColormapRotationInverted(
+        m_colormap_general, m_colormap_rotation, m_colormap_invert_z, m_colormap_invert_xy,
+        m_colormap_cardinal_a, m_colormap_cardinal_b, m_colormap_cardinal_c);
 
     // Set overall colormap
     makeCurrent();
@@ -1565,7 +1568,9 @@ void SpinWidget::setColormapGeneral(Colormap colormap)
 void SpinWidget::setColormapArrows(Colormap colormap)
 {
     m_colormap_arrows = colormap;
-    auto colormap_implementation = getColormapRotationInverted(m_colormap_arrows, colormap_rotation(), m_colormap_invert_z, m_colormap_invert_xy);
+    auto colormap_implementation = getColormapRotationInverted(
+        m_colormap_arrows, m_colormap_rotation, m_colormap_invert_z, m_colormap_invert_xy,
+        m_colormap_cardinal_a, m_colormap_cardinal_b, m_colormap_cardinal_c);
 
     // Set arrows colormap
     makeCurrent();
@@ -1586,11 +1591,30 @@ std::array<bool, 2> SpinWidget::colormap_inverted()
     return std::array<bool, 2>{this->m_colormap_invert_z, this->m_colormap_invert_xy};
 }
 
-void SpinWidget::setColormapRotationInverted(int phi, bool invert_z, bool invert_xy)
+glm::vec3 SpinWidget::colormap_cardinal_a()
+{
+    return this->m_colormap_cardinal_a;
+}
+
+glm::vec3 SpinWidget::colormap_cardinal_b()
+{
+    return this->m_colormap_cardinal_b;
+}
+
+glm::vec3 SpinWidget::colormap_cardinal_c()
+{
+    return this->m_colormap_cardinal_c;
+}
+
+void SpinWidget::setColormapRotationInverted(int phi, bool invert_z, bool invert_xy,
+                                            glm::vec3 cardinal_a, glm::vec3 cardinal_b, glm::vec3 cardinal_c)
 {
     this->m_colormap_rotation = phi;
     this->m_colormap_invert_z = invert_z;
     this->m_colormap_invert_xy = invert_xy;
+    this->m_colormap_cardinal_a = cardinal_a;
+    this->m_colormap_cardinal_b = cardinal_b;
+    this->m_colormap_cardinal_c = cardinal_c;
 
     this->setColormapGeneral(this->colormap_general());
     this->setColormapArrows(this->colormap_arrows());
@@ -1598,41 +1622,32 @@ void SpinWidget::setColormapRotationInverted(int phi, bool invert_z, bool invert
     QTimer::singleShot(1, this, SLOT(update()));
 }
 
-std::string SpinWidget::getColormapRotationInverted(Colormap colormap, int phi, bool invert_z, bool invert_xy)
+std::string SpinWidget::getColormapRotationInverted(Colormap colormap, int phi, bool invert_z, bool invert_xy,
+                                                    glm::vec3 cardinal_a, glm::vec3 cardinal_b, glm::vec3 cardinal_c)
 {
     int sign_z  = 1 - 2 * (int)invert_z;
     int sign_xy = 1 - 2 * (int)invert_xy;
 
     float P = glm::radians((float)phi)   / 3.14159;
 
-    // Get strings from floats - For some reason the locale is messed up...
-    auto old = std::locale::global(std::locale::classic());
-    std::locale::global(old);
-    // setlocale(LC_ALL, "en_US");
-    char s_phi[50];
-    sprintf (s_phi, "%f", P);
-    char s_sign_z[50];
-    sprintf (s_sign_z, "%i", sign_z);
-    char s_sign_xy[50];
-    sprintf (s_sign_xy, "%i", sign_xy);
     std::string colormap_implementation;
     switch (colormap)
     {
-        case Colormap::WHITE:
-            colormap_implementation = VFRendering::Utilities::getColormapImplementation(VFRendering::Utilities::Colormap::WHITE);
-            break;
-        case Colormap::GRAY:
-            colormap_implementation = R"(
-                vec3 colormap(vec3 direction) {
-                    return vec3(0.5, 0.5, 0.5);
-                }
-            )";
-            break;
-        case Colormap::BLACK:
+    case Colormap::WHITE:
+        colormap_implementation = VFRendering::Utilities::getColormapImplementation(VFRendering::Utilities::Colormap::WHITE);
+        break;
+    case Colormap::GRAY:
+        colormap_implementation = R"(
+        vec3 colormap(vec3 direction) {
+            return vec3(0.5, 0.5, 0.5);
+        }
+        )";
+        break;
+    case Colormap::BLACK:
             colormap_implementation = VFRendering::Utilities::getColormapImplementation(VFRendering::Utilities::Colormap::BLACK);
             break;
-        // Custom color maps not included in VFRendering:
-        case Colormap::HSV:
+    // Custom color maps not included in VFRendering:
+    case Colormap::HSV:
         colormap_implementation = R"(
         float atan2(float y, float x) {
             return x == 0.0 ? sign(y)*3.14159/2.0 : atan(y, x);
@@ -1643,9 +1658,12 @@ std::string SpinWidget::getColormapRotationInverted(Colormap colormap, int phi, 
             return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
         }
         vec3 colormap(vec3 direction) {
-            vec2 xy = normalize(direction.xy);
-            float hue = atan2()" + std::string(s_sign_xy) + R"(*xy.x, xy.y) / 3.14159 / 2.0 + )" + std::string(s_phi) + R"(/2.0;
-            float saturation = direction.z * )" + std::string(s_sign_z) + R"(;
+            vec3 cardinal_a = vec3()" + std::to_string(cardinal_a.x) + ", " + std::to_string(cardinal_a.y) + ", " + std::to_string(cardinal_a.z) + R"();
+            vec3 cardinal_b = vec3()" + std::to_string(cardinal_b.x) + ", " + std::to_string(cardinal_b.y) + ", " + std::to_string(cardinal_b.z) + R"();
+            vec3 cardinal_c = vec3()" + std::to_string(cardinal_c.x) + ", " + std::to_string(cardinal_c.y) + ", " + std::to_string(cardinal_c.z) + R"();
+            vec3 projection = vec3( dot(direction, cardinal_a), dot(direction, cardinal_b), dot(direction, cardinal_c) );
+            float hue = atan2()" + std::to_string(sign_xy) + R"(*projection.x, projection.y) / 3.14159 / 2.0 + )" + std::to_string(P) + R"(/2.0;
+            float saturation = projection.z * )" + std::to_string(sign_z) + R"(;
             if (saturation > 0.0) {
                 return hsv2rgb(vec3(hue, 1.0-saturation, 1.0));
             } else {
@@ -1665,8 +1683,11 @@ std::string SpinWidget::getColormapRotationInverted(Colormap colormap, int phi, 
             return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
         }
         vec3 colormap(vec3 direction) {
-            vec2 xy = normalize(direction.xy);
-            float hue = atan2()" + std::string(s_sign_xy) + R"(*xy.x, xy.y) / 3.14159 / 2.0 + )" + std::string(s_phi) + R"(;
+            vec3 cardinal_a = vec3()" + std::to_string(cardinal_a.x) + ", " + std::to_string(cardinal_a.y) + ", " + std::to_string(cardinal_a.z) + R"();
+            vec3 cardinal_b = vec3()" + std::to_string(cardinal_b.x) + ", " + std::to_string(cardinal_b.y) + ", " + std::to_string(cardinal_b.z) + R"();
+            vec3 cardinal_c = vec3()" + std::to_string(cardinal_c.x) + ", " + std::to_string(cardinal_c.y) + ", " + std::to_string(cardinal_c.z) + R"();
+            vec3 projection = vec3( dot(direction, cardinal_a), dot(direction, cardinal_b), dot(direction, cardinal_c) );
+            float hue = atan2()" + std::to_string(sign_xy) + R"(*projection.x, projection.y) / 3.14159 / 2.0 + )" + std::to_string(P) + R"(;
             return hsv2rgb(vec3(hue, 1.0, 1.0));
         }
         )";
@@ -1674,7 +1695,11 @@ std::string SpinWidget::getColormapRotationInverted(Colormap colormap, int phi, 
     case Colormap::BLUE_RED:
         colormap_implementation = R"(
         vec3 colormap(vec3 direction) {
-            float z_sign = direction.z * )" + std::string(s_sign_z) + R"(;
+            vec3 cardinal_a = vec3()" + std::to_string(cardinal_a.x) + ", " + std::to_string(cardinal_a.y) + ", " + std::to_string(cardinal_a.z) + R"();
+            vec3 cardinal_b = vec3()" + std::to_string(cardinal_b.x) + ", " + std::to_string(cardinal_b.y) + ", " + std::to_string(cardinal_b.z) + R"();
+            vec3 cardinal_c = vec3()" + std::to_string(cardinal_c.x) + ", " + std::to_string(cardinal_c.y) + ", " + std::to_string(cardinal_c.z) + R"();
+            vec3 projection = vec3( dot(direction, cardinal_a), dot(direction, cardinal_b), dot(direction, cardinal_c) );
+            float z_sign = projection.z * )" + std::to_string(sign_z) + R"(;
             vec3 color_down = vec3(0.0, 0.0, 1.0);
             vec3 color_up = vec3(1.0, 0.0, 0.0);
             return mix(color_down, color_up, z_sign*0.5+0.5);
@@ -1691,9 +1716,12 @@ std::string SpinWidget::getColormapRotationInverted(Colormap colormap, int phi, 
             vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
             return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
         }
-
         vec3 colormap(vec3 direction) {
-            float hue = 1.0/3.0-normalize(direction).z/3.0* )" + std::string(s_sign_z) + R"(;
+            vec3 cardinal_a = vec3()" + std::to_string(cardinal_a.x) + ", " + std::to_string(cardinal_a.y) + ", " + std::to_string(cardinal_a.z) + R"();
+            vec3 cardinal_b = vec3()" + std::to_string(cardinal_b.x) + ", " + std::to_string(cardinal_b.y) + ", " + std::to_string(cardinal_b.z) + R"();
+            vec3 cardinal_c = vec3()" + std::to_string(cardinal_c.x) + ", " + std::to_string(cardinal_c.y) + ", " + std::to_string(cardinal_c.z) + R"();
+            vec3 projection = vec3( dot(direction, cardinal_a), dot(direction, cardinal_b), dot(direction, cardinal_c) );
+            float hue = 1.0/3.0-normalize(projection).z/3.0* )" + std::to_string(sign_z) + R"(;
             return hsv2rgb(vec3(hue, 1.0, 1.0));
         }
         )";
@@ -1701,7 +1729,11 @@ std::string SpinWidget::getColormapRotationInverted(Colormap colormap, int phi, 
     case Colormap::BLUE_WHITE_RED:
         colormap_implementation = R"(
         vec3 colormap(vec3 direction) {
-            float z_sign = direction.z * )" + std::string(s_sign_z) + R"(;
+            vec3 cardinal_a = vec3()" + std::to_string(cardinal_a.x) + ", " + std::to_string(cardinal_a.y) + ", " + std::to_string(cardinal_a.z) + R"();
+            vec3 cardinal_b = vec3()" + std::to_string(cardinal_b.x) + ", " + std::to_string(cardinal_b.y) + ", " + std::to_string(cardinal_b.z) + R"();
+            vec3 cardinal_c = vec3()" + std::to_string(cardinal_c.x) + ", " + std::to_string(cardinal_c.y) + ", " + std::to_string(cardinal_c.z) + R"();
+            vec3 projection = vec3( dot(direction, cardinal_a), dot(direction, cardinal_b), dot(direction, cardinal_c) );
+            float z_sign = projection.z * )" + std::to_string(sign_z) + R"(;
             if (z_sign < 0) {
                 vec3 color_down = vec3(0.0, 0.0, 1.0);
                 vec3 color_up = vec3(1.0, 1.0, 1.0);
@@ -1726,9 +1758,12 @@ std::string SpinWidget::getColormapRotationInverted(Colormap colormap, int phi, 
             return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
         }
         vec3 colormap(vec3 direction) {
-            vec2 xy = normalize(direction.xy);
-            float hue = atan2()" + std::string(s_sign_xy) + R"(*xy.x, xy.y) / 3.14159 / 2.0 + )" + std::string(s_phi) + R"(/2.0;
-            float saturation = direction.z * )" + std::string(s_sign_z) + R"(;
+            vec3 cardinal_a = vec3()" + std::to_string(cardinal_a.x) + ", " + std::to_string(cardinal_a.y) + ", " + std::to_string(cardinal_a.z) + R"();
+            vec3 cardinal_b = vec3()" + std::to_string(cardinal_b.x) + ", " + std::to_string(cardinal_b.y) + ", " + std::to_string(cardinal_b.z) + R"();
+            vec3 cardinal_c = vec3()" + std::to_string(cardinal_c.x) + ", " + std::to_string(cardinal_c.y) + ", " + std::to_string(cardinal_c.z) + R"();
+            vec3 projection = vec3( dot(direction, cardinal_a), dot(direction, cardinal_b), dot(direction, cardinal_c) );
+            float hue = atan2()" + std::to_string(sign_xy) + R"(*projection.x, projection.y) / 3.14159 / 2.0 + )" + std::to_string(P) + R"(/2.0;
+            float saturation = projection.z * )" + std::to_string(sign_z) + R"(;
             if (saturation > 0.0) {
                 return hsv2rgb(vec3(hue, 1.0-saturation, 1.0));
             } else {
@@ -1753,9 +1788,9 @@ SpinWidget::Color SpinWidget::backgroundColor() const
 void SpinWidget::setBackgroundColor(Color background_color)
 {
     glm::vec3 color;
-    if (background_color == Color::BLACK) color = { 0, 0, 0 };
-    else if (background_color == Color::GRAY) color = { 0.5, 0.5, 0.5 };
-    else if (background_color == Color::WHITE) color = { 1, 1, 1 };
+    if      (background_color == Color::BLACK) color = { 0,   0,   0   };
+    else if (background_color == Color::GRAY)  color = { 0.5, 0.5, 0.5 };
+    else if (background_color == Color::WHITE) color = { 1,   1,   1   };
     makeCurrent();
     m_view.setOption<VFRendering::View::Option::BACKGROUND_COLOR>(color);
 
@@ -1804,8 +1839,7 @@ void SpinWidget::updateBoundingBoxIndicators()
     glm::vec3 indis{ indi_length*periodical[0], indi_length*periodical[1], indi_length*periodical[2] };
 
     this->m_renderer_boundingbox = std::make_shared<VFRendering::BoundingBoxRenderer>(VFRendering::BoundingBoxRenderer::forCuboid(m_view, bounding_box_center, bounding_box_side_lengths, indis, indi_dashes_per_length));
-    //setupRenderers();
-    //this->setVisualizationMode(this->visualizationMode());
+
     this->enableSystem(this->show_arrows, this->show_boundingbox, this->show_surface, this->show_isosurface);
 }
 
@@ -1839,7 +1873,7 @@ void SpinWidget::setCameraToDefault()
         options.set<VFRendering::View::Option::CENTER_POSITION>(center_position);
         options.set<VFRendering::View::Option::UP_VECTOR>(up_vector);
         m_view.updateOptions(options);
-        
+
         QTimer::singleShot(1, this, SLOT(update()));
     }
 }
@@ -1867,7 +1901,7 @@ void SpinWidget::setCameraToX(bool inverted)
         options.set<VFRendering::View::Option::CENTER_POSITION>(center_position);
         options.set<VFRendering::View::Option::UP_VECTOR>(up_vector);
         m_view.updateOptions(options);
-        
+
         QTimer::singleShot(1, this, SLOT(update()));
     }
 }
@@ -1895,7 +1929,7 @@ void SpinWidget::setCameraToY(bool inverted)
         options.set<VFRendering::View::Option::CENTER_POSITION>(center_position);
         options.set<VFRendering::View::Option::UP_VECTOR>(up_vector);
         m_view.updateOptions(options);
-        
+
         QTimer::singleShot(1, this, SLOT(update()));
     }
 }
@@ -1931,7 +1965,7 @@ void SpinWidget::setCameraPosition(const glm::vec3& camera_position)
     {
         auto system_center = options().get<VFRendering::View::Option::SYSTEM_CENTER>();
         m_view.setOption<VFRendering::View::Option::CAMERA_POSITION>(system_center + camera_position);
-        
+
         QTimer::singleShot(1, this, SLOT(update()));
     }
 }
@@ -1942,7 +1976,7 @@ void SpinWidget::setCameraFocus(const glm::vec3& center_position)
     {
         auto system_center = options().get<VFRendering::View::Option::SYSTEM_CENTER>();
         m_view.setOption<VFRendering::View::Option::CENTER_POSITION>(system_center + center_position);
-        
+
         QTimer::singleShot(1, this, SLOT(update()));
     }
 }
@@ -1952,7 +1986,7 @@ void SpinWidget::setCameraUpVector(const glm::vec3& up_vector)
     if (this->m_interactionmode == InteractionMode::REGULAR)
     {
         m_view.setOption<VFRendering::View::Option::UP_VECTOR>(up_vector);
-        
+
         QTimer::singleShot(1, this, SLOT(update()));
     }
 }
@@ -2009,7 +2043,6 @@ void SpinWidget::setVerticalFieldOfView(float vertical_field_of_view)
     // Set new FOV
     makeCurrent();
     m_view.setOption<VFRendering::View::Option::VERTICAL_FIELD_OF_VIEW>(vertical_field_of_view);
-    enableSystem(show_arrows, show_boundingbox, show_surface, show_isosurface);
 
     QTimer::singleShot(1, this, SLOT(update()));
 }
@@ -2103,7 +2136,16 @@ void SpinWidget::writeSettings()
     settings.setValue("Colormap Arrows", (int)colormap_arrows());
     settings.setValue("Colormap_invert_z", m_colormap_invert_z);
     settings.setValue("Colormap_invert_xy", m_colormap_invert_xy);
-    settings.setValue("Colormap_rotation",   m_colormap_rotation);
+    settings.setValue("Colormap_rotation",  m_colormap_rotation);
+    settings.setValue("Colormap_cardinal_a_x",  m_colormap_cardinal_a.x);
+    settings.setValue("Colormap_cardinal_a_y",  m_colormap_cardinal_a.y);
+    settings.setValue("Colormap_cardinal_a_z",  m_colormap_cardinal_a.z);
+    settings.setValue("Colormap_cardinal_b_x",  m_colormap_cardinal_b.x);
+    settings.setValue("Colormap_cardinal_b_y",  m_colormap_cardinal_b.y);
+    settings.setValue("Colormap_cardinal_b_z",  m_colormap_cardinal_b.z);
+    settings.setValue("Colormap_cardinal_c_x",  m_colormap_cardinal_c.x);
+    settings.setValue("Colormap_cardinal_c_y",  m_colormap_cardinal_c.y);
+    settings.setValue("Colormap_cardinal_c_z",  m_colormap_cardinal_c.z);
     settings.endGroup();
 
     // Camera
@@ -2207,7 +2249,17 @@ void SpinWidget::readSettings()
         bool invert_z = settings.value("Colormap_invert_z").toInt();
         bool invert_xy = settings.value("Colormap_invert_xy").toInt();
         int phi   = settings.value("Colormap_rotation").toInt();
-        this->setColormapRotationInverted(phi, invert_z, invert_xy);
+        glm::vec3 cardinal_a{1, 0, 0}, cardinal_b{0, 1, 0}, cardinal_c{0, 0, 1};
+        cardinal_a.x = settings.value("Colormap_cardinal_a_x").toFloat();
+        cardinal_a.y = settings.value("Colormap_cardinal_a_y").toFloat();
+        cardinal_a.z = settings.value("Colormap_cardinal_a_z").toFloat();
+        cardinal_b.x = settings.value("Colormap_cardinal_b_x").toFloat();
+        cardinal_b.y = settings.value("Colormap_cardinal_b_y").toFloat();
+        cardinal_b.z = settings.value("Colormap_cardinal_b_z").toFloat();
+        cardinal_c.x = settings.value("Colormap_cardinal_c_x").toFloat();
+        cardinal_c.y = settings.value("Colormap_cardinal_c_y").toFloat();
+        cardinal_c.z = settings.value("Colormap_cardinal_c_z").toFloat();
+        this->setColormapRotationInverted(phi, invert_z, invert_xy, cardinal_a, cardinal_b, cardinal_c);
         settings.endGroup();
     }
 
