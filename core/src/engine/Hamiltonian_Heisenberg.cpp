@@ -31,7 +31,9 @@ namespace Engine
         DDI_Method ddi_method, intfield ddi_n_periodic_images, scalar ddi_radius,
         quadrupletfield quadruplets, scalarfield quadruplet_magnitudes,
         std::shared_ptr<Data::Geometry> geometry,
-        intfield boundary_conditions
+        intfield boundary_conditions,
+        int fmm_n_level, int fmm_l_max, int fmm_l_max_local
+
     ) :
         Hamiltonian(boundary_conditions),
         geometry(geometry),
@@ -41,7 +43,8 @@ namespace Engine
         dmi_pairs_in(dmi_pairs), dmi_magnitudes_in(dmi_magnitudes), dmi_normals_in(dmi_normals), dmi_shell_magnitudes(0), dmi_shell_chirality(0),
         quadruplets(quadruplets), quadruplet_magnitudes(quadruplet_magnitudes),
         ddi_method(ddi_method), ddi_n_periodic_images(ddi_n_periodic_images), ddi_cutoff_radius(ddi_radius),
-        fft_plan_reverse(FFT::FFT_Plan()), fft_plan_spins(FFT::FFT_Plan())
+        fft_plan_reverse(FFT::FFT_Plan()), fft_plan_spins(FFT::FFT_Plan()),
+        fmm_n_level(fmm_n_level), fmm_l_max(fmm_l_max), fmm_l_max_local(fmm_l_max_local)
     {
         // Generate interaction pairs, constants etc.
         this->Update_Interactions();
@@ -56,7 +59,8 @@ namespace Engine
         DDI_Method ddi_method, intfield ddi_n_periodic_images, scalar ddi_radius,
         quadrupletfield quadruplets, scalarfield quadruplet_magnitudes,
         std::shared_ptr<Data::Geometry> geometry,
-        intfield boundary_conditions
+        intfield boundary_conditions,
+        int fmm_n_level, int fmm_l_max, int fmm_l_max_local
     ) :
         Hamiltonian(boundary_conditions),
         geometry(geometry),
@@ -66,7 +70,8 @@ namespace Engine
         dmi_pairs_in(0), dmi_magnitudes_in(0), dmi_normals_in(0), dmi_shell_magnitudes(dmi_shell_magnitudes), dmi_shell_chirality(dm_chirality),
         quadruplets(quadruplets), quadruplet_magnitudes(quadruplet_magnitudes),
         ddi_method(ddi_method), ddi_n_periodic_images(ddi_n_periodic_images), ddi_cutoff_radius(ddi_radius),
-        fft_plan_reverse(FFT::FFT_Plan()), fft_plan_spins(FFT::FFT_Plan())
+        fft_plan_reverse(FFT::FFT_Plan()), fft_plan_spins(FFT::FFT_Plan()),
+        fmm_n_level(fmm_n_level), fmm_l_max(fmm_l_max), fmm_l_max_local(fmm_l_max_local)
 
     {
         // Generate interaction pairs, constants etc.
@@ -1272,9 +1277,9 @@ namespace Engine
             transformed_dipole_matrices = std::move(fft_plan_dipole.cpx_ptr);
         } else if (ddi_method == DDI_Method::FMM)
         {
-            int& d = geometry->dimensionality;
-            int n_level  = int( std::log(geometry->nos) / (d * std::log(2) ) - 1);
-            fmm_tree = SimpleFMM::Tree(n_level, geometry->positions, geometry->dimensionality, 4, 2);
+            // int& d = geometry->dimensionality;
+            // int n_level  = int( std::log(geometry->nos) / (d * std::log(2) ) - 1);
+            fmm_tree = SimpleFMM::Tree(fmm_n_level, geometry->positions, geometry->dimensionality, fmm_l_max, fmm_l_max_local);
         }
     }
 

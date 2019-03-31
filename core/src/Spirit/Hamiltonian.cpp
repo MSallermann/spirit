@@ -312,6 +312,50 @@ void Hamiltonian_Set_DDI(State *state, int ddi_method, int n_periodic_images[3],
     }
 }
 
+void Hamiltonian_Set_FMM(State *state, int fmm_n_level, int fmm_l_max, int fmm_l_max_local, int idx_image, int idx_chain) noexcept
+{
+    try
+    {
+        std::shared_ptr<Data::Spin_System> image;
+        std::shared_ptr<Data::Spin_System_Chain> chain;
+        
+        // Fetch correct indices and pointers
+        from_indices( state, idx_image, idx_chain, image, chain );
+        image->Lock();
+
+        try
+        {
+            if (image->hamiltonian->Name() == "Heisenberg")
+            {
+                auto ham = (Engine::Hamiltonian_Heisenberg*)image->hamiltonian.get();
+
+                ham->fmm_n_level     = fmm_n_level;
+                ham->fmm_l_max       = fmm_l_max;
+                ham->fmm_l_max_local = fmm_l_max_local;
+
+                ham->Update_Interactions();
+
+                Log( Utility::Log_Level::Info, Utility::Log_Sender::API, fmt::format(
+                    "Set fmm_n_level {}, fmm_l_max {} and fmm_l_max_local {}", fmm_n_level, fmm_l_max, fmm_l_max_local)
+                    );
+            }
+            else
+                Log( Utility::Log_Level::Warning, Utility::Log_Sender::API, "DDI cannot be set on " + 
+                        image->hamiltonian->Name(), idx_image, idx_chain );
+        }
+        catch( ... )
+        {
+            spirit_handle_exception_api(idx_image, idx_chain);
+        }
+
+        image->Unlock();
+    }
+    catch( ... )
+    {
+        spirit_handle_exception_api(idx_image, idx_chain);
+    }
+}
+
 /*------------------------------------------------------------------------------------------------------ */
 /*---------------------------------- Get Parameters ---------------------------------------------------- */
 /*------------------------------------------------------------------------------------------------------ */

@@ -1135,6 +1135,9 @@ namespace IO
         auto ddi_method = Engine::DDI_Method::None;
         intfield ddi_n_periodic_images = { 4, 4, 4 };
         scalar ddi_radius = 0.0;
+        int fmm_n_level     = 1;
+        int fmm_l_max       = 4;
+        int fmm_l_max_local = 2;
 
         // ------------ Quadruplet Interactions ------------
         int n_quadruplets = 0;
@@ -1351,6 +1354,12 @@ namespace IO
 
                 // Dipole-dipole cutoff radius
                 myfile.Read_Single(ddi_radius, "ddi_radius");
+
+                // FMM information
+                myfile.Read_Single(fmm_n_level,    "fmm_n_level");
+                myfile.Read_Single(fmm_l_max,      "fmm_l_max");
+                myfile.Read_Single(fmm_l_max_local,"fmm_l_max_local");
+
             }// end try
             catch( ... )
             {
@@ -1405,6 +1414,12 @@ namespace IO
         Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        {:<21} = {}", "ddi_method", ddi_method_str));
         Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        {:<21} = ({} {} {})", "ddi_n_periodic_images", ddi_n_periodic_images[0], ddi_n_periodic_images[1], ddi_n_periodic_images[2]));
         Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        {:<21} = {}", "ddi_radius", ddi_radius));
+        if (ddi_method == Engine::DDI_Method::FMM)
+        {
+            Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        {:<21} = {}", "fmm_n_level", fmm_n_level));
+            Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        {:<21} = {}", "fmm_l_max", fmm_l_max));
+            Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        {:<21} = {}", "fmm_l_max_local", fmm_l_max_local));
+        }
 
         std::unique_ptr<Engine::Hamiltonian_Heisenberg> hamiltonian;
 
@@ -1418,7 +1433,8 @@ namespace IO
                 ddi_method, ddi_n_periodic_images, ddi_radius,
                 quadruplets, quadruplet_magnitudes,
                 geometry,
-                boundary_conditions
+                boundary_conditions,
+                fmm_n_level, fmm_l_max, fmm_l_max_local
             ));
         }
         else
@@ -1431,7 +1447,8 @@ namespace IO
                 ddi_method, ddi_n_periodic_images, ddi_radius,
                 quadruplets, quadruplet_magnitudes,
                 geometry,
-                boundary_conditions
+                boundary_conditions,
+                fmm_n_level, fmm_l_max, fmm_l_max_local
             ));
         }
         Log(Log_Level::Info, Log_Sender::IO, "Hamiltonian_Heisenberg: built");

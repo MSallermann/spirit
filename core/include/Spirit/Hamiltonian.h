@@ -88,6 +88,8 @@ Configure the dipole-dipole interaction
 */
 PREFIX void Hamiltonian_Set_DDI(State *state, int ddi_method, int n_periodic_images[3], float cutoff_radius=0, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
+PREFIX void Hamiltonian_Set_FMM(State *state, int fmm_n_level, int fmm_l_max, int fmm_l_max_local, int idx_image=-1, int idx_chain=-1) SUFFIX;
+
 /*
 Getters
 --------------------------------------------------------------------

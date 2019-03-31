@@ -39,7 +39,8 @@ namespace Engine
             DDI_Method ddi_method, intfield ddi_n_periodic_images, scalar ddi_radius,
             quadrupletfield quadruplets, scalarfield quadruplet_magnitudes,
             std::shared_ptr<Data::Geometry> geometry,
-            intfield boundary_conditions
+            intfield boundary_conditions,
+            int fmm_n_level, int fmm_l_max, int fmm_l_max_local
         );
 
         Hamiltonian_Heisenberg(
@@ -50,7 +51,8 @@ namespace Engine
             DDI_Method ddi_method, intfield ddi_n_periodic_images, scalar ddi_radius,
             quadrupletfield quadruplets, scalarfield quadruplet_magnitudes,
             std::shared_ptr<Data::Geometry> geometry,
-            intfield boundary_conditions
+            intfield boundary_conditions,
+            int fmm_n_level, int fmm_l_max, int fmm_l_max_local
         );
 
         void Update_Interactions();
@@ -110,6 +112,10 @@ namespace Engine
         // ------------ Quadruplet Interactions ------------
         quadrupletfield quadruplets;
         scalarfield     quadruplet_magnitudes;
+
+        int fmm_n_level     = 3;
+        int fmm_l_max       = 4;
+        int fmm_l_max_local = 2;
 
     private:
         std::shared_ptr<Data::Geometry> geometry;

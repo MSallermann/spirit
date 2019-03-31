@@ -108,6 +108,19 @@ def set_ddi(p_state, ddi_method, n_periodic_images=[4,4,4], radius=0.0, idx_imag
     _Set_DDI(ctypes.c_void_p(p_state), ctypes.c_int(ddi_method) , vec3(*n_periodic_images), ctypes.c_float(radius),
              ctypes.c_int(idx_image), ctypes.c_int(idx_chain))
 
+
+_Set_FMM             = _spirit.Hamiltonian_Set_FMM
+_Set_FMM.argtypes    = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_Set_FMM.restype     = None
+def set_fmm(p_state, fmm_n_level, fmm_l_max, fmm_l_max_local, idx_image=-1, idx_chain=-1):
+    """Set the details for the FMM.
+    - fmm_n_level -- how many levels the octtree has
+    - fmm_l_max   -- up to which band the multipole expansions are taken
+    - fmm_l_max_local -- up to which band the local expansions are taken 
+    """
+    _Set_FMM(ctypes.c_void_p(p_state), ctypes.c_int(fmm_n_level), ctypes.c_int(fmm_l_max), ctypes.c_int(fmm_l_max_local),
+             ctypes.c_int(idx_image), ctypes.c_int(idx_chain))
+
 ### ---------------------------------- Get ----------------------------------
 
 _Get_Name          = _spirit.Hamiltonian_Get_Name
