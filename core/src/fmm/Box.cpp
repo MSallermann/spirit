@@ -15,7 +15,7 @@ namespace SimpleFMM
     using Utility::idx_from_tupel;
     using Utility::tupel_from_idx;
 
-    Box::Box(const vectorfield & pos, int level, int l_max) :
+    Box::Box(const vectorfield & pos, int level, int l_max, int degree_local) :
     level(level), pos(pos), n_spins(pos.size()), l_max(l_max)
     {
         this->pos_indices.resize(n_spins);
@@ -24,29 +24,30 @@ namespace SimpleFMM
             this->pos_indices[i] = i;
         }
         Get_Boundaries();
-        Update(l_max);
+        Update(l_max, degree_local);
     }
 
-    Box::Box(const vectorfield & pos, intfield indices, int level, int l_max):
+    Box::Box(const vectorfield & pos, intfield indices, int level, int l_max, int degree_local):
     level(level), pos(pos), pos_indices(indices), l_max(l_max), n_spins(indices.size())
     {
         Get_Boundaries();
-        Update(l_max);
+        Update(l_max, degree_local);
     }
 
-    Box::Box(const vectorfield & pos, intfield indices, int level, Vector3 min, Vector3 max, int l_max):
+    Box::Box(const vectorfield & pos, intfield indices, int level, Vector3 min, Vector3 max, int l_max, int degree_local):
     level(level), pos(pos), pos_indices(indices), l_max(l_max), n_spins(indices.size()), min(min), max(max)
     {
         this->center = 0.5 * (min + max);
-        Update(l_max);
+        Update(l_max, degree_local);
     }
 
-    void Box::Update(int l_max)
+    void Box::Update(int l_max, int degree_local)
     {
-        this->l_max = l_max;
+        this->l_max        = l_max;
+        this->degree_local = degree_local;
         this->multipole_moments.resize(n_moments(l_max, l_min));
         this->multipole_moments.shrink_to_fit();
-        this->local_moments.resize(n_moments_p(l_max));
+        this->local_moments.resize(n_moments_p(degree_local));
         this->local_moments.shrink_to_fit();
     }
 
@@ -98,29 +99,13 @@ namespace SimpleFMM
         std::vector<Box> result;
         for(int i = 0; i < n_children; i++)
         {
-            result.emplace_back(pos, result_indices[i], level+1, min[i], max[i], this->l_max);
+            result.emplace_back(pos, result_indices[i], level+1, min[i], max[i], this->l_max, this->degree_local);
 
         }       
         return result;
     }
     
-    // void Box::Get_Covering_Circle()
-    // {
-    //     center = {0, 0, 0};
-    //     for(auto i : pos_indices)
-    //         center += pos[i]/pos_indices.size();
-
-    //     radius = 0;
-    //     for(auto i : pos_indices)
-    //     {
-    //         scalar curr = (this->center - pos[i]).norm();
-    //         if(curr > radius)
-    //             radius = curr;
-    //         curr = 0;
-    //     }
-    // }
-
-    //Computes the extents of a box 
+    // Computes the extents of a box 
     void Box::Get_Boundaries()
     {
         min = pos[pos_indices[0]];
@@ -139,7 +124,7 @@ namespace SimpleFMM
         center = 0.5 * (max + min);
     }  
 
-    //Check if other_box is a near neighbour of this box
+    // Check if other_box is a near neighbour of this box
     bool Box::Is_Near_Neighbour(Box& other_box)
     {
         scalar distance = (this->center - other_box.center).norm();
@@ -220,7 +205,7 @@ namespace SimpleFMM
         {
             l = {0, 0, 0};
         }
-        }
+    }
 
     void Box::Clear_Multipole_Moments()
     {
@@ -244,15 +229,10 @@ namespace SimpleFMM
                     << " Level       = " << level << std::endl
                     << " n_children  = " << this->n_children << std::endl
                     << " n_particles = " << pos_indices.size() << std::endl
-                    // << "Middle              = " 
-                    // << middle[0] << " "
-                    // << middle[1] << " "
-                    // << middle[2] << " " << std::endl
                     << " center      = " 
                     << center[0] << " "
                     << center[1] << " "
                     << center[2] << " " << std::endl
-                    << " Radius      = " << radius << std::endl
                     << " Min / Max "             << std::endl
                     << "   x: " << min[0] << " / " << max[0] << std::endl
                     << "   y: " << min[1] << " / " << max[1] << std::endl

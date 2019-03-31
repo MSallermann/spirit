@@ -48,25 +48,26 @@ namespace SimpleFMM
 
     struct Box
     {
-        // === DATA ===
         // Tree Structure
         int id         = -1;
         int level      = -1;
         int n_children = -1;
 
         // Information about the geometry of the box
-        const vectorfield & pos; //refers to a Vector3 of positions
-        intfield pos_indices; //the positions at these indices are 'contained' in the box
+        // Reference to a Vector3 of positions
+        const vectorfield & pos; 
+        // The positions at these indices are 'contained' in the box
+        intfield pos_indices; 
+        // Number of spins in the box
         int n_spins;
-        Vector3 center;
 
-        scalar radius;
+        // Center
+        Vector3 center;
         Vector3 min;
         Vector3 max;
 
-        //caches
+        // Caches
         std::map<int, complexfield> M2M_cache;
-        // std::map<int, complexfield> M2L_cache;
         std::map<int, MatrixXc>     M2L_cache;
         std::map<int, complexfield> L2L_cache;
         complexfield Farfield_cache;
@@ -75,21 +76,22 @@ namespace SimpleFMM
         intfield interaction_list; //the ids of the boxes with which this box interacts via multipoles
         int l_min = 2;
         int l_max;
+        int degree_local;
         std::vector<Matrix3c> multipole_hessians;
         std::vector<Vector3c> multipole_moments;
         std::vector<Vector3c> local_moments;
 
-        // === METHODS ===
         // Constructs a box that contains all the positions in the vectorfield and calculates its boundaries
-        Box(const vectorfield & pos, int level, int l_max=6);
+        Box(const vectorfield & pos, int level, int l_max, int degree_local);
         // Constructs a box that contains all the positions that are contained in 'indices' and calculates the boundaries
-        Box(const vectorfield & pos, intfield indices, int level, int l_max=6);
-        // Constructs a box that contains all the positions that are contained in 'indices' and takes the bondaries as arguments
-        Box(const vectorfield & pos, intfield indices, int level, Vector3 min, Vector3 max, int l_max=6);
-        void Update(int l_max);
-
+        Box(const vectorfield & pos, intfield indices, int level, int l_max, int degree_local);
+        // Constructs a box that contains all the positions that are contained in 'indices' and takes the boundaries as arguments
+        Box(const vectorfield & pos, intfield indices, int level, Vector3 min, Vector3 max, int l_max, int degree_local);
+        
+        // Updates the number of terms in the box -> caches are resized
+        void Update(int l_max, int degree_local);
+        
         std::vector<Box> Divide_Evenly(int n_dim = 3, Vector3 normal1 = {0,0,1}, Vector3 normal2 = {0,1,0});
-        void Get_Covering_Circle();
         void Get_Boundaries();
         bool Is_Near_Neighbour(Box& other_box);
         bool Fulfills_MAC(Box& other_box);

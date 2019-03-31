@@ -39,8 +39,8 @@ namespace SimpleFMM
                         auto& diff = box1.pos[box1.pos_indices[i]] - box2.pos[box2.pos_indices[j]];
                         if(diff.norm() > 1e-10)
                         {
-                            directions.push_back(diff / diff.norm() ) ;
-                            magnitudes3.push_back(diff.norm() * diff.norm() * diff.norm());
+                            directions.push_back( diff / diff.norm() ) ;
+                            magnitudes3.push_back( diff.norm() * diff.norm() * diff.norm() );
                         } else {
                             directions.push_back({0,0,0});
                             magnitudes3.push_back({1});
@@ -63,8 +63,8 @@ namespace SimpleFMM
                         auto& idx2 = box2.pos_indices[j];
                         if(idx1 != idx2)
                         {
-                            gradient[idx1] += prefactor * mu_s[idx2] * (3 * spins[idx2].dot(directions[count]) * directions[count] - spins[idx2]) / magnitudes3[count];
-                            gradient[idx2] += prefactor * mu_s[idx1] * (3 * spins[idx1].dot(directions[count]) * directions[count] - spins[idx1]) / magnitudes3[count];                
+                            gradient[idx1] += prefactor * mu_s[idx2] * mu_s[idx1] * (3 * spins[idx2].dot(directions[count]) * directions[count] - spins[idx2]) / magnitudes3[count];
+                            gradient[idx2] += prefactor * mu_s[idx1] * mu_s[idx2] * (3 * spins[idx1].dot(directions[count]) * directions[count] - spins[idx1]) / magnitudes3[count];                
                         }
                         count++;
                     }
@@ -78,8 +78,8 @@ namespace SimpleFMM
                         auto& idx2 = box2.pos_indices[j];
                         if(idx1 != idx2)
                         {
-                            gradient[idx1] += prefactor * mu_s[idx2] * (3 * spins[idx2].dot(directions[count]) * directions[count] - spins[idx2]) / magnitudes3[count];
-                            gradient[idx2] += prefactor * mu_s[idx1] * (3 * spins[idx1].dot(directions[count]) * directions[count] - spins[idx1]) / magnitudes3[count];                
+                            gradient[idx1] += prefactor * mu_s[idx2] * mu_s[idx2] * (3 * spins[idx2].dot(directions[count]) * directions[count] - spins[idx2]) / magnitudes3[count];
+                            gradient[idx2] += prefactor * mu_s[idx1] * mu_s[idx1] * (3 * spins[idx1].dot(directions[count]) * directions[count] - spins[idx1]) / magnitudes3[count];                
                         }
                         count++;
                     }
@@ -124,7 +124,7 @@ namespace SimpleFMM
         Tree();
         Tree(int depth, vectorfield& pos, int n_dim = 3, int l_max = 6, int degree_local = 3);
 
-        //Implement all these
+        // Implement all these
         iterator begin_level(int level) 
         {
             return iterator(&boxes[start_idx_level[level]]);
@@ -145,7 +145,7 @@ namespace SimpleFMM
             return iterator(&boxes[_Get_Child_Idx(box.id) + box.n_children]);
         };
 
-        //TODO
+        // TODO
         iterator begin_near_neighbours(Box& box);
         iterator end_near_neighbours(Box& box);
 

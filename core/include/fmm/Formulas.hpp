@@ -23,8 +23,8 @@ namespace SimpleFMM {
             for(int m = -l; m <= l; m++)
             {
                 for(auto p_idx : box.pos_indices)
-                {   
-                    //Calculate the hessian via finite difference
+                {
+                    // Calculate the hessian via finite difference
                     Matrix3c hessian;
                     vectorfield d_xyz = {
                                             {0.5 * epsilon, 0, 0},
@@ -33,7 +33,7 @@ namespace SimpleFMM {
                                         };
 
                     Vector3 spherical;
-                     //fill the hessian with second derivatives
+                    // Fill the hessian with second derivatives
                     for(int dir1 = 0; dir1 < 3; dir1++)
                     {
                         for(int dir2 = dir1; dir2 < 3; dir2++)
@@ -240,7 +240,6 @@ namespace SimpleFMM {
     // ============================================  
     //             Evaluation functions    
     // ============================================    
-
     inline void Build_Far_Field_Cache(Box& box, int degree_local)
     {
         for(int i = 0; i < box.n_spins; i++)
@@ -258,19 +257,19 @@ namespace SimpleFMM {
         }
     }
 
-    inline void Evaluate_Far_Field(const Box& box, vectorfield& gradient, int degree_local, scalar prefactor = 1)
+    inline void Evaluate_Far_Field(const Box& box, vectorfield& gradient, const scalarfield mu_s, int degree_local, scalar prefactor = 1)
     {
        for(int i = 0; i < box.n_spins; i++)
         {               
             auto& p_idx = box.pos_indices[i];
             for(int l = 0; l <= degree_local; l++)
             {
-                gradient[p_idx] += prefactor * (box.local_moments[multipole_idx_p(l, 0)] * box.Farfield_cache[n_moments_p(degree_local) * i + multipole_idx_p(l,0)]).real();
+                gradient[p_idx] += prefactor * mu_s[p_idx] * (box.local_moments[multipole_idx_p(l, 0)] * box.Farfield_cache[n_moments_p(degree_local) * i + multipole_idx_p(l,0)]).real();
                 for(int m = 1; m <= l; m++)
                 {
                     auto& moment = box.local_moments[multipole_idx_p(l, m)];
                     auto& cache = box.Farfield_cache[n_moments_p(degree_local) * i + multipole_idx_p(l,m)];
-                    gradient[p_idx] += prefactor * 2 * (moment * cache).real();
+                    gradient[p_idx] += prefactor * mu_s[p_idx] * 2 * (moment * cache).real();
                 }
             }
         }

@@ -33,7 +33,7 @@ namespace SimpleFMM
         boxes.reserve(n_boxes);
         
         // Push back the root box
-        this->boxes.push_back(Box(pos, 0, l_max));
+        this->boxes.push_back(Box(pos, 0, l_max, degree_local));
         start_idx_level.push_back(0);
         n_boxes_on_level.push_back(1);
         Get_Box(0).id = 0;
@@ -161,7 +161,7 @@ namespace SimpleFMM
     {
         for(auto leaf_box = begin_level(n_level-1); leaf_box != end_level(n_level-1); leaf_box++)
         {
-            Evaluate_Far_Field(*leaf_box, gradient, degree_local, prefactor);
+            Evaluate_Far_Field(*leaf_box, gradient, mu_s, degree_local, prefactor);
         }
         for(auto pair : this->direct_interaction_pairs)
         {
