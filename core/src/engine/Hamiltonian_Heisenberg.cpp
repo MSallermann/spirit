@@ -326,6 +326,8 @@ namespace Engine
     {
         if( this->ddi_method == DDI_Method::FFT )
             this->E_DDI_FFT(spins, Energy);
+        else if( this->ddi_method == DDI_Method::FMM )
+            this->E_DDI_FMM(spins, Energy);
         else if( this->ddi_method == DDI_Method::Cutoff )
         {
             // TODO: Merge these implementations in the future
@@ -412,6 +414,24 @@ namespace Engine
             // std::cerr << "Avg. Gradient = " << avg[0]/this->geometry->nos << " " << avg[1]/this->geometry->nos << " " << avg[2]/this->geometry->nos << std::endl;
             // std::cerr << "Avg. Deviation = " << deviation[0]/this->geometry->nos << " " << deviation[1]/this->geometry->nos << " " << deviation[2]/this->geometry->nos << std::endl;
         //==== DEBUG: end gradient comparison ====
+
+        // TODO: add dot_scaled to Vectormath and use that
+        #pragma omp parallel for
+        for( int ispin = 0; ispin < geometry->nos; ispin++ )
+        {
+            Energy[ispin] += 0.5 * spins[ispin].dot(gradients_temp[ispin]);
+            // Energy_DDI    += 0.5 * spins[ispin].dot(gradients_temp[ispin]);
+        }
+    }
+
+    void Hamiltonian_Heisenberg::E_DDI_FMM(const vectorfield & spins, scalarfield & Energy)
+    {
+        // This is the same that E_DDI_FFT already does
+        scalar Energy_DDI = 0;
+        vectorfield gradients_temp;
+        gradients_temp.resize(geometry->nos);
+        Vectormath::fill(gradients_temp, {0,0,0});
+        this->Gradient_DDI_FMM(spins, gradients_temp);
 
         // TODO: add dot_scaled to Vectormath and use that
         #pragma omp parallel for
