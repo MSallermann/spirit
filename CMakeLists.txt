@@ -14,7 +14,7 @@ SET( SPIRIT_PRINT_SOURCES     OFF  CACHE BOOL "Print Spirit Headers and Sources 
 ### These decide which projects are built
 SET( SPIRIT_BUILD_FOR_JS      OFF  CACHE BOOL "Build the JavaScript library." )
 SET( SPIRIT_BUILD_FOR_JULIA   OFF  CACHE BOOL "Build the shared library for Julia." )
-SET( SPIRIT_BUILD_FOR_PYTHON  ON   CACHE BOOL "Build the shared library for Python." )
+SET( SPIRIT_BUILD_FOR_PYTHON  OFF   CACHE BOOL "Build the shared library for Python." )
 SET( SPIRIT_BUILD_FOR_CXX     ON   CACHE BOOL "Build the static library for C++ applications" )
 ### Feature switches for Spirit
 SET( SPIRIT_ENABLE_PINNING    OFF  CACHE BOOL "Enable pinning individual or rows of spins." )
@@ -34,7 +34,9 @@ SET( SPIRIT_CUDA_ARCH   "sm_60"  CACHE STRING "The CUDA compute architecture to 
 ### CMake Verbosity
 option( PRINT_SOURCES    "Print Headers and Sources from Cmake."                         OFF )
 ### Decide CXX UI
-option( UI_CXX_USE_QT    "Build the QT User Interface instead of console version."       ON  )
+option( UI_CXX_USE_QT       "Build the QT User Interface instead of console version."       OFF )
+option( UI_CXX_USE_NANOGUI  "Build the nanoGUI User Interface instead of console version."  ON  )
+
 ### Bundle option
 option( BUNDLE_APP       "On installation, bundle the executable with its dependencies." OFF )
 ### Option for building on the IFF cluster
@@ -216,11 +218,16 @@ if( SPIRIT_BUILD_FOR_JS )
     add_subdirectory( ui-web )
 ### CXX UI
 elseif( SPIRIT_BUILD_FOR_CXX )
-    if ( UI_CXX_USE_QT )
+    if ( NOT UI_CXX_USE_NANOGUI )
+        if (UI_CXX_USE_QT)
+            add_subdirectory( VFRendering )
+            add_definitions( -DUI_CXX_USE_QT )
+        endif()
+        add_subdirectory( ui-cpp )
+    elseif(UI_CXX_USE_NANOGUI)
         add_subdirectory( VFRendering )
-        add_definitions( -DUI_CXX_USE_QT )
+        add_subdirectory( ui-cpp-nanogui )
     endif()
-    add_subdirectory( ui-cpp )
 endif()
 #############################################
 
