@@ -156,6 +156,176 @@ namespace Solver_Kernels
         }
     }
 
+    // Calculates the residuals for a certain spin configuration
+    void ncg_stereo_eval(   std::vector<Vector2> & a_residuals, std::vector<Vector2> & a_residuals_last, const vectorfield & spins,
+                            const vectorfield & forces, std::vector<Eigen::Matrix<scalar,3,2>> & jacobians, const scalarfield & a3_coords )
+    {
+        // Get Jacobians
+        #pragma omp parallel for
+        for(int i=0; i < spins.size(); i++)
+        {
+            auto & J        = jacobians[i];
+            const auto & s  = spins[i];
+            const auto & a3 = a3_coords[i];
+
+            J(0,0) =  s[1]*s[1]  + s[2]*(s[2] + a3);
+            J(0,1) = -s[0]*s[1];
+            J(1,0) = -s[0]*s[1];
+            J(1,1) =  s[0]*s[0]  + s[2]*(s[2] + a3);
+            J(2,0) = -s[0]*(s[2] + a3);
+            J(2,1) = -s[1]*(s[2] + a3);
+
+            // If the two adresses are different we save the old residuals
+            if( &a_residuals != &a_residuals_last )
+                a_residuals_last[i] = a_residuals[i];
+
+            a_residuals[i]      = forces[i].transpose() * J;
+        }
+    }
+
+    void ncg_stereo_a_to_spins(const vector2field & a_coords, const scalarfield & a3_coords, vectorfield & spins)
+    {
+        #pragma omp_parallel_for
+        for(int i=0; i<a_coords.size(); i++)
+        {
+            auto &        s = spins[i];
+            const auto &  a = a_coords[i];
+            const auto & a3 = a3_coords[i];
+
+            s[0] = 2*a[0] / (1 + a[0]*a[0] + a[1]*a[1]);
+            s[1] = 2*a[1] / (1 + a[0]*a[0] + a[1]*a[1]);
+            s[2] = a3 * (1 - a[0]*a[0] - a[1]*a[1]) / (1 + a[0]*a[0] + a[1]*a[1]);
+        }
+    }
+
+    void ncg_stereo_spins_to_a(const vectorfield & spins, vector2field & a_coords, scalarfield & a3_coords)
+    {
+        #pragma omp_parallel_for
+        for(int i=0; i<spins.size(); i++)
+        {
+            const auto & s = spins[i];
+            auto &       a = a_coords[i];
+            auto &      a3 = a3_coords[i];
+
+            a3 = (s[2] > 0) ? 1 : -1;
+            a[0] = s[0] / (1 + s[2]*a3);
+            a[1] = s[1] / (1 + s[2]*a3);
+        }
+    }
+
+    void ncg_stereo_check_coordinates(const vectorfield & spins, vector2field & a_coords, scalarfield & a3_coords, vector2field & a_directions)
+    {
+        // Check if we need to reset the maps
+        bool reset = false;
+
+        #pragma omp parallel for
+        for( int i=0; i<spins.size(); i++ )
+        {
+            // If for one spin the z component deviates too much from the pole we perform a reset for *all* spins
+            // Note I am not sure why we reset for all spins ... but this in agreement with the method of F. Rybakov
+            if(spins[i][2]*a3_coords[i] < -0.5)
+            {
+                reset = true;
+                break;
+            }
+        }
+
+        if(reset)
+        {
+            std::cout << fmt::format("resetting coordinates\n");
+            for( int i=0; i<spins.size(); ++i )
+            {
+                const auto & s = spins[i];
+                auto &       a = a_coords[i];
+                auto &      a3 = a3_coords[i];
+
+                if( spins[i][2]*a3_coords[i] < 0 )
+                {
+                    // Transform coordinates to optimal map
+                    a3 = (s[2] > 0) ? 1 : -1;
+                    a[0] = s[0] / (1 + s[2]*a3);
+                    a[1] = s[1] / (1 + s[2]*a3);
+
+                    // Also transform search direction to new map
+                    a_directions[i] *= (1 - a3 * s[2]) / (1 + a3 * s[2]);
+                }
+            }
+        }
+    }
+
+
+    bool ncg_stereo_line_search(const Data::Spin_System & system, vectorfield & image, vectorfield & image_displaced,
+                                vector2field & a_residuals, const vector2field & a_residuals_displaced, vector2field & a_directions,
+                                vector2field & a_coords, vector2field & a_coords_displaced, scalarfield a3_coords, scalar & step_size, int & n_step,
+                                scalar E0, scalar g0, scalar gr, scalar a_direction_norm)
+    {
+        std::cout << fmt::format(" -- Performing Line Search -- \n");
+        fmt::print("n_step = {}\n", n_step);
+        fmt::print("step_size = {}\n", step_size);
+
+        scalar Er = system.hamiltonian->Energy(image_displaced);
+
+        // std::cout << fmt::format("energy           {:.15f}\n", E0);
+        // std::cout << fmt::format("energy_displaced {:.15f}\n", Er);
+
+        // // Get directional derivatives with respect to search direction in atlas space
+        // scalar gr = 0;
+        // #pragma omp parallel for reduction(+:g0) reduction(+:gr)
+        // for( int i=0; i<image.size(); ++i )
+        // {
+        //     // g0 -= a_residuals[i].dot(a_directions[i]) / a_direction_norm;
+        //     gr -= a_residuals_displaced[i].dot(a_directions[i]) / a_direction_norm;
+        // }
+
+        ++n_step;
+        scalar factor = inexact_line_search(step_size, E0, Er, g0, gr);
+
+        fmt::print("factor = {}\n", factor);
+        if(!isnan(factor))
+        {
+            step_size *= factor;
+        } else {
+            // fmt::print("Going to E0\n");
+            step_size = 0;
+            return true;
+        }
+
+        #pragma omp parallel for
+        for( int i=0; i<image.size(); ++i )
+        {
+            a_coords_displaced[i] = a_coords[i] + step_size * a_directions[i];
+        }
+        Solver_Kernels::ncg_stereo_a_to_spins(a_coords_displaced, a3_coords, image_displaced);
+
+        Er = system.hamiltonian->Energy(image_displaced);
+        // std::cout << fmt::format("new energy_displaced {:.15f}\n", Er);
+
+
+        if( n_step < 20 && Er > E0 )
+        {
+            ncg_stereo_line_search(system, image, image_displaced,
+                                a_residuals, a_residuals_displaced, a_directions,
+                                a_coords, a_coords_displaced, a3_coords, step_size, n_step, E0, g0, gr, a_direction_norm);
+            return false;
+        }
+        return true;
+        // scalar  c1 = -2 * (energy_displaced - energy) / (r*r*r) + (gr + g0) / (r*r);
+        // scalar  c2 =  3 * (energy_displaced - energy) / (r*r) - (gr + 2*g0) / r;
+        // scalar& c3 = g0;
+        // scalar& c4 = energy;
+        // scalar temp = c2*c2 - 3*c1*c3;
+
+        // fmt::print("a_direction_norm = {}\n", a_direction_norm);
+        // std::cout << fmt::format("Polynomial values\n");
+        // std::cout << fmt::format("    r = {}\n", r);
+        // std::cout << fmt::format("   g0 = {}\n", g0);
+        // std::cout << fmt::format("   gr = {}\n", gr);
+        // std::cout << fmt::format("   c1 = {}\n", c1);
+        // std::cout << fmt::format("   c2 = {}\n", c2);
+        // std::cout << fmt::format("   c3 = {}\n", c3);
+        // std::cout << fmt::format("   c4 = {}\n", c4);
+        // std::cout << fmt::format("   c2*c2 - 3*c1*c3 = {}\n", temp);
+    }
     #endif
 }
 }

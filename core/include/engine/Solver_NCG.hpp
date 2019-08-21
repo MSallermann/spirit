@@ -68,7 +68,7 @@ void Method_Solver<Solver::NCG>::Iteration ()
 
         scalar dt = this->systems[0]->llg_parameters->dt;
         this->beta[img] = Solver_Kernels::ncg_beta_polak_ribiere(image, force, residual, residual_last, force_virtual);
-        scalar dir_max = Solver_Kernels::ncg_dir_max(direction, residual, this->beta[img], axis);
+        scalar dir_max  = Solver_Kernels::ncg_dir_max(direction, residual, this->beta[img], axis);
 
         // dir_avg /= image.size();
         if( dir_max < 1e-12 )
