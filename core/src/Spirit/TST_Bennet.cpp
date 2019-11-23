@@ -5,7 +5,7 @@
 #include <utility/Logging.hpp>
 #include <utility/Exception.hpp>
 
-float TST_Bennet_Calculate(State * state, int idx_image_minimum, int idx_image_sp, int idx_chain)
+float TST_Bennet_Calculate(State * state, int idx_image_minimum, int idx_image_sp, int idx_chain) noexcept
 try
 {
     std::shared_ptr<Data::Spin_System> image_minimum, image_sp;
