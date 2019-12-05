@@ -140,37 +140,58 @@ namespace Engine
             std::cerr << "benn_sp = " << benn_sp << " +- " << benn_sp_var << "\n";
             // ####################################
 
-            scalar q_min = 0.5/(C::k_B * temperature) * eigenvectors.col(0).normalized().transpose() * hessian_minimum_constrained * eigenvectors.col(0).normalized();
+            scalar q_min = 1.0/(2.0 * C::k_B * temperature) * eigenvectors.col(0).normalized().transpose() * hessian_minimum_constrained * eigenvectors.col(0).normalized();
             scalar unstable_mode_contribution_minimum = std::sqrt(C::Pi / q_min);
 
-            scalar rate = C::g_e / (C::hbar) * benn_min / ( benn_sp * unstable_mode_contribution_minimum) * vel_perp;
+            scalar rate = C::g_e / (C::hbar) * vel_perp * benn_min / (benn_sp * unstable_mode_contribution_minimum) ;
+            std::cerr << "Unstable mode contribution " << unstable_mode_contribution_minimum << "\n";
+            std::cerr << "Zs/Zm = " << benn_min / benn_sp << "\n";        
             std::cerr << "Rate  = " << rate << " [1/ps]\n";
 
-            // // Debug
-            // VectorX state_new = VectorX::Zero(2);
-            // VectorX state_old = VectorX::Zero(2);
-            // VectorX normal = VectorX::Zero(2);
-            // normal[0] = 1; normal[1] = 1;
-            // MC_Tracker mc;
-            // mc.target_rejection_ratio = 0.5;
-            // std::mt19937 prng = std::mt19937(213);
-            // auto func = [](const VectorX & state) {return state.squaredNorm();};
-
-            // for(int i=0; i < 50000; i++)
+            // Debug
             // {
-            //     // std::cerr << "--- Iteration" << i << "\n";
-            //     // std::cerr << "before state_old     = " << state_old.transpose() << "\n";
-            //     // std::cerr << "before state_new     = " << state_new.transpose() << "\n";
-            //     Hyperplane_Metropolis(func, state_old, state_new, normal.normalized(), prng, mc);
-            //     Backend::par::apply(state_old.size(), [&](int idx) { state_old[idx] = state_new[idx]; });
-            //     std::cerr << state_old.transpose() << "\n";
+            //     std::cerr << "====== Debug test =====\n";
+            //     VectorX state_new = VectorX::Zero(3);
+            //     VectorX state_old = VectorX::Zero(3);
+            //     VectorX normal = VectorX::Zero(3);
+            //     normal[0] = 0; normal[1] = 0; normal[2] = 0;
+            //     MatrixX hessian = MatrixX::Zero(3,3);
 
-            //     // std::cerr << "state_old     = " << state_old.transpose() << "\n";
-            //     // std::cerr << "state_new     = " << state_new.transpose() << "\n";
+            //     hessian <<  1,0,0,
+            //                 0,1,0,
+            //                 0,0,1;
+            //     std::cerr << hessian << "\n";
+            //     MC_Tracker mc;
+            //     mc.target_rejection_ratio = 0.25;
+            //     std::mt19937 prng = std::mt19937(21380);
+
+            //     auto func = [&](const VectorX & state) {return 0.5 * state.transpose() * hessian * state;};
+            //     VectorX v = VectorX::Zero(3);
+            //     v << 1,1,1;
+            //     std::cerr << "func({1,1,1}) = " << func(v) << "\n";
+            //     v << 1,0,1;
+            //     std::cerr << "func({1,0,1}) = " << func(v) << "\n";
+            //     v << 0,0,1;
+            //     std::cerr << "func({0,0,1}) = " << func(v) << "\n";
+            //     v << 1,0,0;
+            //     std::cerr << "func({1,0,0}) = " << func(v) << "\n";
+
+
+            //     for(int i=0; i < 10000; i++)
+            //     {
+            //         Hyperplane_Metropolis(func, state_old, state_new, normal.normalized(), prng, mc);
+            //         Backend::par::apply(state_old.size(), [&](int idx) { state_old[idx] = state_new[idx]; });
+            //     }
+            //     for(int i=0; i < 100000; i++)
+            //     {
+            //         Hyperplane_Metropolis(func, state_old, state_new, normal.normalized(), prng, mc);
+            //         Backend::par::apply(state_old.size(), [&](int idx) { state_old[idx] = state_new[idx]; });
+            //         std::cerr << state_old.transpose() << "\n";
+            //     }
+            //     // std::cerr << "n_trials     = " << mc.n_trials   << "\n";
+            //     // std::cerr << "n_rejected   = " << mc.n_rejected << "\n";
+            //     // std::cerr << "dist_width   = " << mc.dist_width << "\n";
             // }
-            // std::cerr << "n_trials     = " << mc.n_trials   << "\n";
-            // std::cerr << "n_rejected   = " << mc.n_rejected << "\n";
-            // std::cerr << "dist_width   = " << mc.dist_width << "\n";
         }
 
         bool Get_Unstable_Mode(const vectorfield & spins, const vectorfield & gradient, const MatrixX & hessian,
@@ -222,7 +243,7 @@ namespace Engine
             std::mt19937 prng = std::mt19937(803);
 
             MC_Tracker mc_min;
-            mc_min.target_rejection_ratio = 0.25;
+            mc_min.target_rejection_ratio = 0.5;
             mc_min.dist_width = 1;
 
             // scalar bennet_data = 0;
@@ -267,7 +288,12 @@ namespace Engine
             mc_sp.target_rejection_ratio = 0.25;
             mc_sp.dist_width = 1;
 
-            // scalar bennet_data = 0;
+            // Thermalise for 10000 steps
+            for(int i=0; i<10000; i++)
+            {
+                Hyperplane_Metropolis(action_sp, state_sp_old, state_sp_new, unstable_mode.normalized(), prng, mc_sp);
+                state_sp_old = state_sp_new;
+            }
 
             scalar vel_perp = 0;
             for(int i=0; i<n_iteration; i++)
@@ -275,6 +301,7 @@ namespace Engine
                 Hyperplane_Metropolis(action_sp, state_sp_old, state_sp_new, unstable_mode.normalized(), prng, mc_sp);
                 // std::cerr << "SP iteration " << i << " " << unstable_mode.dot(state_sp_new) << "\n";
                 state_sp_old = state_sp_new;
+                // std::cerr << state_sp_old.transpose() << "\n";
                 bennet_results[i] = bennet_exp(state_sp_old);
                 vel_perp += 0.5 * std::abs(perpendicular_velocity.dot(state_sp_old));
             }

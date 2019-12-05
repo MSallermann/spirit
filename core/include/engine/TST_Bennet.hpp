@@ -47,15 +47,17 @@ namespace Engine
                     }
                     n_rejected_cur = 0;
                 }
-                else if (rejected) {
+                if (rejected) {
                     n_rejected_cur++;
+                    n_rejected++;
                 }
+                n_trials++;
             }
         };
 
         // Performs one iteration of a Metropolis Monte Carlo algorithm, restricted to a cartesian hyperlane. The hyperplane is assumed to contain the origin (zero vector).
         template<typename Action_Function>
-        void Hyperplane_Metropolis(Action_Function action_func, const VectorX & state_old, VectorX & state_new, const VectorX & plane_normal, std::mt19937 & prng, MC_Tracker & mc)
+        void Hyperplane_Metropolis(Action_Function action_func, VectorX & state_old, VectorX & state_new, const VectorX & plane_normal, std::mt19937 & prng, MC_Tracker & mc)
         {
             int n = plane_normal.size();
             auto distribution = std::uniform_real_distribution<scalar>(0, 1);
@@ -77,8 +79,6 @@ namespace Engine
                 scalar E_new  = action_func( state_new );
                 scalar E_diff = E_new - E_old;
 
-                mc.n_trials++;
-
                 // Metropolis criterion: reject the step if energy rose
                 if( E_diff > 1e-14 )
                 {
@@ -94,13 +94,12 @@ namespace Engine
                         // Restore the state
                         for(int j=0; j<n; j++)
                             state_new[j] = state_old[j];
-
                         mc.adapt(true);
-                        mc.n_rejected++;
-                    } else {
-                        mc.adapt(false);
+                        continue;
                     }
                 }
+                state_old = state_new;
+                mc.adapt(false);
             }
         }
 
