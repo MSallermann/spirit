@@ -54,8 +54,6 @@ namespace Data
         std::vector<scalar> eigenvalues;
         // Orientations of the Spins: spins[dim][nos]
         std::shared_ptr<vectorfield> spins;
-        // Orientations of the Spins: spins[dim][nos]
-        std::shared_ptr<scalarfield> regions;
         // Spin Hamiltonian
         std::shared_ptr<Engine::Hamiltonian> hamiltonian;
         // Geometric Information

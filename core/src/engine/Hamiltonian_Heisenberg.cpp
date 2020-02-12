@@ -39,7 +39,7 @@ namespace Engine
         exchange_pairs_in(exchange_pairs), exchange_magnitudes_in(exchange_magnitudes), exchange_shell_magnitudes(0),
         dmi_pairs_in(dmi_pairs), dmi_magnitudes_in(dmi_magnitudes), dmi_normals_in(dmi_normals), dmi_shell_magnitudes(0), dmi_shell_chirality(0),
         quadruplets(quadruplets), quadruplet_magnitudes(quadruplet_magnitudes),
-        ddi_method(ddi_method), ddi_n_periodic_images(ddi_n_periodic_images), ddi_pb_zero_padding(ddi_pb_zero_padding) ,ddi_cutoff_radius(ddi_radius),
+        ddi_method(ddi_method), ddi_n_periodic_images(ddi_n_periodic_images), ddi_pb_zero_padding(ddi_pb_zero_padding), ddi_cutoff_radius(ddi_radius),
         fft_plan_reverse(FFT::FFT_Plan()), fft_plan_spins(FFT::FFT_Plan())
     {
         // Generate interaction pairs, constants etc.
@@ -1189,7 +1189,6 @@ namespace Engine
                 n_cells_padded[i] = 2;
         #endif
 
-        sublattice_size = n_cells_padded[0] * n_cells_padded[1] * n_cells_padded[2];
 
         inter_sublattice_lookup.resize(geometry->n_cell_atoms * geometry->n_cell_atoms);
 

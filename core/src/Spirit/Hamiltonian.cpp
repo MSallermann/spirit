@@ -97,7 +97,7 @@ try
             else if( type == Hamiltonian_Micromagnetic )
             {
                 // TODO: are these the desired defaults?
-            	/*
+                /*
                 image->hamiltonian = std::shared_ptr<Engine::Hamiltonian>(new Engine::Hamiltonian_Micromagnetic(
                     0, Vector3{0, 0, 1},
                     1, scalarfield(1,0),vectorfield(1, Vector3{0,0,1}),
@@ -106,9 +106,9 @@ try
                     image->geometry,
                     2,
                     image->hamiltonian->boundary_conditions,
-                	Vector3{5e-11, 5e-11, 5e-10},
-                	8e5
-                	));*/
+                    Vector3{5e-11, 5e-11, 5e-10},
+                    8e5
+                    ));*/
             }
             else if( type == Hamiltonian_Gaussian )
             {
@@ -178,7 +178,6 @@ void Hamiltonian_Set_Cell_Sizes(State *state, const float * cell_sizes, int idx_
 
         try
         {
-
             auto ham = (Engine::Hamiltonian_Micromagnetic*)image->hamiltonian.get();
 
             // Into the Hamiltonian
@@ -207,7 +206,7 @@ void Hamiltonian_Set_Cell_Sizes(State *state, const float * cell_sizes, int idx_
     }
 }
 
-void Hamiltonian_Set_Ms(State *state, const float Ms, int region_id, int idx_image, int idx_chain) noexcept
+void Hamiltonian_Set_Ms(State *state, const float Ms, int idx_image, int idx_chain) noexcept
 {
     try
     {
@@ -226,8 +225,7 @@ void Hamiltonian_Set_Ms(State *state, const float Ms, int region_id, int idx_ima
             auto ham = (Engine::Hamiltonian_Micromagnetic*)image->hamiltonian.get();
 
             // Into the Hamiltonian
-            ham->regions_book[region_id].Ms = Ms;
-
+            ham->Ms = Ms;
             // Update Energies
             ham->Update_Energy_Contributions();
 
@@ -308,58 +306,6 @@ void Hamiltonian_Set_Field(State *state, float magnitude, const float * normal, 
     }
 }
 
-void Hamiltonian_Set_Field_Regions(State *state, float magnitude, const float * normal, int region_id, int idx_image, int idx_chain) noexcept
-try
-{
-    std::shared_ptr<Data::Spin_System> image;
-    std::shared_ptr<Data::Spin_System_Chain> chain;
-
-    // Fetch correct indices and pointers
-    from_indices( state, idx_image, idx_chain, image, chain );
-
-    if( image->hamiltonian->Name() != "Heisenberg" && image->hamiltonian->Name() != "Micromagnetic" )
-    {
-        Log( Utility::Log_Level::Warning, Utility::Log_Sender::API,
-            "External field cannot be set on " + image->hamiltonian->Name(), idx_image, idx_chain );
-        return;
-    }
-
-    // Lock mutex because simulations may be running
-    image->Lock();
-
-    try
-    {
-		auto ham = (Engine::Hamiltonian_Micromagnetic*)image->hamiltonian.get();
-
-		// Normals
-		Vector3 new_normal{normal[0], normal[1], normal[2]};
-		new_normal.normalize();
-
-		// Into the Hamiltonian
-		ham->regions_book[region_id].external_field_magnitude = magnitude;
-		ham->regions_book[region_id].external_field_normal = new_normal;
-
-		// Update Energies
-		ham->Update_Energy_Contributions();
-
-    }
-    catch( ... )
-    {
-        spirit_handle_exception_api(idx_image, idx_chain);
-    }
-
-    // Unlock mutex
-    image->Unlock();
-
-    Log( Utility::Log_Level::Info, Utility::Log_Sender::API,
-        fmt::format("Set external field to {}, direction ({}, {}, {})", magnitude, normal[0], normal[1], normal[2]),
-        idx_image, idx_chain );
-}
-catch( ... )
-{
-    spirit_handle_exception_api(idx_image, idx_chain);
-}
-
 void Hamiltonian_Set_Anisotropy( State *state, float magnitude, const float * normal,
                                  int idx_image, int idx_chain) noexcept
 {
@@ -423,57 +369,7 @@ void Hamiltonian_Set_Anisotropy( State *state, float magnitude, const float * no
     }
 }
 
-void Hamiltonian_Set_Anisotropy_Regions( State *state, float magnitude, const float * normal, int region_id,
-                                 int idx_image, int idx_chain) noexcept
-try
-{
-    std::shared_ptr<Data::Spin_System> image;
-    std::shared_ptr<Data::Spin_System_Chain> chain;
 
-    // Fetch correct indices and pointers
-    from_indices( state, idx_image, idx_chain, image, chain );
-
-    image->Lock();
-
-    try
-    {
-		auto ham = (Engine::Hamiltonian_Micromagnetic*)image->hamiltonian.get();
-		int nos = image->nos;
-		int n_cell_atoms = image->geometry->n_cell_atoms;
-
-		// Indices and Magnitudes
-		scalarfield new_magnitudes(1);
-		new_magnitudes[0] = magnitude;
-		// Normals
-		Vector3 new_normal{ normal[0], normal[1], normal[2] };
-		new_normal.normalize();
-		//vectorfield new_normals(1, new_normal);
-
-		// Into the Hamiltonian
-		ham->regions_book[region_id].n_anisotropies = 1;
-		ham->regions_book[region_id].anisotropy_magnitudes[0] = new_magnitudes[0];
-		ham->regions_book[region_id].anisotropy_normals[0] = new_normal;
-
-		// Update Energies
-		ham->Update_Energy_Contributions();
-
-		Log( Utility::Log_Level::Info, Utility::Log_Sender::API,
-			fmt::format("Set anisotropy to {}, direction ({}, {}, {})", magnitude, new_normal[0], new_normal[1], new_normal[2]),
-			idx_image, idx_chain );
-
-
-    }
-    catch( ... )
-    {
-        spirit_handle_exception_api(idx_image, idx_chain);
-    }
-
-    image->Unlock();
-}
-catch( ... )
-{
-    spirit_handle_exception_api(idx_image, idx_chain);
-}
 
 void Hamiltonian_Set_Exchange(State *state, int n_shells, const float* jij, int idx_image, int idx_chain) noexcept
 {
@@ -519,7 +415,7 @@ void Hamiltonian_Set_Exchange(State *state, int n_shells, const float* jij, int 
     }
 }
 
-void Hamiltonian_Set_Exchange_Tensor(State *state, float exchange_tensor, int region_id, int idx_image, int idx_chain) noexcept
+void Hamiltonian_Set_Exchange_Stiffness(State *state, float exchange_stiffness, int idx_image, int idx_chain) noexcept
 {
     try
     {
@@ -537,14 +433,12 @@ void Hamiltonian_Set_Exchange_Tensor(State *state, float exchange_tensor, int re
             {
                 // Update the Hamiltonian
                 auto ham = (Engine::Hamiltonian_Micromagnetic*)image->hamiltonian.get();
-                ham->regions_book[region_id].Aexch = exchange_tensor;
+                ham->exchange_stiffness = exchange_stiffness;
 
                 ham->Update_Interactions();
 
-                std::string message = fmt::format("Set exchange tensor:\n");
-                message += fmt::format("{}\n", exchange_tensor);
-                //message += fmt::format("{} {} {}\n", exchange_tensor[3],exchange_tensor[4],exchange_tensor[5]);
-                //message += fmt::format("{} {} {}", exchange_tensor[6],exchange_tensor[7],exchange_tensor[8]);
+                std::string message = fmt::format("Set exchange stiffness:\n");
+                message += fmt::format("{}\n", exchange_stiffness);
                 Log(Utility::Log_Level::Info, Utility::Log_Sender::API, message, idx_image, idx_chain);
             }
             else
@@ -619,7 +513,7 @@ void Hamiltonian_Set_DMI(State *state, int n_shells, const float * dij, int chir
     }
 }
 
-void Hamiltonian_Set_DMI_Tensor(State *state, float dmi_tensor, int region_id, int idx_image, int idx_chain) noexcept
+void Hamiltonian_Set_Spiralisation_Constant(State *state, float dmi_constant, int dmi_chirality, int idx_image, int idx_chain) noexcept
 {
     try
     {
@@ -637,18 +531,17 @@ void Hamiltonian_Set_DMI_Tensor(State *state, float dmi_tensor, int region_id, i
             {
                 // Update the Hamiltonian
                 auto ham = (Engine::Hamiltonian_Micromagnetic*)image->hamiltonian.get();
-                ham->regions_book[region_id].Dmi = dmi_tensor;
+                ham -> dmi_constant = dmi_constant;
+                ham -> dmi_chirality = dmi_chirality;
                 ham->Update_Interactions();
 
-                std::string message = fmt::format("Set DMI tensor:\n");
-                message += fmt::format("{}\n", dmi_tensor);
-                //message += fmt::format("{} {} {}\n", dmi_tensor[3],dmi_tensor[4],dmi_tensor[5]);
-                //message += fmt::format("{} {} {}", dmi_tensor[6],dmi_tensor[7],dmi_tensor[8]);
+                std::string message = fmt::format("Set spiralisation constant:\n");
+                message += fmt::format("{}\n", dmi_constant);
                 Log(Utility::Log_Level::Info, Utility::Log_Sender::API, message, idx_image, idx_chain);
             }
             else
                 Log( Utility::Log_Level::Warning, Utility::Log_Sender::API,
-                        "Exchange cannot be set on " + image->hamiltonian->Name(), idx_image, idx_chain );
+                        "Spiralisation constant cannot be set on " + image->hamiltonian->Name(), idx_image, idx_chain );
         }
         catch( ... )
         {
@@ -732,25 +625,6 @@ const char * Hamiltonian_Get_Name(State * state, int idx_image, int idx_chain) n
     }
 }
 
-void Hamiltonian_Get_Regions(State *state, int* region_num, int idx_image, int idx_chain) noexcept
-{
-    try
-    {
-        std::shared_ptr<Data::Spin_System> image;
-        std::shared_ptr<Data::Spin_System_Chain> chain;
-
-        // Fetch correct indices and pointers
-        from_indices( state, idx_image, idx_chain, image, chain );
-        auto ham = (Engine::Hamiltonian_Micromagnetic*)image->hamiltonian.get();
-        // Magnitude
-        *region_num = (int)(ham->region_num);
-    }
-    catch( ... )
-    {
-        spirit_handle_exception_api(idx_image, idx_chain);
-    }
-}
-
 void Hamiltonian_Get_Boundary_Conditions(State *state, bool * periodical, int idx_image, int idx_chain) noexcept
 {
     try
@@ -771,7 +645,7 @@ void Hamiltonian_Get_Boundary_Conditions(State *state, bool * periodical, int id
     }
 }
 
-void Hamiltonian_Get_Ms(State *state, float * Ms, int region_id, int idx_image, int idx_chain) noexcept
+void Hamiltonian_Get_Ms(State *state, float * Ms, int idx_image, int idx_chain) noexcept
 {
     try
     {
@@ -782,7 +656,7 @@ void Hamiltonian_Get_Ms(State *state, float * Ms, int region_id, int idx_image, 
         from_indices( state, idx_image, idx_chain, image, chain );
         auto ham = (Engine::Hamiltonian_Micromagnetic*)image->hamiltonian.get();
         // Magnitude
-        *Ms = (float)(ham->regions_book[region_id].Ms);
+        *Ms = float(ham->Ms);
     }
     catch( ... )
     {
@@ -850,44 +724,6 @@ void Hamiltonian_Get_Field(State *state, float * magnitude, float * normal, int 
     }
 }
 
-void Hamiltonian_Get_Field_Regions(State *state, float * magnitude, float * normal, int region_id, int idx_image, int idx_chain) noexcept
-{
-    try
-    {
-        std::shared_ptr<Data::Spin_System> image;
-        std::shared_ptr<Data::Spin_System_Chain> chain;
-
-        // Fetch correct indices and pointers
-        from_indices( state, idx_image, idx_chain, image, chain );
-        auto ham = (Engine::Hamiltonian_Micromagnetic*)image->hamiltonian.get();
-        if (ham->regions_book[region_id].external_field_magnitude > 0)
-        {
-            // Magnitude
-
-            *magnitude = (float)(ham->regions_book[region_id].external_field_magnitude);
-
-            // Normal
-            normal[0] = (float)ham->regions_book[region_id].external_field_normal[0];
-            normal[1] = (float)ham->regions_book[region_id].external_field_normal[1];
-            normal[2] = (float)ham->regions_book[region_id].external_field_normal[2];
-        }
-        else
-        {
-            *magnitude = 0;
-            normal[0] = 0;
-            normal[1] = 0;
-            normal[2] = 1;
-        }
-
-
-
-    }
-    catch( ... )
-    {
-        spirit_handle_exception_api(idx_image, idx_chain);
-    }
-}
-
 void Hamiltonian_Get_Anisotropy(State *state, float * magnitude, float * normal, int idx_image, int idx_chain) noexcept
 {
     try
@@ -920,43 +756,6 @@ void Hamiltonian_Get_Anisotropy(State *state, float * magnitude, float * normal,
                 normal[2] = 1;
             }
         }
-    }
-    catch( ... )
-    {
-        spirit_handle_exception_api(idx_image, idx_chain);
-    }
-}
-
-void Hamiltonian_Get_Anisotropy_Regions(State *state, float * magnitude, float * normal, int region_id, int idx_image, int idx_chain) noexcept
-{
-    try
-    {
-        std::shared_ptr<Data::Spin_System> image;
-        std::shared_ptr<Data::Spin_System_Chain> chain;
-
-        // Fetch correct indices and pointers
-        from_indices( state, idx_image, idx_chain, image, chain );
-
-        auto ham = (Engine::Hamiltonian_Micromagnetic*)image->hamiltonian.get();
-
-        if (ham->regions_book[region_id].n_anisotropies > 0)
-        {
-            // Magnitude
-            *magnitude = (float)ham->regions_book[region_id].anisotropy_magnitudes[0];
-
-            // Normal
-            normal[0] = (float)ham->regions_book[region_id].anisotropy_normals[0][0];
-            normal[1] = (float)ham->regions_book[region_id].anisotropy_normals[0][1];
-            normal[2] = (float)ham->regions_book[region_id].anisotropy_normals[0][2];
-        }
-        else
-        {
-            *magnitude = 0;
-            normal[0] = 0;
-            normal[1] = 0;
-            normal[2] = 1;
-        }
-
     }
     catch( ... )
     {
@@ -1033,7 +832,7 @@ void Hamiltonian_Get_Exchange_Pairs(State *state, float * idx[2], float * transl
     }
 }
 
-void Hamiltonian_Get_Exchange_Tensor(State *state, float * exchange_tensor, int region_id, int idx_image, int idx_chain) noexcept
+void Hamiltonian_Get_Exchange_Stiffness(State *state, float * exchange_stiffness, int region_id, int idx_image, int idx_chain) noexcept
 {
     try
     {
@@ -1046,8 +845,7 @@ void Hamiltonian_Get_Exchange_Tensor(State *state, float * exchange_tensor, int 
         if (image->hamiltonian->Name() == "Micromagnetic")
         {
             auto ham = (Engine::Hamiltonian_Micromagnetic*)image->hamiltonian.get();
-            *exchange_tensor=ham->regions_book[region_id].Aexch;
-
+            *exchange_stiffness=ham->exchange_stiffness;
         }
     }
     catch( ... )
@@ -1106,7 +904,7 @@ int  Hamiltonian_Get_DMI_N_Pairs(State *state, int idx_image, int idx_chain) noe
     }
 }
 
-void Hamiltonian_Get_DMI_Tensor(State *state, float * dmi_tensor, int region_id, int idx_image, int idx_chain) noexcept
+void Hamiltonian_Get_Spiralisation_Constant(State *state, float * dmi_constant, int idx_image, int idx_chain) noexcept
 {
     try
     {
@@ -1120,7 +918,7 @@ void Hamiltonian_Get_DMI_Tensor(State *state, float * dmi_tensor, int region_id,
         {
             auto ham = (Engine::Hamiltonian_Micromagnetic*)image->hamiltonian.get();
 
-            *dmi_tensor=ham->regions_book[region_id].Dmi;
+            *dmi_constant = ham->dmi_constant;
         }
     }
     catch( ... )

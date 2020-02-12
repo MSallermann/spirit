@@ -41,11 +41,11 @@ void HamiltonianMicromagneticWidget::setData()
 {
 	this->Setup_Input_Validators();
 	int region_num;
-	Hamiltonian_Get_Regions(state.get(), &region_num);
-	for (int i=0;i<region_num;i++){
-	QString inp=QString("region %1").arg(i);
-	this->comboBox_region->addItem(inp,i);
-	}
+	// Hamiltonian_Get_Regions(state.get(), &region_num);
+	// for (int i=0;i<region_num;i++){
+	// QString inp=QString("region %1").arg(i);
+	// this->comboBox_region->addItem(inp,i);
+	// }
 	this->updateData();
 	this->Setup_Slots();
 }
@@ -76,27 +76,27 @@ void HamiltonianMicromagneticWidget::updateData()
 	this->lineEdit_cell_sizes_y->setText(QString::number(vd[1]));
 	this->lineEdit_cell_sizes_z->setText(QString::number(vd[2]));
 
-    // External magnetic field
-    Hamiltonian_Get_Field_Regions(state.get(), &d, vd,this->comboBox_region->currentIndex());
-    this->lineEdit_extH_aniso->setText(QString::number(d));
-    this->lineEdit_extHx_aniso->setText(QString::number(vd[0]));
-    this->lineEdit_extHy_aniso->setText(QString::number(vd[1]));
-    this->lineEdit_extHz_aniso->setText(QString::number(vd[2]));
-    if (d > 0.0) this->checkBox_extH_aniso->setChecked(true);
+    // // External magnetic field
+    // Hamiltonian_Get_Field_Regions(state.get(), &d, vd,this->comboBox_region->currentIndex());
+    // this->lineEdit_extH_aniso->setText(QString::number(d));
+    // this->lineEdit_extHx_aniso->setText(QString::number(vd[0]));
+    // this->lineEdit_extHy_aniso->setText(QString::number(vd[1]));
+    // this->lineEdit_extHz_aniso->setText(QString::number(vd[2]));
+    // if (d > 0.0) this->checkBox_extH_aniso->setChecked(true);
 
     // Anisotropy
-    Hamiltonian_Get_Anisotropy_Regions(state.get(), &d, vd,this->comboBox_region->currentIndex());
+    // Hamiltonian_Get_Anisotropy_Regions(state.get(), &d, vd,this->comboBox_region->currentIndex());
     this->lineEdit_ani_aniso->setText(QString::number(d));
     this->lineEdit_anix_aniso->setText(QString::number(vd[0]));
     this->lineEdit_aniy_aniso->setText(QString::number(vd[1]));
     this->lineEdit_aniz_aniso->setText(QString::number(vd[2]));
     if (d > 0.0) this->checkBox_ani_aniso->setChecked(true);
 
-    Hamiltonian_Get_Exchange_Tensor(state.get(), &d,this->comboBox_region->currentIndex());
+    // Hamiltonian_Get_Exchange_Stiffness(state.get(), &d);
 	this->lineEdit_exch_00->setText(QString::number(d));
 	this->checkBox_exchange->setChecked(true);
 
-	Hamiltonian_Get_DMI_Tensor(state.get(), &d,this->comboBox_region->currentIndex());
+	Hamiltonian_Get_Spiralisation_Constant(state.get(), &d);
 	this->lineEdit_dmi_00->setText(QString::number(d));
 	this->checkBox_dmi->setChecked(true);
     // // Exchange interaction (shells)
@@ -296,7 +296,7 @@ void HamiltonianMicromagneticWidget::set_external_field()
             }
             else { throw(ex); }
         }
-        Hamiltonian_Set_Field_Regions(state.get(), d, vd, this->comboBox_region->currentIndex(), idx_image);
+        // Hamiltonian_Set_Field_Regions(state.get(), d, vd, this->comboBox_region->currentIndex(), idx_image);
     };
 
     if (this->comboBox_Hamiltonian_Ani_ApplyTo->currentText() == "Current Image")
@@ -351,7 +351,7 @@ void HamiltonianMicromagneticWidget::set_anisotropy()
             }
             else { throw(ex); }
         }
-        Hamiltonian_Set_Anisotropy_Regions(state.get(), d, vd, this->comboBox_region->currentIndex(), idx_image);
+        // Hamiltonian_Set_Anisotropy_Regions(state.get(), d, vd, this->comboBox_region->currentIndex(), idx_image);
     };
 
     if (this->comboBox_Hamiltonian_Ani_ApplyTo->currentText() == "Current Image")
@@ -383,10 +383,10 @@ void HamiltonianMicromagneticWidget::set_exchange()
         {
             float tensor;
             tensor=lineEdit_exch_00->text().toFloat();
-            Hamiltonian_Set_Exchange_Tensor(state.get(), tensor, this->comboBox_region->currentIndex(), idx_image);
+            Hamiltonian_Set_Exchange_Stiffness(state.get(), tensor, idx_image);
         } else{
         	float tensor=0;
-        	Hamiltonian_Set_Exchange_Tensor(state.get(), tensor, this->comboBox_region->currentIndex(), idx_image);
+        	Hamiltonian_Set_Exchange_Stiffness(state.get(), tensor, idx_image);
         }
 
     };
@@ -420,13 +420,11 @@ void HamiltonianMicromagneticWidget::set_dmi()
         {
             float tensor;
             tensor=lineEdit_dmi_00->text().toFloat();
-            Hamiltonian_Set_DMI_Tensor(state.get(), tensor, this->comboBox_region->currentIndex(), idx_image);
+            Hamiltonian_Set_Spiralisation_Constant(state.get(), tensor, 1, idx_image);
         } else{
         	float tensor=0;
-			Hamiltonian_Set_DMI_Tensor(state.get(), tensor, this->comboBox_region->currentIndex(), idx_image);
+			Hamiltonian_Set_Spiralisation_Constant(state.get(), tensor, 1, idx_image);
         }
-
-
     };
 
     if (this->comboBox_Hamiltonian_Ani_ApplyTo->currentText() == "Current Image")

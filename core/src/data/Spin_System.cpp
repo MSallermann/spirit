@@ -27,9 +27,7 @@ namespace Data
 
         // Initialize Spins Array
         this->spins = std::shared_ptr<vectorfield>(new vectorfield(nos));
-        // Regions of the Spins: regions[1][nos]
-        this->regions= std::shared_ptr<scalarfield> (new scalarfield(nos,0));
-        
+
         // Initialize Modes container
         this->modes = std::vector<std::shared_ptr<vectorfield>>(this->ema_parameters->n_modes, NULL);
 

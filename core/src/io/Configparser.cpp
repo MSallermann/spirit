@@ -1447,21 +1447,24 @@ namespace IO
         int spatial_gradient_order = 1;
 
         // External Magnetic Field
-        int region_num;
-        scalarfield Ms;
-        scalarfield external_field_magnitude;
-        vectorfield external_field_normal;
+        scalar Ms = 0;
+        scalar external_field_magnitude = 0;
+        Vector3 external_field_normal = {0,0,0};
         Vector3 cell_sizes;
-        scalar anisotropy_magnitude;
-        intfield n_anisotropies;
-        std::vector<std::vector<scalar>> anisotropy_magnitudes;
-        std::vector<std::vector<Vector3>> anisotropy_normals;
-        Vector3 anisotropy_normal;
-        Matrix3 anisotropy_tensor;
-        scalarfield  exchange_stiffness;
+
+        scalar anisotropy_magnitude = 0;
+        Vector3 anisotropy_normal = {0,0,1};
+
+        scalar exchange_stiffness = 0;
         Matrix3 exchange_tensor;
-        scalarfield  dmi;
+        scalar dmi = 0;
         Matrix3 dmi_tensor;
+
+        std::string ddi_method_str = "none";
+        auto ddi_method = Engine::DDI_Method::None;
+        intfield ddi_n_periodic_images = { 4, 4, 4 };
+        scalar ddi_radius = 0.0;
+        bool ddi_pb_zero_padding = true;
 
         //------------------------------- Parser --------------------------------
         Log(Log_Level::Info, Log_Sender::IO, "Hamiltonian_Micromagnetic: building");
@@ -1487,159 +1490,107 @@ namespace IO
             {
                 myfile.iss >> cell_sizes[0] >> cell_sizes[1] >> cell_sizes[2];
             }
-            myfile.Read_Single(region_num, "number_regions");
-            Ms = scalarfield(region_num, 0);
+
             if( myfile.Find("Ms") )
             {
-                for( int i = 0; i < region_num; i++ )
-                {
-                    myfile.GetLine();
-                    myfile.iss >> Ms[i];
-                }
+                myfile.GetLine();
+                myfile.iss >> Ms;
             }
 
             // Precision of the spatial gradient calculation
             myfile.Read_Single(spatial_gradient_order, "spatial_gradient_order");
 
             // Field
-            external_field_magnitude=scalarfield(region_num,0);
             if( myfile.Find("external_field_magnitude") )
             {
-                for( int i = 0; i < region_num; i++ )
-                {
-                    myfile.GetLine();
-                    myfile.iss >> external_field_magnitude[i];
-                }
+                myfile.GetLine();
+                myfile.iss >> external_field_magnitude;
             }
 
-            external_field_normal=vectorfield(region_num, Vector3{0,0,1});
             if( myfile.Find("external_field_normal") )
             {
-                for( int i = 0; i < region_num; i++ )
+                myfile.GetLine();
+                myfile.iss >> external_field_normal[0] >> external_field_normal[1] >> external_field_normal[2];
+                external_field_normal.normalize();
+                if (external_field_normal.norm() < 1e-8)
                 {
-                    myfile.GetLine();
-                    myfile.iss >> external_field_normal[i][0] >> external_field_normal[i][1] >> external_field_normal[i][2];
-                    external_field_normal[i].normalize();
-                    if (external_field_normal[i].norm() < 1e-8)
-                    {
-                        external_field_normal[i] = { 0,0,1 };
-                        Log(Log_Level::Warning, Log_Sender::IO, "Input for 'external_field_normal' had norm zero and has been set to (0,0,1)");
-                    }
-                }
-            }
-
-            // TODO: anisotropy
-            n_anisotropies=intfield(region_num,0);
-            if( myfile.Find("number_anisotropies") )
-            {
-                for( int i = 0; i < region_num; i++ )
-                {
-                    myfile.GetLine();
-                    myfile.iss >> n_anisotropies[i];
-                }
-            }
-
-            anisotropy_magnitudes=std::vector<std::vector<scalar>>(region_num);
-            anisotropy_normals=std::vector<std::vector<Vector3>>(region_num);
-            for( int i = 0; i < region_num; i++ )
-            {
-                anisotropy_magnitudes[i]=std::vector<scalar>(n_anisotropies[i],0);
-                anisotropy_normals[i]=std::vector<Vector3>(n_anisotropies[i],Vector3 {0,0,1});
-            }
-
-            if( myfile.Find("anisotropies_vectors") )
-            {
-                for( int i = 0; i < region_num; i++ )
-                {
-                    for( int j = 0; j <  n_anisotropies[i]; j++ )
-                    {
-                        myfile.GetLine();
-                        myfile.iss >> anisotropy_normals[i][j][0] >> anisotropy_normals[i][j][1] >> anisotropy_normals[i][j][2] >> anisotropy_magnitudes[i][j];
-                    }
+                    external_field_normal = { 0,0,1 };
+                    Log(Log_Level::Warning, Log_Sender::IO, "Input for 'external_field_normal' had norm zero and has been set to (0,0,1)");
                 }
             }
 
             // TODO: exchange
-            exchange_stiffness=scalarfield(region_num,0);
             if( myfile.Find("exchange_stiffness") )
             {
-                for( int i = 0; i < region_num; i++ )
-                {
-                    myfile.GetLine();
-                    myfile.iss >> exchange_stiffness[i];
-                }
+                myfile.GetLine();
+                myfile.iss >> exchange_stiffness;
             }
 
-            dmi=scalarfield(region_num,0);
             if( myfile.Find("dmi") )
             {
-                for( int i = 0; i < region_num; i++ )
-                {
-                    myfile.GetLine();
-                    myfile.iss >> dmi[i];
-                }
+                myfile.GetLine();
+                myfile.iss >> dmi;
             }
 
-            // TODO: dipolar
+            myfile.Read_Single(anisotropy_magnitude, "anisotropy_magnitude");
+            myfile.Read_3Vector(anisotropy_normal, "anisotropy_normal");
+
             try
             {
                 IO::Filter_File_Handle myfile(configFile);
 
-                // // DDI method
-                // myfile.Read_String(ddi_method_str, "ddi_method");
-                // if( ddi_method_str == "none" )
-                //     ddi_method = Engine::DDI_Method::None;
-                // else if( ddi_method_str == "fft" )
-                //     ddi_method = Engine::DDI_Method::FFT;
-                // else if( ddi_method_str == "fmm" )
-                //     ddi_method = Engine::DDI_Method::FMM;
-                // else if( ddi_method_str == "cutoff" )
-                //     ddi_method = Engine::DDI_Method::Cutoff;
-                // else
-                // {
-                //     Log(Log_Level::Warning, Log_Sender::IO, fmt::format(
-                //         "Hamiltonian_Heisenberg: Keyword 'ddi_method' got passed invalid method \"{}\". Setting to \"none\".", ddi_method_str));
-                //     ddi_method_str = "none";
-                // }
+                // DDI method
+                myfile.Read_String(ddi_method_str, "ddi_method");
+                if( ddi_method_str == "none" )
+                    ddi_method = Engine::DDI_Method::None;
+                else if( ddi_method_str == "fft" )
+                    ddi_method = Engine::DDI_Method::FFT;
+                else if( ddi_method_str == "fmm" )
+                    ddi_method = Engine::DDI_Method::FMM;
+                else if( ddi_method_str == "cutoff" )
+                    ddi_method = Engine::DDI_Method::Cutoff;
+                else
+                {
+                    Log(Log_Level::Warning, Log_Sender::IO, fmt::format(
+                        "Hamiltonian_Micromagnetic: Keyword 'ddi_method' got passed invalid method \"{}\". Setting to \"none\".", ddi_method_str));
+                    ddi_method_str = "none";
+                }
 
-                // // Number of periodical images
-                // myfile.Read_3Vector(ddi_n_periodic_images, "ddi_n_periodic_images");
-                // // myfile.Read_Single(ddi_n_periodic_images, "ddi_n_periodic_images");
+                // Number of periodical images
+                myfile.Read_3Vector(ddi_n_periodic_images, "ddi_n_periodic_images");
+                myfile.Read_Single(ddi_pb_zero_padding, "ddi_pb_zero_padding");
 
-                // // Dipole-dipole cutoff radius
-                // myfile.Read_Single(ddi_radius, "ddi_radius");
+                // Dipole-dipole cutoff radius
+                myfile.Read_Single(ddi_radius, "ddi_radius");
+
             }// end try
             catch( ... )
             {
                 spirit_handle_exception_core(fmt::format("Unable to read DDI radius from config file \"{}\"", configFile));
             }
+
         }// end try
         catch( ... )
         {
             spirit_handle_exception_core(fmt::format(
                 "Unable to parse all parameters of the Micromagnetic Hamiltonian from \"{}\"", configFile));
         }
+
         // Return
         Log(Log_Level::Parameter, Log_Sender::IO, "Hamiltonian_Micromagnetic:");
         Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        {:<21} = {} {} {}", "boundary conditions", boundary_conditions[0], boundary_conditions[1], boundary_conditions[2]));
-        /*Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        {:<21} = {}", "external field", field));
-        Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        {:<21} = {}", "field_normal", field_normal.transpose()));
-        for (int i=0;i<n_anisotropies;i++){
-        Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        {:<21} = {} {}", "anisotropy_magnitude", i, anisotropy_magnitudes[i]));
-        }
-        Log(Log_Level::Parameter, Log_Sender::IO, fmt::format("        {:<21} = {}", "exchange_magnitude", exchange_tensor(0,0)));*/
 
         auto hamiltonian = std::unique_ptr<Engine::Hamiltonian_Micromagnetic>(new Engine::Hamiltonian_Micromagnetic(
             external_field_magnitude, external_field_normal,
-            n_anisotropies, anisotropy_magnitudes, anisotropy_normals,
+            anisotropy_magnitude, anisotropy_normal,
             exchange_stiffness,
             dmi,
             geometry,
             spatial_gradient_order,
+            ddi_method, ddi_n_periodic_images, ddi_pb_zero_padding, ddi_radius,
             boundary_conditions,
             cell_sizes,
-            Ms,
-            region_num
+            Ms
         ));
         Log(Log_Level::Info, Log_Sender::IO, "Hamiltonian_Micromagnetic: built");
         return hamiltonian;

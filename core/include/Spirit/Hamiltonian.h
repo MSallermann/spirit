@@ -88,16 +88,16 @@ PREFIX void Hamiltonian_Set_Boundary_Conditions(State *state, const bool* period
 //Set cell sizes
 PREFIX void Hamiltonian_Set_Cell_Sizes(State *state, const float * cell_sizes, int idx_image=-1, int idx_chain=-1) SUFFIX;
 //Set Ms for micromagnetics
-PREFIX void Hamiltonian_Set_Ms(State *state, const float Ms, int region_id, int idx_image=-1, int idx_chain=-1) SUFFIX;
+PREFIX void Hamiltonian_Set_Ms(State *state, const float Ms, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
 
 // Set the (homogeneous) external magnetic field [T]
 PREFIX void Hamiltonian_Set_Field(State *state, float magnitude, const float* normal, int idx_image=-1, int idx_chain=-1) SUFFIX;
-PREFIX void Hamiltonian_Set_Field_Regions(State *state, float magnitude, const float * normal, int region_id, int idx_image=-1, int idx_chain=-1) SUFFIX;
+// PREFIX void Hamiltonian_Set_Field_Regions(State *state, float magnitude, const float * normal, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
 // Set a global uniaxial anisotropy [meV]
 PREFIX void Hamiltonian_Set_Anisotropy(State *state, float magnitude, const float* normal, int idx_image=-1, int idx_chain=-1) SUFFIX;
-PREFIX void Hamiltonian_Set_Anisotropy_Regions( State *state, float magnitude, const float * normal, int region_id, int idx_image=-1, int idx_chain=-1) SUFFIX;
+// PREFIX void Hamiltonian_Set_Anisotropy_Regions( State *state, float magnitude, const float * normal, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
 // Set the exchange interaction in terms of neighbour shells [meV]
 PREFIX void Hamiltonian_Set_Exchange(State *state, int n_shells, const float* jij, int idx_image=-1, int idx_chain=-1) SUFFIX;
@@ -106,10 +106,10 @@ PREFIX void Hamiltonian_Set_Exchange(State *state, int n_shells, const float* ji
 PREFIX void Hamiltonian_Set_DMI(State *state, int n_shells, const float * dij, int chirality=SPIRIT_CHIRALITY_BLOCH, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
 // Set the exchange interaction tensor for micromagnetics [meV]
-PREFIX void Hamiltonian_Set_Exchange_Tensor(State *state, float exchange_tensor, int region_id, int idx_image=-1, int idx_chain=-1) SUFFIX;
+PREFIX void Hamiltonian_Set_Exchange_Stiffness(State *state, float exchange_tensor, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
 // Set the Dzyaloshinskii-Moriya interaction tensor for micromagnetics [meV]
-PREFIX void Hamiltonian_Set_DMI_Tensor(State *state, float dmi_tensor, int region_id, int idx_image=-1, int idx_chain=-1) SUFFIX;
+PREFIX void Hamiltonian_Set_Spiralisation_Constant(State *state, float dmi_tensor, int chirality, int idx_image=-1, int idx_chain=-1) SUFFIX;
 /*
 Configure the dipole-dipole interaction
 
@@ -137,16 +137,16 @@ PREFIX void Hamiltonian_Get_Boundary_Conditions(State *state, bool * periodical,
 // Retrieves cell sizes
 PREFIX void Hamiltonian_Get_Cell_Sizes(State *state, float * cell_sizes, int idx_image=-1, int idx_chain=-1) SUFFIX;
 // Retrieves Ms for micromagnetics
-PREFIX void Hamiltonian_Get_Ms(State *state, float * Ms, int region_id, int idx_image=-1, int idx_chain=-1) SUFFIX;
+PREFIX void Hamiltonian_Get_Ms(State *state, float * Ms, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
 // Retrieves the external magnetic field [T]
 PREFIX void Hamiltonian_Get_Field(State *state, float * magnitude, float * normal, int idx_image=-1, int idx_chain=-1) SUFFIX;
-PREFIX void Hamiltonian_Get_Field_Regions(State *state, float * magnitude, float * normal, int region_id, int idx_image=-1, int idx_chain=-1) SUFFIX;
+PREFIX void Hamiltonian_Get_Field_Regions(State *state, float * magnitude, float * normal, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
 // Retrieves the uniaxial anisotropy [meV]
 PREFIX void Hamiltonian_Get_Anisotropy(State *state, float * magnitude, float * normal, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
-PREFIX void Hamiltonian_Get_Anisotropy_Regions(State *state, float * magnitude, float * normal, int region_id, int idx_image=-1, int idx_chain=-1) SUFFIX;
+PREFIX void Hamiltonian_Get_Anisotropy_Regions(State *state, float * magnitude, float * normal, int idx_image=-1, int idx_chain=-1) SUFFIX;
 /*
 Retrieves the exchange interaction in terms of neighbour shells.
 
@@ -161,7 +161,7 @@ PREFIX int  Hamiltonian_Get_Exchange_N_Pairs(State *state, int idx_image=-1, int
 PREFIX void Hamiltonian_Get_Exchange_Pairs(State *state, float * idx[2], float * translations[3], float * Jij, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
 //Micromagnetics exchange tensor
-PREFIX void Hamiltonian_Get_Exchange_Tensor(State *state, float *exchange_tensor, int region_id, int idx_image=-1, int idx_chain=-1) SUFFIX;
+PREFIX void Hamiltonian_Get_Exchange_Stiffness(State *state, float *exchange_stiffness, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
 /*
 Retrieves the Dzyaloshinskii-Moriya interaction in terms of neighbour shells.
@@ -175,10 +175,10 @@ PREFIX void Hamiltonian_Get_DMI_Shells(State *state, int * n_shells, float * dij
 PREFIX int  Hamiltonian_Get_DMI_N_Pairs(State *state, int idx_image=-1, int idx_chain=-1) SUFFIX;
 
 //Micromagnetics DMI tensor
-PREFIX void Hamiltonian_Get_DMI_Tensor(State *state, float *exchange_tensor, int region_id, int idx_image=-1, int idx_chain=-1) SUFFIX;
+PREFIX void Hamiltonian_Get_Spiralisation_Constant(State *state, float *dmi_constant, int idx_image=-1, int idx_chain=-1) SUFFIX;
+
 /*
 Retrieves the dipole-dipole interaction configuration.
-
 - `ddi_method`: see integers defined above
 - `n_periodic_images`: how many repetitions of the spin configuration to
   append along the translation directions [a, b, c], if periodical boundary conditions are used

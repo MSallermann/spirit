@@ -518,7 +518,7 @@ namespace Utility
             {
                 if (filter(spins[iatom], positions[iatom]))
                 {
-                    ham->regions[iatom] = region_id;
+                    // ham->regions[iatom] = region_id;
                 }
             }
         }
