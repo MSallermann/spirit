@@ -24,7 +24,7 @@ namespace Engine
 {
     namespace TST_Bennet
     {
-        void Calculate(Data::HTST_Info & htst_info)
+        void Calculate(Data::HTST_Info & htst_info, int n_iterations_bennet)
         {
             std::cerr << "TST_BENNET\n";
 
@@ -107,7 +107,6 @@ namespace Engine
                         }
             }
 
-            int n_iterations_bennet = 10000;
             // ######  Bennet at Minimum  #######
             field<scalar> bennet_results_min(n_iterations_bennet, 0);
             Bennet_Minimum(n_iterations_bennet, bennet_results_min, hessian_minimum_constrained / (C::k_B * temperature), hessian_sp_constrained / (C::k_B * temperature), eigenvectors.col(0), e_barrier);
@@ -289,7 +288,7 @@ namespace Engine
             mc_sp.dist_width = 1;
 
             // Thermalise for 10000 steps
-            for(int i=0; i<10000; i++)
+            for(int i=0; i<n_iteration; i++)
             {
                 Hyperplane_Metropolis(action_sp, state_sp_old, state_sp_new, unstable_mode.normalized(), prng, mc_sp);
                 state_sp_old = state_sp_new;

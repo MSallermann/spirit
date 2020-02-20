@@ -12,7 +12,7 @@ namespace Engine
 {
     namespace TST_Bennet
     {
-        void Calculate(Data::HTST_Info & htst_info);
+        void Calculate(Data::HTST_Info & htst_info, int n_iterations_bennet);
 
         bool Get_Unstable_Mode(const vectorfield & spins, const vectorfield & gradient, const MatrixX & hessian,
             MatrixX & tangent_basis, MatrixX & hessian_constrained, VectorX & eigenvalues, MatrixX & eigenvectors);
@@ -62,7 +62,7 @@ namespace Engine
             int n = plane_normal.size();
             auto distribution = std::uniform_real_distribution<scalar>(0, 1);
 
-            for (int idx=0; idx < n; ++idx)
+            for (int idx=0; idx<n; ++idx)
             {
                 scalar dS = mc.dist_width * (2*distribution(prng)-1); // random perturbation
                 scalar proj_on_normal = dS * plane_normal[idx];
