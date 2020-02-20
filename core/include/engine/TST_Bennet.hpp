@@ -17,9 +17,9 @@ namespace Engine
         bool Get_Unstable_Mode(const vectorfield & spins, const vectorfield & gradient, const MatrixX & hessian,
             MatrixX & tangent_basis, MatrixX & hessian_constrained, VectorX & eigenvalues, MatrixX & eigenvectors);
 
-        void Bennet_Minimum(int n_iteration, field<scalar> & bennet_results, const MatrixX & hessian_minimum_constrained, const MatrixX & hessian_sp_constrained, const VectorX & unstable_mode, scalar energy_barrier);
+        void Bennet_Minimum(int n_iteration, field<scalar> & bennet_results, const MatrixX & hessian_minimum, const MatrixX & hessian_sp, scalar energy_barrier);
 
-        void Bennet_SP(int n_iteration, scalar & vel_perp_estimator, field<scalar> & bennet_results, const MatrixX & hessian_sp_constrained, const MatrixX & hessian_minimum_constrained, const VectorX & unstable_mode, const VectorX & perpendicular_velocity, scalar energy_barrier);
+        void Bennet_SP(int n_iteration, scalar & vel_perp_estimator, field<scalar> & bennet_results, const MatrixX & hessian_sp, const MatrixX & hessian_minimum, const VectorX & perpendicular_velocity, scalar energy_barrier);
 
         struct MC_Tracker
         {
@@ -94,6 +94,43 @@ namespace Engine
                         // Restore the state
                         for(int j=0; j<n; j++)
                             state_new[j] = state_old[j];
+                        mc.adapt(true);
+                        continue;
+                    }
+                }
+                state_old = state_new;
+                mc.adapt(false);
+            }
+        }
+
+        // Performs one iteration of a Metropolis Monte Carlo algorithm with a frozen X coordinate.
+        template<typename Action_Function>
+        void Freeze_X_Metropolis(Action_Function action_func, VectorX & state_old, VectorX & state_new, std::mt19937 & prng, MC_Tracker & mc)
+        {
+            int n = state_old.size();
+            auto distribution = std::uniform_real_distribution<scalar>(0, 1);
+
+            for (int idx=1; idx<n; ++idx)
+            {
+                scalar dS = mc.dist_width * (2*distribution(prng)-1); // random perturbation
+                state_new[idx] += dS;
+
+                // Energy difference of configurations with and without displacement
+                scalar E_diff = action_func(state_old, idx, dS);
+
+                // Metropolis criterion: reject the step if energy rose
+                if( E_diff > 1e-14 )
+                {
+                    // Exponential factor
+                    scalar exp_ediff = std::exp( -E_diff );
+
+                    // Metropolis random number
+                    scalar x_metropolis = distribution(prng);
+
+                    // Only reject if random number is larger than exponential
+                    if( exp_ediff < x_metropolis)
+                    {
+                        state_new[idx] = state_old[idx];
                         mc.adapt(true);
                         continue;
                     }
