@@ -29,6 +29,8 @@ namespace Engine
         {
             // This algorithm implements a statistical sampling method to calculate life times
             Log(Utility::Log_Level::All, Utility::Log_Sender::TST_Bennet, "--- Prefactor calculation");
+            int N_INITIAL = 5000;
+            int N_DECOR = 5;
 
             auto& image_minimum = *tst_bennet_info.minimum->spins;
             auto& image_sp = *tst_bennet_info.saddle_point->spins;
@@ -112,7 +114,7 @@ namespace Engine
             // Sampe minimium
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Sampling at minimum...");
             field<scalar> bennet_results_min(n_iterations_bennet, 0);
-            Bennet_Minimum(n_iterations_bennet, bennet_results_min, orth_hessian_min / (C::k_B * temperature), orth_hessian_sp / (C::k_B * temperature), e_barrier);
+            Bennet_Minimum(n_iterations_bennet, N_INITIAL, N_DECOR, bennet_results_min, orth_hessian_min / (C::k_B * temperature), orth_hessian_sp / (C::k_B * temperature), e_barrier);
 
             // Experctation value
             scalar benn_min = 0; 
@@ -130,7 +132,7 @@ namespace Engine
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Sampling at saddle point...");
             scalar vel_perp=0;
             field<scalar> bennet_results_sp(n_iterations_bennet, 0);
-            Bennet_SP(n_iterations_bennet, vel_perp, bennet_results_sp, orth_hessian_sp / (C::k_B * temperature), orth_hessian_min / (C::k_B * temperature), orth_perpendicular_velocity, e_barrier);
+            Bennet_SP(n_iterations_bennet, N_INITIAL, N_DECOR, vel_perp, bennet_results_sp, orth_hessian_sp / (C::k_B * temperature), orth_hessian_min / (C::k_B * temperature), orth_perpendicular_velocity, e_barrier);
 
             scalar benn_sp = 0;
             for(int i=0; i<n_iterations_bennet; i++)
@@ -240,7 +242,7 @@ namespace Engine
             return (hessian_spectrum.info() == Spectra::SUCCESSFUL) && (nconv > 0);
         }
 
-        void Bennet_Minimum(int n_iteration, field<scalar> & bennet_results, const MatrixX & hessian_minimum, const MatrixX & hessian_sp, scalar energy_barrier)
+        void Bennet_Minimum(int n_iteration, int n_initial, int n_decor, field<scalar> & bennet_results, const MatrixX & hessian_minimum, const MatrixX & hessian_sp, scalar energy_barrier)
         {
             // Sample at Minimum
             VectorX state_min_old = VectorX::Zero(hessian_minimum.row(0).size());
@@ -262,8 +264,19 @@ namespace Engine
                 return 1.0 / ( 1.0 + std::exp(0.5 * state.transpose() * (hessian_sp - hessian_minimum) * state + energy_barrier));
             };
 
+            for(int i=0; i < n_initial; i++)
+            {
+                Freeze_X_Metropolis(energy_diff, state_min_old, state_min_new, prng, mc_min);
+                state_min_old     = state_min_new;
+            }
+
             for(int i=0; i < n_iteration; i++)
             {
+                for(int j=0; j < n_decor; j++)
+                {
+                    Freeze_X_Metropolis(energy_diff, state_min_old, state_min_new, prng, mc_min);
+                    state_min_old     = state_min_new;
+                }
                 Freeze_X_Metropolis(energy_diff, state_min_old, state_min_new, prng, mc_min);
                 state_min_old     = state_min_new;
                 bennet_results[i] = bennet_exp(state_min_old);
@@ -275,7 +288,7 @@ namespace Engine
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    n_rejected = {}", mc_min.n_rejected));
         }
 
-        void Bennet_SP(int n_iteration, scalar & vel_perp_estimator, field<scalar> & bennet_results, const MatrixX & hessian_sp, const MatrixX & hessian_minimum, const VectorX & perpendicular_velocity, scalar energy_barrier)
+        void Bennet_SP(int n_iteration, int n_initial, int n_decor, scalar & vel_perp_estimator, field<scalar> & bennet_results, const MatrixX & hessian_sp, const MatrixX & hessian_minimum, const VectorX & perpendicular_velocity, scalar energy_barrier)
         {
             std::mt19937 prng = std::mt19937(2113);
 
@@ -297,9 +310,20 @@ namespace Engine
             mc_sp.target_rejection_ratio = 0.5;
             mc_sp.dist_width = 1;
 
-            scalar vel_perp = 0;
-            for(int i=0; i<n_iteration; i++)
+            for(int i=0; i < n_initial; i++)
             {
+                Freeze_X_Metropolis(energy_diff, state_sp_old, state_sp_new, prng, mc_sp);
+                state_sp_old     = state_sp_new;
+            }
+
+            scalar vel_perp = 0;
+            for(int i=0; i < n_iteration; i++)
+            {
+                for(int j=0; j < n_decor; j++)
+                {
+                    Freeze_X_Metropolis(energy_diff, state_sp_old, state_sp_new, prng, mc_sp);
+                    state_sp_old     = state_sp_new;
+                }
                 Freeze_X_Metropolis(energy_diff, state_sp_old, state_sp_new, prng, mc_sp);
                 state_sp_old = state_sp_new;
                 bennet_results[i] = bennet_exp(state_sp_old);

@@ -17,9 +17,9 @@ namespace Engine
         bool Get_Unstable_Mode(const vectorfield & spins, const vectorfield & gradient, const MatrixX & hessian,
             MatrixX & tangent_basis, MatrixX & hessian_constrained, VectorX & eigenvalues, MatrixX & eigenvectors);
 
-        void Bennet_Minimum(int n_iteration, field<scalar> & bennet_results, const MatrixX & hessian_minimum, const MatrixX & hessian_sp, scalar energy_barrier);
+        void Bennet_Minimum(int n_iteration, int n_initial, int n_decor, field<scalar> & bennet_results, const MatrixX & hessian_minimum, const MatrixX & hessian_sp, scalar energy_barrier);
 
-        void Bennet_SP(int n_iteration, scalar & vel_perp_estimator, field<scalar> & bennet_results, const MatrixX & hessian_sp, const MatrixX & hessian_minimum, const VectorX & perpendicular_velocity, scalar energy_barrier);
+        void Bennet_SP(int n_iteration, int n_initial, int n_decor, scalar & vel_perp_estimator, field<scalar> & bennet_results, const MatrixX & hessian_sp, const MatrixX & hessian_minimum, const VectorX & perpendicular_velocity, scalar energy_barrier);
 
         struct MC_Tracker
         {
