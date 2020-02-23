@@ -34,7 +34,8 @@ namespace Utility
         API  = Log_Sender_API,
         UI   = Log_Sender_UI,
         HTST = Log_Sender_HTST,
-        EMA  = Log_Sender_EMA
+        EMA  = Log_Sender_EMA,
+        TST_Bennet = Log_Sender_TST_Bennet
     };
 
     // Unfortunately, we must ensure the equivalence of the defines and

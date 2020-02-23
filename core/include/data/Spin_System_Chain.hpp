@@ -41,6 +41,30 @@ namespace Data
         scalar prefactor            = 0;
     };
 
+    struct TST_Bennet_Info
+    {
+        // Relevant images
+        std::shared_ptr<Spin_System> minimum;
+        std::shared_ptr<Spin_System> saddle_point;
+
+        int n_iterations = 0;
+
+        // Eigenmodes
+        VectorX unstable_mode = VectorX(0);
+
+        scalar benn_min = 0;
+        scalar err_benn_min = 0;
+
+        scalar benn_sp = 0;
+        scalar err_benn_sp = 0;
+
+        scalar unstable_mode_contribution = 0;
+
+        // Prefactor constituents
+        scalar rate = 0;
+        scalar rate_err = 0;
+    };
+
     class Spin_System_Chain
     {
     public:
@@ -77,6 +101,7 @@ namespace Data
 
         // If a prefactor calculation is performed on the chain, we keep the results
         HTST_Info htst_info;
+        TST_Bennet_Info tst_bennet_info;
 
     private:
         // Mutex for thread-safety

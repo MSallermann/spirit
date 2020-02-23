@@ -12,7 +12,7 @@ namespace Engine
 {
     namespace TST_Bennet
     {
-        void Calculate(Data::HTST_Info & htst_info, int n_iterations_bennet);
+        void Calculate(Data::TST_Bennet_Info & tst_bennet_info, int n_iterations_bennet);
 
         bool Get_Unstable_Mode(const vectorfield & spins, const vectorfield & gradient, const MatrixX & hessian,
             MatrixX & tangent_basis, MatrixX & hessian_constrained, VectorX & eigenvalues, MatrixX & eigenvectors);
