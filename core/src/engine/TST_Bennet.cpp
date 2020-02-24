@@ -130,7 +130,7 @@ namespace Engine
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Bennet expectation value at minimum: {} +- {}", benn_min, benn_min_var) );
 
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Sampling at saddle point...");
-            scalar vel_perp=0;
+            scalar vel_perp = 0;
             field<scalar> bennet_results_sp(n_iterations_bennet, 0);
             Bennet_SP(n_iterations_bennet, N_INITIAL, N_DECOR, vel_perp, bennet_results_sp, orth_hessian_sp / (C::k_B * temperature), orth_hessian_min / (C::k_B * temperature), orth_perpendicular_velocity, e_barrier);
 
@@ -165,6 +165,7 @@ namespace Engine
             tst_bennet_info.n_iterations = n_iterations_bennet;
             tst_bennet_info.rate = rate;
             tst_bennet_info.rate_err = err_rate;
+            tst_bennet_info.vel_perp = vel_perp;
 
             // Debug
             // {
@@ -245,8 +246,7 @@ namespace Engine
         void Bennet_Minimum(int n_iteration, int n_initial, int n_decor, field<scalar> & bennet_results, const MatrixX & hessian_minimum, const MatrixX & hessian_sp, scalar energy_barrier)
         {
             // Sample at Minimum
-            VectorX state_min_old = VectorX::Zero(hessian_minimum.row(0).size());
-            VectorX state_min_new = VectorX::Zero(hessian_minimum.row(0).size());
+            VectorX state_min = VectorX::Zero(hessian_minimum.row(0).size());
 
             std::mt19937 prng = std::mt19937(803);
 
@@ -266,20 +266,17 @@ namespace Engine
 
             for(int i=0; i < n_initial; i++)
             {
-                Freeze_X_Metropolis(energy_diff, state_min_old, state_min_new, prng, mc_min);
-                state_min_old     = state_min_new;
+                Freeze_X_Metropolis(energy_diff, state_min, prng, mc_min);
             }
 
             for(int i=0; i < n_iteration; i++)
             {
                 for(int j=0; j < n_decor; j++)
                 {
-                    Freeze_X_Metropolis(energy_diff, state_min_old, state_min_new, prng, mc_min);
-                    state_min_old     = state_min_new;
+                    Freeze_X_Metropolis(energy_diff, state_min, prng, mc_min);
                 }
-                Freeze_X_Metropolis(energy_diff, state_min_old, state_min_new, prng, mc_min);
-                state_min_old     = state_min_new;
-                bennet_results[i] = bennet_exp(state_min_old);
+                Freeze_X_Metropolis(energy_diff, state_min, prng, mc_min);
+                bennet_results[i] = bennet_exp(state_min);
             }
             // End new implementation
 
@@ -293,8 +290,7 @@ namespace Engine
             std::mt19937 prng = std::mt19937(2113);
 
             // Sample at SP
-            VectorX state_sp_old = VectorX::Zero(hessian_sp.row(0).size());
-            VectorX state_sp_new = VectorX::Zero(hessian_sp.row(0).size());
+            VectorX state_sp = VectorX::Zero(hessian_sp.row(0).size());
 
             auto energy_diff = [&](const VectorX & state_old, const int idx, const scalar dS) 
             {
@@ -312,8 +308,7 @@ namespace Engine
 
             for(int i=0; i < n_initial; i++)
             {
-                Freeze_X_Metropolis(energy_diff, state_sp_old, state_sp_new, prng, mc_sp);
-                state_sp_old     = state_sp_new;
+                Freeze_X_Metropolis(energy_diff, state_sp, prng, mc_sp);
             }
 
             scalar vel_perp = 0;
@@ -321,13 +316,11 @@ namespace Engine
             {
                 for(int j=0; j < n_decor; j++)
                 {
-                    Freeze_X_Metropolis(energy_diff, state_sp_old, state_sp_new, prng, mc_sp);
-                    state_sp_old     = state_sp_new;
+                    Freeze_X_Metropolis(energy_diff, state_sp, prng, mc_sp);
                 }
-                Freeze_X_Metropolis(energy_diff, state_sp_old, state_sp_new, prng, mc_sp);
-                state_sp_old = state_sp_new;
-                bennet_results[i] = bennet_exp(state_sp_old);
-                vel_perp += 0.5 * std::abs(perpendicular_velocity.dot(state_sp_old));
+                Freeze_X_Metropolis(energy_diff, state_sp, prng, mc_sp);
+                bennet_results[i] = bennet_exp(state_sp);
+                vel_perp += 0.5 * std::abs(perpendicular_velocity.dot(state_sp));
             }
 
             vel_perp /= n_iteration;

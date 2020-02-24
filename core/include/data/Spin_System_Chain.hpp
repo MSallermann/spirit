@@ -63,6 +63,9 @@ namespace Data
         // Prefactor constituents
         scalar rate = 0;
         scalar rate_err = 0;
+
+        scalar vel_perp = 0;
+        scalar vel_perp_err = 0;
     };
 
     class Spin_System_Chain

@@ -105,18 +105,17 @@ namespace Engine
 
         // Performs one iteration of a Metropolis Monte Carlo algorithm with a frozen X coordinate.
         template<typename Action_Function>
-        void Freeze_X_Metropolis(Action_Function action_func, VectorX & state_old, VectorX & state_new, std::mt19937 & prng, MC_Tracker & mc)
+        void Freeze_X_Metropolis(Action_Function action_func, VectorX & state, std::mt19937 & prng, MC_Tracker & mc)
         {
-            int n = state_old.size();
+            int n = state.size();
             auto distribution = std::uniform_real_distribution<scalar>(0, 1);
 
             for (int idx=1; idx<n; ++idx)
             {
                 scalar dS = mc.dist_width * (2*distribution(prng)-1); // random perturbation
-                state_new[idx] += dS;
 
                 // Energy difference of configurations with and without displacement
-                scalar E_diff = action_func(state_old, idx, dS);
+                scalar E_diff = action_func(state, idx, dS);
 
                 // Metropolis criterion: reject the step if energy rose
                 if( E_diff > 1e-14 )
@@ -130,16 +129,14 @@ namespace Engine
                     // Only reject if random number is larger than exponential
                     if( exp_ediff < x_metropolis)
                     {
-                        state_new[idx] = state_old[idx];
-                        mc.adapt(true);
+                        mc.adapt(true); // Rejected
                         continue;
                     }
                 }
-                state_old = state_new;
-                mc.adapt(false);
+                state[idx] += dS;
+                mc.adapt(false); // Accepted
             }
         }
-
     }
 }
 
