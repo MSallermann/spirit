@@ -111,12 +111,12 @@ namespace Engine
                 e_barrier = (e_sp - e_minimum) / (C::k_B * temperature);
             }
 
-            // Sampe minimium
+            // Sample minimium
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Sampling at minimum...");
             field<scalar> bennet_results_min(n_iterations_bennet, 0);
             Bennet_Minimum(n_iterations_bennet, N_INITIAL, N_DECOR, bennet_results_min, orth_hessian_min / (C::k_B * temperature), orth_hessian_sp / (C::k_B * temperature), e_barrier);
 
-            // Experctation value
+            // Expectation value
             scalar benn_min = 0; 
             for(int i=0; i<n_iterations_bennet; i++)
                 benn_min += bennet_results_min[i];
@@ -129,20 +129,33 @@ namespace Engine
             benn_min_var = std::sqrt( benn_min_var / n_iterations_bennet) / std::sqrt(n_iterations_bennet);
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Bennet expectation value at minimum: {} +- {}", benn_min, benn_min_var) );
 
+            // Sample saddle point
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Sampling at saddle point...");
-            scalar vel_perp = 0;
             field<scalar> bennet_results_sp(n_iterations_bennet, 0);
-            Bennet_SP(n_iterations_bennet, N_INITIAL, N_DECOR, vel_perp, bennet_results_sp, orth_hessian_sp / (C::k_B * temperature), orth_hessian_min / (C::k_B * temperature), orth_perpendicular_velocity, e_barrier);
+            field<scalar> vel_perp_results(n_iterations_bennet, 0);
+
+            Bennet_SP(n_iterations_bennet, N_INITIAL, N_DECOR, vel_perp_results, bennet_results_sp, orth_hessian_sp / (C::k_B * temperature), orth_hessian_min / (C::k_B * temperature), orth_perpendicular_velocity, e_barrier);
 
             scalar benn_sp = 0;
+            scalar vel_perp = 0;
             for(int i=0; i<n_iterations_bennet; i++)
+            {
                 benn_sp += bennet_results_sp[i];
+                vel_perp += vel_perp_results[i];
+            }
             benn_sp /= n_iterations_bennet;
+            vel_perp /= n_iterations_bennet;
 
             scalar benn_sp_var = 0;
+            scalar vel_perp_var = 0;
             for(int i=0; i<n_iterations_bennet; i++)
+            {
                 benn_sp_var += (bennet_results_sp[i]-benn_sp) * (bennet_results_sp[i]-benn_sp);
+                vel_perp_var += (vel_perp_results[i]-vel_perp) * (vel_perp_results[i]-vel_perp);
+            }
             benn_sp_var = std::sqrt( benn_sp_var / n_iterations_bennet) / std::sqrt(n_iterations_bennet);
+            vel_perp_var = std::sqrt( vel_perp_var / n_iterations_bennet) / std::sqrt(n_iterations_bennet);
+
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Bennet expectation value at saddle point: {} +- {}", benn_sp, benn_sp_var) );
 
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Using the Bennet Acceptance ratio to compute the entropy contribution to the transition rate" );
@@ -150,11 +163,11 @@ namespace Engine
             scalar unstable_mode_contribution_minimum = std::sqrt(C::Pi / q_min);
 
             scalar rate = C::g_e / (C::hbar) * vel_perp * benn_min / (benn_sp * unstable_mode_contribution_minimum);
-            scalar err_rate = rate * std::sqrt( std::pow(benn_sp_var/benn_sp, 2) + std::pow(benn_min_var/benn_min, 2) );
+            scalar err_rate = rate * std::sqrt( std::pow(benn_sp_var/benn_sp, 2) + std::pow(benn_min_var/benn_min, 2) + std::pow(vel_perp_var/vel_perp, 2) );
 
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Unstable mode contribution = {}", unstable_mode_contribution_minimum ));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Zs/Zmin = {}", benn_min/benn_sp ));
-            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    vel_perp = {}", vel_perp ));
+            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    vel_perp = {} +- {}", vel_perp, vel_perp_var ));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Rate = {} +- {} [1/ps]", rate, err_rate));
 
             tst_bennet_info.benn_min = benn_min;
@@ -166,6 +179,7 @@ namespace Engine
             tst_bennet_info.rate = rate;
             tst_bennet_info.rate_err = err_rate;
             tst_bennet_info.vel_perp = vel_perp;
+            tst_bennet_info.vel_perp_err = vel_perp_var;
 
             // Debug
             // {
@@ -285,9 +299,10 @@ namespace Engine
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    n_rejected = {}", mc_min.n_rejected));
         }
 
-        void Bennet_SP(int n_iteration, int n_initial, int n_decor, scalar & vel_perp_estimator, field<scalar> & bennet_results, const MatrixX & hessian_sp, const MatrixX & hessian_minimum, const VectorX & perpendicular_velocity, scalar energy_barrier)
+        void Bennet_SP(int n_iteration, int n_initial, int n_decor, field<scalar> & vel_perp_values, field<scalar> & bennet_results, const MatrixX & hessian_sp, const MatrixX & hessian_minimum, const VectorX & perpendicular_velocity, scalar energy_barrier)
         {
             std::mt19937 prng = std::mt19937(2113);
+
 
             // Sample at SP
             VectorX state_sp = VectorX::Zero(hessian_sp.row(0).size());
@@ -311,7 +326,6 @@ namespace Engine
                 Freeze_X_Metropolis(energy_diff, state_sp, prng, mc_sp);
             }
 
-            scalar vel_perp = 0;
             for(int i=0; i < n_iteration; i++)
             {
                 for(int j=0; j < n_decor; j++)
@@ -320,20 +334,12 @@ namespace Engine
                 }
                 Freeze_X_Metropolis(energy_diff, state_sp, prng, mc_sp);
                 bennet_results[i] = bennet_exp(state_sp);
-                vel_perp += 0.5 * std::abs(perpendicular_velocity.dot(state_sp));
+                vel_perp_values[i] = 0.5 * std::abs(perpendicular_velocity.dot(state_sp));
             }
-
-            vel_perp /= n_iteration;
 
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Finished sampling at saddle point.");
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    n_trials   = {}", mc_sp.n_trials  ));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    n_rejected = {}", mc_sp.n_rejected));
-
-            // std::cerr << "n_trials   = " << mc_sp.n_trials   << "\n";
-            // std::cerr << "n_rejected = " << mc_sp.n_rejected << "\n";
-            // std::cerr << "dist_width = " << mc_sp.dist_width << "\n";
-            // std::cerr << "vel_perp = " << vel_perp << "\n";
-            vel_perp_estimator = vel_perp;
         }
     }
 }

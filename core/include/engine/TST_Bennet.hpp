@@ -19,7 +19,7 @@ namespace Engine
 
         void Bennet_Minimum(int n_iteration, int n_initial, int n_decor, field<scalar> & bennet_results, const MatrixX & hessian_minimum, const MatrixX & hessian_sp, scalar energy_barrier);
 
-        void Bennet_SP(int n_iteration, int n_initial, int n_decor, scalar & vel_perp_estimator, field<scalar> & bennet_results, const MatrixX & hessian_sp, const MatrixX & hessian_minimum, const VectorX & perpendicular_velocity, scalar energy_barrier);
+        void Bennet_SP(int n_iteration, int n_initial, int n_decor, field<scalar> & vel_perp_results, field<scalar> & bennet_results, const MatrixX & hessian_sp, const MatrixX & hessian_minimum, const VectorX & perpendicular_velocity, scalar energy_barrier);
 
         struct MC_Tracker
         {
