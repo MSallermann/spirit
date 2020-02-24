@@ -66,6 +66,8 @@ namespace Data
 
         scalar vel_perp = 0;
         scalar vel_perp_err = 0;
+
+        scalar energy_barrier = 0;
     };
 
     class Spin_System_Chain

@@ -30,7 +30,7 @@ namespace Engine
             // This algorithm implements a statistical sampling method to calculate life times
             Log(Utility::Log_Level::All, Utility::Log_Sender::TST_Bennet, "--- Prefactor calculation");
             int N_INITIAL = 5000;
-            int N_DECOR = 5;
+            int N_DECOR = 2;
 
             auto& image_minimum = *tst_bennet_info.minimum->spins;
             auto& image_sp = *tst_bennet_info.saddle_point->spins;
@@ -111,10 +111,12 @@ namespace Engine
                 e_barrier = (e_sp - e_minimum) / (C::k_B * temperature);
             }
 
+            scalar shift_constant = 0;
+
             // Sample minimium
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Sampling at minimum...");
             field<scalar> bennet_results_min(n_iterations_bennet, 0);
-            Bennet_Minimum(n_iterations_bennet, N_INITIAL, N_DECOR, bennet_results_min, orth_hessian_min / (C::k_B * temperature), orth_hessian_sp / (C::k_B * temperature), e_barrier);
+            Bennet_Minimum(n_iterations_bennet, N_INITIAL, N_DECOR, bennet_results_min, orth_hessian_min / (C::k_B * temperature), orth_hessian_sp / (C::k_B * temperature), shift_constant);
 
             // Expectation value
             scalar benn_min = 0; 
@@ -134,7 +136,7 @@ namespace Engine
             field<scalar> bennet_results_sp(n_iterations_bennet, 0);
             field<scalar> vel_perp_results(n_iterations_bennet, 0);
 
-            Bennet_SP(n_iterations_bennet, N_INITIAL, N_DECOR, vel_perp_results, bennet_results_sp, orth_hessian_sp / (C::k_B * temperature), orth_hessian_min / (C::k_B * temperature), orth_perpendicular_velocity, e_barrier);
+            Bennet_SP(n_iterations_bennet, N_INITIAL, N_DECOR, vel_perp_results, bennet_results_sp, orth_hessian_sp / (C::k_B * temperature), orth_hessian_min / (C::k_B * temperature), orth_perpendicular_velocity, shift_constant);
 
             scalar benn_sp = 0;
             scalar vel_perp = 0;
@@ -162,24 +164,26 @@ namespace Engine
             scalar q_min = 1.0/(2.0 * C::k_B * temperature) * orth_hessian_min(0,0);
             scalar unstable_mode_contribution_minimum = std::sqrt(C::Pi / q_min);
 
-            scalar rate = C::g_e / (C::hbar) * vel_perp * benn_min / (benn_sp * unstable_mode_contribution_minimum);
+            scalar rate = C::g_e / (C::hbar) * vel_perp * benn_min / (benn_sp * unstable_mode_contribution_minimum) * std::exp(-e_barrier) * std::exp(shift_constant);
             scalar err_rate = rate * std::sqrt( std::pow(benn_sp_var/benn_sp, 2) + std::pow(benn_min_var/benn_min, 2) + std::pow(vel_perp_var/vel_perp, 2) );
 
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Unstable mode contribution = {}", unstable_mode_contribution_minimum ));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Zs/Zmin = {}", benn_min/benn_sp ));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    vel_perp = {} +- {}", vel_perp, vel_perp_var ));
+            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Delta E / kbT = {}", e_barrier));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Rate = {} +- {} [1/ps]", rate, err_rate));
 
-            tst_bennet_info.benn_min = benn_min;
+            tst_bennet_info.benn_min     = benn_min;
             tst_bennet_info.err_benn_min = benn_min_var;
-            tst_bennet_info.benn_sp = benn_sp;
-            tst_bennet_info.err_benn_sp = benn_sp_var;
+            tst_bennet_info.benn_sp      = benn_sp;
+            tst_bennet_info.err_benn_sp  = benn_sp_var;
             tst_bennet_info.unstable_mode_contribution = unstable_mode_contribution_minimum;
-            tst_bennet_info.n_iterations = n_iterations_bennet;
-            tst_bennet_info.rate = rate;
-            tst_bennet_info.rate_err = err_rate;
-            tst_bennet_info.vel_perp = vel_perp;
-            tst_bennet_info.vel_perp_err = vel_perp_var;
+            tst_bennet_info.n_iterations   = n_iterations_bennet;
+            tst_bennet_info.rate           = rate;
+            tst_bennet_info.rate_err       = err_rate;
+            tst_bennet_info.vel_perp       = vel_perp;
+            tst_bennet_info.vel_perp_err   = vel_perp_var;
+            tst_bennet_info.energy_barrier = e_barrier;
 
             // Debug
             // {
@@ -257,7 +261,7 @@ namespace Engine
             return (hessian_spectrum.info() == Spectra::SUCCESSFUL) && (nconv > 0);
         }
 
-        void Bennet_Minimum(int n_iteration, int n_initial, int n_decor, field<scalar> & bennet_results, const MatrixX & hessian_minimum, const MatrixX & hessian_sp, scalar energy_barrier)
+        void Bennet_Minimum(int n_iteration, int n_initial, int n_decor, field<scalar> & bennet_results, const MatrixX & hessian_minimum, const MatrixX & hessian_sp, scalar shift_constant)
         {
             // Sample at Minimum
             VectorX state_min = VectorX::Zero(hessian_minimum.row(0).size());
@@ -275,7 +279,7 @@ namespace Engine
 
             auto bennet_exp = [&] (const VectorX & state)
             {
-                return 1.0 / ( 1.0 + std::exp(0.5 * state.transpose() * (hessian_sp - hessian_minimum) * state + energy_barrier));
+                return 1.0 / ( 1.0 + std::exp(0.5 * state.transpose() * (hessian_sp - hessian_minimum) * state + shift_constant));
             };
 
             for(int i=0; i < n_initial; i++)
@@ -299,11 +303,9 @@ namespace Engine
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    n_rejected = {}", mc_min.n_rejected));
         }
 
-        void Bennet_SP(int n_iteration, int n_initial, int n_decor, field<scalar> & vel_perp_values, field<scalar> & bennet_results, const MatrixX & hessian_sp, const MatrixX & hessian_minimum, const VectorX & perpendicular_velocity, scalar energy_barrier)
+        void Bennet_SP(int n_iteration, int n_initial, int n_decor, field<scalar> & vel_perp_values, field<scalar> & bennet_results, const MatrixX & hessian_sp, const MatrixX & hessian_minimum, const VectorX & perpendicular_velocity, scalar shift_constant)
         {
             std::mt19937 prng = std::mt19937(2113);
-
-
             // Sample at SP
             VectorX state_sp = VectorX::Zero(hessian_sp.row(0).size());
 
@@ -314,7 +316,7 @@ namespace Engine
 
             auto bennet_exp = [&] (const VectorX & state)
             {
-                return 1.0 / (1.0 + std::exp(0.5 * state.transpose() * (hessian_minimum - hessian_sp) * state - energy_barrier));
+                return 1.0 / (1.0 + std::exp(0.5 * state.transpose() * (hessian_minimum - hessian_sp) * state - shift_constant));
             };
 
             MC_Tracker mc_sp;
