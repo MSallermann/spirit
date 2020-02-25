@@ -123,7 +123,8 @@ namespace Engine
         for (unsigned int img = 0; img < this->systems.size(); ++img)
         {
             // Minus the gradient is the total Force here
-            this->systems[img]->hamiltonian->Gradient(*configurations[img], Gradient[img]);
+            this->systems[img]->hamiltonian->Gradient_and_Energy(*configurations[img], Gradient[img], current_energy);
+
             #ifdef SPIRIT_ENABLE_PINNING
                 Vectormath::set_c_a(1, Gradient[img], Gradient[img], this->systems[img]->geometry->mask_unpinned);
             #endif // SPIRIT_ENABLE_PINNING
@@ -161,8 +162,12 @@ namespace Engine
             Vector3 je = s_c_vec;// direction of current
             //////////
 
-            // Direct minimisation
-            if (parameters.direct_minimization || solver == Solver::VP || solver == Solver::VP_OSO)
+            // This is the force calculation as it should be for direct minimization
+            // TODO: Also calculate force for VP solvers without additional scaling
+            if(solver == Solver::LBFGS_OSO || solver == Solver::LBFGS_Atlas)
+            {
+                Vectormath::set_c_cross( 1.0, image, force, force_virtual);
+            } else if (parameters.direct_minimization || solver == Solver::VP || solver == Solver::VP_OSO)
             {
                 dtg = parameters.dt * Constants::gamma / Constants::mu_B;
                 Vectormath::set_c_cross( dtg, image, force, force_virtual);
@@ -255,7 +260,8 @@ namespace Engine
         // --- Image Data Update
         // Update the system's Energy
         // ToDo: copy instead of recalculating
-        this->systems[0]->UpdateEnergy();
+
+        this->systems[0]->E = current_energy;
 
         // ToDo: How to update eff_field without numerical overhead?
         // systems[0]->effective_field = Gradient[0];
