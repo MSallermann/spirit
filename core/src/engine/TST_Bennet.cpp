@@ -102,6 +102,7 @@ namespace Engine
                 MatrixX orth_basis = MatrixX::Zero(unstable_mode.size(), unstable_mode.size());
                 orth_basis.diagonal() = VectorX::Ones(unstable_mode.size());
                 orth_basis.col(0) = unstable_mode.normalized();
+
                 MatrixX T = orth_basis.householderQr().householderQ(); // An orthonormal basis such that, T.transpose() * unstable_mode = (1,0,0,...,0)
 
                 orth_hessian_min = T.transpose() * hessian_minimum_constrained * T;
@@ -109,8 +110,16 @@ namespace Engine
                 orth_perpendicular_velocity = T.transpose() * perpendicular_velocity;
 
                 e_barrier = (e_sp - e_minimum) / (C::k_B * temperature);
-            }
 
+            // std::cout << "unstable_mode\n" << unstable_mode << "\n";
+            // std::cout << "hessian_minimum_constrained\n" << hessian_minimum_constrained << "\n";
+            // std::cout << "orth_hessian_min\n" << orth_hessian_min << "\n";
+            // std::cout << "hessian_sp_constrained\n" << hessian_sp_constrained << "\n";
+            // std::cout << "orth_hessian_sp\n" << orth_hessian_sp << "\n";
+            // std::cout << "T\n" << T << "\n";
+            // std::cout << "Vel_perp " << perpendicular_velocity.transpose() << "\n";
+            // std::cout << "orht Vel_perp " << orth_perpendicular_velocity.transpose() << "\n";
+            }
             scalar shift_constant = 0;
 
             // Sample minimium
@@ -167,9 +176,13 @@ namespace Engine
             scalar rate = C::g_e / (C::hbar) * vel_perp * benn_min / (benn_sp * unstable_mode_contribution_minimum) * std::exp(-e_barrier) * std::exp(shift_constant);
             scalar err_rate = rate * std::sqrt( std::pow(benn_sp_var/benn_sp, 2) + std::pow(benn_min_var/benn_min, 2) + std::pow(vel_perp_var/vel_perp, 2) );
 
+            scalar Z_ratio = benn_min / benn_sp;
+            scalar Z_ratio_err = Z_ratio * std::sqrt( std::pow(benn_min_var/benn_min, 2) + std::pow(benn_sp_var/benn_sp, 2) );
+
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Unstable mode contribution = {}", unstable_mode_contribution_minimum ));
-            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Zs/Zmin = {}", benn_min/benn_sp ));
+            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Zs/Zmin = {} +- {} ", Z_ratio, Z_ratio_err));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    vel_perp = {} +- {}", vel_perp, vel_perp_var ));
+            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    kbT = {}", temperature * C::k_B));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Delta E / kbT = {}", e_barrier));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Rate = {} +- {} [1/ps]", rate, err_rate));
 
@@ -184,6 +197,8 @@ namespace Engine
             tst_bennet_info.vel_perp       = vel_perp;
             tst_bennet_info.vel_perp_err   = vel_perp_var;
             tst_bennet_info.energy_barrier = e_barrier;
+            tst_bennet_info.Z_ratio = Z_ratio;
+            tst_bennet_info.err_Z_ratio = Z_ratio_err;
 
             // Debug
             // {

@@ -27,7 +27,7 @@ catch( ... )
     return 0;
 }
 
-void TST_Bennet_Get_Info(State * state, float * benn_min, float * err_benn_min, float * benn_sp, float * err_benn_sp, float * unstable_mode_contribution, float * rate, float * rate_err, int idx_chain) noexcept
+void TST_Bennet_Get_Info(State * state, float * Z_ratio, float * err_Z_ratio, float * vel_perp, float * err_vel_perp, float * unstable_mode_contribution, float * rate, float * rate_err, int idx_chain) noexcept
 try
 {
     int idx_image = -1;
@@ -37,10 +37,10 @@ try
     from_indices( state, idx_image, idx_chain, image, chain );
     auto& info = chain->tst_bennet_info;
 
-    *benn_min = info.benn_min;
-    *err_benn_min = info.err_benn_min;
-    *benn_sp = info.benn_sp;
-    *err_benn_sp = info.err_benn_sp;
+    *Z_ratio = info.Z_ratio;
+    *err_Z_ratio = info.err_Z_ratio;
+    *vel_perp = info.vel_perp;
+    *err_vel_perp = info.vel_perp_err;
     *unstable_mode_contribution = info.unstable_mode_contribution;
     *rate = info.rate;
     *rate_err = info.rate_err;

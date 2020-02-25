@@ -58,6 +58,9 @@ namespace Data
         scalar benn_sp = 0;
         scalar err_benn_sp = 0;
 
+        scalar Z_ratio = 0;
+        scalar err_Z_ratio = 0;
+
         scalar unstable_mode_contribution = 0;
 
         // Prefactor constituents
