@@ -111,6 +111,13 @@ namespace Engine
 
                 e_barrier = (e_sp - e_minimum) / (C::k_B * temperature);
 
+                // saveMatrix("orth_hessian_sp", orth_hessian_sp);
+                // saveMatrix("hessian_sp", hessian_sp_constrained);
+                // saveMatrix("orth_hessian_min", orth_hessian_min);
+                // saveMatrix("hessian_min", hessian_minimum_constrained);
+                // saveMatrix("T", T);
+
+
             // std::cout << "unstable_mode\n" << unstable_mode << "\n";
             // std::cout << "hessian_minimum_constrained\n" << hessian_minimum_constrained << "\n";
             // std::cout << "orth_hessian_min\n" << orth_hessian_min << "\n";
@@ -126,6 +133,8 @@ namespace Engine
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Sampling at minimum...");
             field<scalar> bennet_results_min(n_iterations_bennet, 0);
             Bennet_Minimum(n_iterations_bennet, N_INITIAL, N_DECOR, bennet_results_min, orth_hessian_min / (C::k_B * temperature), orth_hessian_sp / (C::k_B * temperature), shift_constant);
+
+            saveField("benn_min", bennet_results_min);
 
             // Expectation value
             scalar benn_min = 0; 
@@ -179,6 +188,7 @@ namespace Engine
             scalar Z_ratio = benn_min / benn_sp;
             scalar Z_ratio_err = Z_ratio * std::sqrt( std::pow(benn_min_var/benn_min, 2) + std::pow(benn_sp_var/benn_sp, 2) );
 
+            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "--- Results:" );
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Unstable mode contribution = {}", unstable_mode_contribution_minimum ));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Zs/Zmin = {} +- {} ", Z_ratio, Z_ratio_err));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    vel_perp = {} +- {}", vel_perp, vel_perp_var ));

@@ -8,6 +8,9 @@
 #include <data/Spin_System_Chain.hpp>
 #include <engine/Vectormath_Defines.hpp>
 
+#include <fstream>
+#include <string>
+
 namespace Engine
 {
     namespace TST_Bennet
@@ -20,6 +23,34 @@ namespace Engine
         void Bennet_Minimum(int n_iteration, int n_initial, int n_decor, field<scalar> & bennet_results, const MatrixX & hessian_minimum, const MatrixX & hessian_sp, scalar shift_constant);
 
         void Bennet_SP(int n_iteration, int n_initial, int n_decor, field<scalar> & vel_perp_results, field<scalar> & bennet_results, const MatrixX & hessian_sp, const MatrixX & hessian_minimum, const VectorX & perpendicular_velocity, scalar shift_constant);
+
+        // A small function for debugging purposes
+        inline void saveMatrix(std::string fname, const MatrixX & matrix)
+        {
+            std::cout << "Saving matrix to file: " << fname << "\n";
+            std::ofstream file(fname);
+            if(file && file.is_open())
+            {
+                file << matrix;
+            } else {
+                std::cerr << "Could not save matrix!";
+            }
+        }
+
+        template<typename Field_Like>
+        inline void saveField(std::string fname, const Field_Like & field)
+        {
+            int n = field.size();
+            std::cout << "Saving field to file: " << fname << "\n";
+            std::ofstream file(fname);
+            if(file && file.is_open())
+            {
+                for(int i=0; i<n; i++)
+                    file << field[i] << "\n";
+            } else {
+                std::cerr << "Could not save field!";
+            }
+        }
 
         struct MC_Tracker
         {
