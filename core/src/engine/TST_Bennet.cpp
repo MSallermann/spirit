@@ -25,7 +25,7 @@ namespace Engine
 {
     namespace TST_Bennet
     {
-        void Calculate(Data::TST_Bennet_Info & tst_bennet_info, int n_iterations_bennet)
+        void Calculate(Data::TST_Bennet_Info & tst_bennet_info, int n_chain, int n_iterations_bennet)
         {
             // This algorithm implements a statistical sampling method to calculate life times
             Log(Utility::Log_Level::All, Utility::Log_Sender::TST_Bennet, "--- Prefactor calculation");
@@ -110,150 +110,52 @@ namespace Engine
                 orth_perpendicular_velocity = T.transpose() * perpendicular_velocity;
 
                 e_barrier = (e_sp - e_minimum) / (C::k_B * temperature);
-
-                // saveMatrix("orth_hessian_sp", orth_hessian_sp);
-                // saveMatrix("hessian_sp", hessian_sp_constrained);
-                // saveMatrix("orth_hessian_min", orth_hessian_min);
-                // saveMatrix("hessian_min", hessian_minimum_constrained);
-                // saveMatrix("T", T);
-
-
-            // std::cout << "unstable_mode\n" << unstable_mode << "\n";
-            // std::cout << "hessian_minimum_constrained\n" << hessian_minimum_constrained << "\n";
-            // std::cout << "orth_hessian_min\n" << orth_hessian_min << "\n";
-            // std::cout << "hessian_sp_constrained\n" << hessian_sp_constrained << "\n";
-            // std::cout << "orth_hessian_sp\n" << orth_hessian_sp << "\n";
-            // std::cout << "T\n" << T << "\n";
-            // std::cout << "Vel_perp " << perpendicular_velocity.transpose() << "\n";
-            // std::cout << "orht Vel_perp " << orth_perpendicular_velocity.transpose() << "\n";
             }
+
             scalar shift_constant = 0;
-
-            // Sample minimium
-            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Sampling at minimum...");
-            field<scalar> bennet_results_min(n_iterations_bennet, 0);
-            Bennet_Minimum(n_iterations_bennet, N_INITIAL, N_DECOR, bennet_results_min, orth_hessian_min / (C::k_B * temperature), orth_hessian_sp / (C::k_B * temperature), shift_constant);
-
-            saveField("benn_min", bennet_results_min);
-
-            // Expectation value
-            scalar benn_min = 0; 
-            for(int i=0; i<n_iterations_bennet; i++)
-                benn_min += bennet_results_min[i];
-            benn_min /= n_iterations_bennet;
-
-            // Standard deviation
-            scalar benn_min_var = 0;
-            for(int i=0; i<n_iterations_bennet; i++)
-                benn_min_var += (bennet_results_min[i]-benn_min) * (bennet_results_min[i]-benn_min);
-            benn_min_var = std::sqrt( benn_min_var / n_iterations_bennet) / std::sqrt(n_iterations_bennet);
-            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Bennet expectation value at minimum: {} +- {}", benn_min, benn_min_var) );
-
-            // Sample saddle point
-            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Sampling at saddle point...");
-            field<scalar> bennet_results_sp(n_iterations_bennet, 0);
-            field<scalar> vel_perp_results(n_iterations_bennet, 0);
-
-            Bennet_SP(n_iterations_bennet, N_INITIAL, N_DECOR, vel_perp_results, bennet_results_sp, orth_hessian_sp / (C::k_B * temperature), orth_hessian_min / (C::k_B * temperature), orth_perpendicular_velocity, shift_constant);
-
-            scalar benn_sp = 0;
-            scalar vel_perp = 0;
-            for(int i=0; i<n_iterations_bennet; i++)
+            field<scalar> vel_perp_cb(n_iterations_bennet,0);
+            auto cb = [&](int img, int i, const VectorX& state)
             {
-                benn_sp += bennet_results_sp[i];
-                vel_perp += vel_perp_results[i];
-            }
-            benn_sp /= n_iterations_bennet;
-            vel_perp /= n_iterations_bennet;
+                if(img == n_chain-1)
+                {
+                    vel_perp_cb[i] = 0.5 * std::abs(orth_perpendicular_velocity.dot(state));
+                }
+            };
 
-            scalar benn_sp_var = 0;
-            scalar vel_perp_var = 0;
+            scalar Z_ratio, Z_ratio_err;
+            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Sampling of {} Hessians with {} iterations each...", n_chain, n_iterations_bennet));
+            Bennet_Chain_Sampling(n_chain, n_iterations_bennet, N_INITIAL, N_DECOR, orth_hessian_min/(C::k_B * temperature), orth_hessian_sp/(C::k_B * temperature), shift_constant, cb, Z_ratio, Z_ratio_err);
+            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Finished sampling of Hessians...");
+
+            scalar vel_perp = Vectormath::mean(vel_perp_cb);
+            scalar vel_perp_err = 0;
             for(int i=0; i<n_iterations_bennet; i++)
-            {
-                benn_sp_var += (bennet_results_sp[i]-benn_sp) * (bennet_results_sp[i]-benn_sp);
-                vel_perp_var += (vel_perp_results[i]-vel_perp) * (vel_perp_results[i]-vel_perp);
-            }
-            benn_sp_var = std::sqrt( benn_sp_var / n_iterations_bennet) / std::sqrt(n_iterations_bennet);
-            vel_perp_var = std::sqrt( vel_perp_var / n_iterations_bennet) / std::sqrt(n_iterations_bennet);
+                vel_perp_err += std::pow(vel_perp_cb[i] - vel_perp, 2);
+            vel_perp_err = std::sqrt(vel_perp_err) / n_iterations_bennet;
 
-            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Bennet expectation value at saddle point: {} +- {}", benn_sp, benn_sp_var) );
-
-            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Using the Bennet Acceptance ratio to compute the entropy contribution to the transition rate" );
             scalar q_min = 1.0/(2.0 * C::k_B * temperature) * orth_hessian_min(0,0);
             scalar unstable_mode_contribution_minimum = std::sqrt(C::Pi / q_min);
 
-            scalar rate = C::g_e / (C::hbar) * vel_perp * benn_min / (benn_sp * unstable_mode_contribution_minimum) * std::exp(-e_barrier) * std::exp(shift_constant);
-            scalar err_rate = rate * std::sqrt( std::pow(benn_sp_var/benn_sp, 2) + std::pow(benn_min_var/benn_min, 2) + std::pow(vel_perp_var/vel_perp, 2) );
-
-            scalar Z_ratio = benn_min / benn_sp;
-            scalar Z_ratio_err = Z_ratio * std::sqrt( std::pow(benn_min_var/benn_min, 2) + std::pow(benn_sp_var/benn_sp, 2) );
+            scalar rate     = C::g_e / (C::hbar) * vel_perp * Z_ratio / unstable_mode_contribution_minimum * std::exp(-e_barrier) * std::exp(shift_constant);
+            scalar err_rate = rate * std::sqrt( std::pow(Z_ratio_err/Z_ratio, 2) + std::pow(vel_perp_err/vel_perp, 2) );
 
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "--- Results:" );
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Unstable mode contribution = {}", unstable_mode_contribution_minimum ));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Zs/Zmin = {} +- {} ", Z_ratio, Z_ratio_err));
-            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    vel_perp = {} +- {}", vel_perp, vel_perp_var ));
+            Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    vel_perp = {} +- {}", vel_perp, vel_perp_err ));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    kbT = {}", temperature * C::k_B));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Delta E / kbT = {}", e_barrier));
             Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Rate = {} +- {} [1/ps]", rate, err_rate));
 
-            tst_bennet_info.benn_min     = benn_min;
-            tst_bennet_info.err_benn_min = benn_min_var;
-            tst_bennet_info.benn_sp      = benn_sp;
-            tst_bennet_info.err_benn_sp  = benn_sp_var;
             tst_bennet_info.unstable_mode_contribution = unstable_mode_contribution_minimum;
             tst_bennet_info.n_iterations   = n_iterations_bennet;
             tst_bennet_info.rate           = rate;
             tst_bennet_info.rate_err       = err_rate;
             tst_bennet_info.vel_perp       = vel_perp;
-            tst_bennet_info.vel_perp_err   = vel_perp_var;
+            tst_bennet_info.vel_perp_err   = vel_perp_err;
             tst_bennet_info.energy_barrier = e_barrier;
             tst_bennet_info.Z_ratio = Z_ratio;
             tst_bennet_info.err_Z_ratio = Z_ratio_err;
-
-            // Debug
-            // {
-            //     std::cerr << "====== Debug test =====\n";
-            //     VectorX state_new = VectorX::Zero(3);
-            //     VectorX state_old = VectorX::Zero(3);
-            //     VectorX normal = VectorX::Zero(3);
-            //     normal[0] = 0; normal[1] = 0; normal[2] = 0;
-            //     MatrixX hessian = MatrixX::Zero(3,3);
-
-            //     hessian <<  1,0,0,
-            //                 0,1,0,
-            //                 0,0,1;
-            //     std::cerr << hessian << "\n";
-            //     MC_Tracker mc;
-            //     mc.target_rejection_ratio = 0.25;
-            //     std::mt19937 prng = std::mt19937(21380);
-
-            //     auto func = [&](const VectorX & state) {return 0.5 * state.transpose() * hessian * state;};
-            //     VectorX v = VectorX::Zero(3);
-            //     v << 1,1,1;
-            //     std::cerr << "func({1,1,1}) = " << func(v) << "\n";
-            //     v << 1,0,1;
-            //     std::cerr << "func({1,0,1}) = " << func(v) << "\n";
-            //     v << 0,0,1;
-            //     std::cerr << "func({0,0,1}) = " << func(v) << "\n";
-            //     v << 1,0,0;
-            //     std::cerr << "func({1,0,0}) = " << func(v) << "\n";
-
-
-            //     for(int i=0; i < 10000; i++)
-            //     {
-            //         Hyperplane_Metropolis(func, state_old, state_new, normal.normalized(), prng, mc);
-            //         Backend::par::apply(state_old.size(), [&](int idx) { state_old[idx] = state_new[idx]; });
-            //     }
-            //     for(int i=0; i < 100000; i++)
-            //     {
-            //         Hyperplane_Metropolis(func, state_old, state_new, normal.normalized(), prng, mc);
-            //         Backend::par::apply(state_old.size(), [&](int idx) { state_old[idx] = state_new[idx]; });
-            //         std::cerr << state_old.transpose() << "\n";
-            //     }
-            //     // std::cerr << "n_trials     = " << mc.n_trials   << "\n";
-            //     // std::cerr << "n_rejected   = " << mc.n_rejected << "\n";
-            //     // std::cerr << "dist_width   = " << mc.dist_width << "\n";
-            // }
         }
 
         bool Get_Unstable_Mode(const vectorfield & spins, const vectorfield & gradient, const MatrixX & hessian,

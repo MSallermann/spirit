@@ -53,12 +53,6 @@ namespace Data
         // Eigenmodes
         VectorX unstable_mode = VectorX(0);
 
-        scalar benn_min = 0;
-        scalar err_benn_min = 0;
-
-        scalar benn_sp = 0;
-        scalar err_benn_sp = 0;
-
         scalar Z_ratio = 0;
         scalar err_Z_ratio = 0;
 
