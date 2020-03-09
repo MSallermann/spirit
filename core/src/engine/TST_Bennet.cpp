@@ -14,7 +14,6 @@
 #include <engine/Vectormath.hpp>
 #include <engine/Manifoldmath.hpp>
 #include <engine/Hamiltonian_Heisenberg.hpp>
-#include <utility/Constants.hpp>
 #include <utility/Logging.hpp>
 #include <math.h>
 #include <fmt/format.h>
@@ -43,9 +42,11 @@ namespace Engine
             scalar e_barrier;
             MatrixX orth_hessian_min, orth_hessian_sp;
             VectorX orth_perpendicular_velocity;
+            VectorX unstable_mode;
+            VectorX eigenvalues;
+            MatrixX hessian_minimum_constrained;
+            MatrixX hessian_sp_constrained;
             {
-                VectorX unstable_mode;
-                VectorX eigenvalues;
                 VectorX perpendicular_velocity = VectorX::Zero(2*nos);
                 MatrixX tangent_basis, eigenvectors;
 
@@ -59,7 +60,7 @@ namespace Engine
                 tst_bennet_info.saddle_point->hamiltonian->Hessian(image_sp, hessian_sp);
 
                 Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Evaluation of saddle point constrained Hessian...");
-                MatrixX hessian_sp_constrained = MatrixX::Zero(2*nos, 2*nos); // Constrained hessian
+                hessian_sp_constrained = MatrixX::Zero(2*nos, 2*nos); // Constrained hessian
 
                 Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Calculation of unstable mode...");
                 Get_Unstable_Mode(image_sp, gradient_sp, hessian_sp, tangent_basis, hessian_sp_constrained, eigenvalues, eigenvectors);
@@ -67,7 +68,7 @@ namespace Engine
 
                 // Free memory
                 gradient_sp.resize(0);
-                eigenvalues.resize(0,0);
+                // eigenvalues.resize(0,0);
 
                 Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Calculation of dynamical matrix...");
                 MatrixX dynamical_matrix(3*nos, 3*nos);
@@ -88,7 +89,7 @@ namespace Engine
                 tst_bennet_info.minimum->hamiltonian->Hessian(image_minimum, hessian_minimum);
 
                 Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, "    Evaluation of minimum constrained Hessian...");
-                MatrixX hessian_minimum_constrained = MatrixX::Zero(2*nos, 2*nos);
+                hessian_minimum_constrained = MatrixX::Zero(2*nos, 2*nos);
                 tangent_basis_min = MatrixX::Zero(3*nos, 2*nos);
                 Manifoldmath::tangent_basis_spherical(image_minimum, tangent_basis_min);
                 Manifoldmath::hessian_bordered(image_minimum, gradient_minimum, hessian_minimum, tangent_basis_min, hessian_minimum_constrained);
@@ -154,8 +155,42 @@ namespace Engine
             tst_bennet_info.vel_perp       = vel_perp;
             tst_bennet_info.vel_perp_err   = vel_perp_err;
             tst_bennet_info.energy_barrier = e_barrier;
-            tst_bennet_info.Z_ratio = Z_ratio;
-            tst_bennet_info.err_Z_ratio = Z_ratio_err;
+            tst_bennet_info.Z_ratio        = Z_ratio;
+            tst_bennet_info.err_Z_ratio    = Z_ratio_err;
+
+            MatrixX A = MatrixX::Zero(5,5);
+            // VectorX d;
+            A.diagonal() << 0.2, 0.2, 0.2, 0.2, 0.2;
+            std::cout << A << "\n";
+
+            // scalar sinf = (orth_hessian_min.colwise().lpNorm<1>()).maxCoeff();
+            // scalar s1   = (orth_hessian_min.rowwise().lpNorm<1>()).maxCoeff();
+            // scalar smax = std::sqrt( sinf * s1 );
+            // std::cout << "smax =  " << smax << "\n";
+
+            std::cout << unstable_mode * unstable_mode.transpose();
+            std::cout << "\neigenvalues[0] " << eigenvalues[0] << "\n";
+            std::mt19937 prng = std::mt19937(213);
+
+            auto hmin = hessian_minimum_constrained;
+            auto hsp = (hessian_sp_constrained + (1-eigenvalues[0]) * unstable_mode * unstable_mode.transpose());
+
+            scalar log_det_min = cheb_det(hmin, 4000, 100, prng);
+            scalar log_det_sp  = cheb_det(hsp, 4000, 100, prng);
+
+            // std::cout << hessian_minimum_constrained << "\n";
+            saveMatrix("h_min", hmin);
+            saveMatrix("h_sp", hsp);
+            saveMatrix("h_sp_n", hessian_sp_constrained);
+
+
+            std::cout << "\n---------\n" << log_det_min << "\n---------\n";
+            std::cout << "\n---------\n" << log_det_sp <<  "\n---------\n";
+            std::cout << "\n---------\n" << std::log( hmin.determinant() ) <<  "\n---------\n";
+            std::cout << "\n---------\n" << std::log( hsp.determinant() ) <<  "\n---------\n";
+
+            std::cout << "Z_ratio " << std::sqrt(std::exp(log_det_min - log_det_sp)) / std::sqrt(2 * C::k_B * temperature * C::Pi) << "\n";
+            std::cout << "Z_ratio " << std::sqrt(hmin.determinant() / hsp.determinant() ) << "\n";
         }
 
         bool Get_Unstable_Mode(const vectorfield & spins, const vectorfield & gradient, const MatrixX & hessian,

@@ -8,9 +8,13 @@
 #include <data/Spin_System_Chain.hpp>
 #include <engine/Vectormath_Defines.hpp>
 #include <engine/Vectormath.hpp>
-
+#include <utility/Constants.hpp>
+#include <chebyshev.h>
 #include <fstream>
 #include <string>
+#include <fmt/format.h>
+
+#include <random>
 
 namespace Engine
 {
@@ -266,6 +270,66 @@ namespace Engine
             }
 
             Z_ratio_err = Z_ratio * std::sqrt(Z_ratio_err);
+        }
+
+        template<typename Function>
+        inline scalar get_cheb_coeff(int i, int n, Function f)
+        {
+            scalar result=0;
+            for(int k=0; k<n; k++)
+            {
+                scalar xk = std::cos( Utility::Constants::Pi * ( k+0.5 )/n );
+                result += -Chebyshev::Tn<scalar>(i, xk) * f(xk);
+            }
+            if (i==0)
+                return 1/scalar(n) * result;
+            else
+                return 2/scalar(n) * result;
+        }
+
+        inline scalar cheb_det(const MatrixX & B, int n, int m, std::mt19937 & prng)
+        {
+            scalar sinf = (B.colwise().lpNorm<1>()).maxCoeff();
+            scalar s1   = (B.rowwise().lpNorm<1>()).maxCoeff();
+            scalar smax = std::sqrt( sinf * s1 );
+            std::cout << "smax = " << smax << "\n";
+
+            int d = B.row(0).size();
+            MatrixX A = 2 * B/smax -MatrixX::Identity(d,d);
+            auto distribution = std::uniform_int_distribution<scalar>(0, 1);
+
+            scalar gamma = 0;
+            scalarfield ci(n, 0);
+            for (int i=0; i<n; i++)
+            {
+                ci[i] = get_cheb_coeff(i, n, [&](scalar x) {return std::log( (1 + x)/2 );});
+            }
+
+            VectorX v(d), u(d), w0(d), w1(d), w2(d);
+            for (int i=0; i<m; i++)
+            {
+                for(int k=0; k<v.size(); k++)
+                {
+                    v[k] = (2*distribution(prng)-1);
+                }
+
+                u = ci[0] * v;
+
+                w0 = v;
+                w1 = A * v;
+                u = u + ci[1] * A * v;
+
+                for (int j=2; j<n; j++)
+                {
+                    w2 = 2 * A*w1 - w0;
+                    u = u + ci[j] * w2;
+                    w0 = w1;
+                    w1 = w2;
+                }
+                gamma = gamma + v.dot(u)/m;
+                std::cout << "gamma = " << gamma << "\n";
+            }
+            return gamma + d * std::log(smax);
         }
 
     }

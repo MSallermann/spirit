@@ -355,6 +355,7 @@ set( SPIRIT_INCLUDE_DIRS
      ${SPECTRA_INCLUDE_DIRS}
      ${qhull_INCLUDE_DIRS}
      ${FFT_INCLUDE_DIRS}
+     ${PROJECT_SOURCE_DIR}/thirdparty/chebyshev
      )
 include_directories( ${SPIRIT_INCLUDE_DIRS} )
 #############################################
