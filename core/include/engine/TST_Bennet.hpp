@@ -200,7 +200,7 @@ namespace Engine
 
                 auto energy_diff = [&](const VectorX & state_old, const int idx, const scalar dS) 
                 {
-                    return 0.5 * (slider * hessian_min(idx, idx)  + (1-slider) * hessian_sp(idx,idx)) * dS*dS + state_old.dot( slider * hessian_min.row(idx) + (1-slider) * hessian_sp.row(idx)) * dS;
+                    return 0.5 * (slider * hessian_min(idx, idx) + (1-slider) * hessian_sp(idx,idx)) * dS*dS + state_old.dot( slider * hessian_min.row(idx) + (1-slider) * hessian_sp.row(idx)) * dS;
                 };
 
                 auto bennet_exp_p = [&] (const VectorX & state)
