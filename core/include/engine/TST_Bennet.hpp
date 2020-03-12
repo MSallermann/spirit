@@ -252,6 +252,9 @@ namespace Engine
 
                 bennet_err_p[img] = std::sqrt(bennet_err_p[img]) / n_bennet;
                 bennet_err_m[img] = std::sqrt(bennet_err_m[img]) / n_bennet;
+
+                Log(Utility::Log_Level::Info, Utility::Log_Sender::TST_Bennet, fmt::format("    Sampled {} of {} Hessians ...", img+1, n_images));
+
             }
 
             // Combine forward and backward sampling
