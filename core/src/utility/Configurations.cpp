@@ -193,10 +193,77 @@ namespace Utility
                             f = F + atan(1.0 / (tan(tmp)*cos(T))) + Pi;
                         }
                         // Spin orientation
-                        spins[n][0] = sin(t)*cos(order * f);
-                        spins[n][1] = sin(t)*sin(order * f);
-                        spins[n][2] = cos(t);
+                        spins[n][0] = sin(t)*cos(order * f) * -1;
+                        spins[n][1] = sin(t)*sin(order * f) * -1;
+                        spins[n][2] = cos(t) * -1;
                     }
+                }
+            }
+        }
+
+        void Heliknoton(Data::Spin_System & s, Vector3 pos, scalar chSize, scalar chPeriod, bool Hopfion, bool Spiralize, filterfunction filter)
+        {
+
+            // std::cout << "------------ Heliknoton --------------\n";
+            std::cout << chSize << "\n";
+            std::cout << pos.transpose() << "\n";
+
+            using std::pow;
+            using std::sqrt;
+            using std::acos;
+            using std::sin;
+            using std::cos;
+            using std::atan;
+            using std::atan2;
+
+            auto& spins = *s.spins;
+            auto& positions = s.geometry->positions;
+
+            // First Step, create Hopfion in FM background
+            double r, T, F, t, f, tmp, angle;
+            Vector3 tmp_vec;
+            for (int n=0; n<s.nos; n++)
+            {
+                Vector3 & s = spins[n];
+                const Vector3 & p = positions[n];
+                r = (p - pos).norm();
+
+                if (r < 1e-6)
+                    T = 0;
+                else 
+                    T = (p[2] - pos[2]) / r;
+                    // T = Engine::Vectormath::angle({0,0,1}, (p-pos).normalized());
+                T = acos(T);
+                F = atan2(p[1] - pos[1], p[0] - pos[0]);
+
+                t = r*r/chSize;//initially t = r/chSize;
+                t = 1.0 + 4.22/(t*t);
+                tmp = Constants::Pi * (1.0 - 1.0/sqrt(t));
+                t = sin(tmp) * sin(T);
+                t = acos(1.0 - 2.0*t*t);
+
+                f = -F + atan2(1.0/tan(tmp), cos(T));
+
+                // std::cout << " ----- \n";
+                // std::cout << "r " << r << "\n";
+                // std::cout << "t " << t << "\n";
+                // std::cout << "T " << T << "\n";
+                // std::cout << "f " << f << "\n";
+                // std::cout << "F " << F << "\n";
+                // std::cout << "tmp " << tmp << "\n";
+                if (Hopfion)
+                {
+                    s[0] = sin(t) * cos(f) * 2;
+                    s[1] = sin(t) * sin(f) * 2;
+                    s[2] = cos(t) * 2;
+                }
+
+                const Vector3 chdir = {0,1,0};
+                if (Spiralize)
+                {
+                    angle = 2 * Constants::Pi * (p-pos).dot(chdir) / chPeriod;
+                    Engine::Vectormath::rotate(s, chdir, angle, tmp_vec);
+                    s = tmp_vec;
                 }
             }
         }

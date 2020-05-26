@@ -175,6 +175,31 @@ def hopfion(p_state, radius, order=1, pos=[0,0,0], border_rectangular=[-1,-1,-1]
              ctypes.c_float(border_spherical), ctypes.c_bool(inverted),
              ctypes.c_int(idx_image), ctypes.c_int(idx_chain))
 
+
+
+
+_Heliknoton             = _spirit.Configuration_Heliknoton
+_Heliknoton.argtypes    = [ctypes.c_void_p, ctypes.c_float, ctypes.c_float, ctypes.c_bool, ctypes.c_bool, ctypes.POINTER(ctypes.c_float),
+                        ctypes.POINTER(ctypes.c_float), ctypes.c_float, ctypes.c_float, ctypes.c_bool,
+                        ctypes.c_int, ctypes.c_int]
+_Heliknoton.restype     = None
+def heliknoton(p_state, chSize, chPeriod, hopfion=True, spiralize=True, pos=[0,0,0], border_rectangular=[-1,-1,-1],
+            border_cylindrical=-1, border_spherical=-1, inverted=False, idx_image=-1, idx_chain=-1):
+    """Set a Heliknoton configuration.
+
+    Arguments:
+
+    - `chSize`: the distance from the center to the center of the corresponding tubular isosurface
+
+    """
+    vec3 = ctypes.c_float * 3
+    _Heliknoton(ctypes.c_void_p(p_state), ctypes.c_float(chSize), ctypes.c_float(chPeriod), ctypes.c_bool(hopfion), ctypes.c_bool(spiralize),
+             vec3(*pos), vec3(*border_rectangular), ctypes.c_float(border_cylindrical),
+             ctypes.c_float(border_spherical), ctypes.c_bool(inverted),
+             ctypes.c_int(idx_image), ctypes.c_int(idx_chain))
+
+
+
 _SpinSpiral             = _spirit.Configuration_SpinSpiral
 _SpinSpiral.argtypes    = [ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_float),
                            ctypes.POINTER(ctypes.c_float), ctypes.c_float,

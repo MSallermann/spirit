@@ -90,6 +90,10 @@ PREFIX void Configuration_DW_Skyrmion(State *state, float dw_radius, float dw_wi
 // Create a toroidal Hopfion
 PREFIX void Configuration_Hopfion(State *state, float r, int order=1, const float position[3]=defaultPos, const float r_cut_rectangular[3]=defaultRect, float r_cut_cylindrical=-1, float r_cut_spherical=-1, bool inverted=false,  int idx_image=-1, int idx_chain=-1) SUFFIX;
 
+
+PREFIX void Configuration_Heliknoton(State *state, float chSize, float chPeriod, bool Hopfion=true, bool Spiralize=true, const float position[3]=defaultPos, const float r_cut_rectangular[3]=defaultRect, float r_cut_cylindrical=-1, float r_cut_spherical=-1, bool inverted=false,  int idx_image=-1, int idx_chain=-1) SUFFIX;
+
+
 /*
 Pinning and atom types
 --------------------------------------------------------------------

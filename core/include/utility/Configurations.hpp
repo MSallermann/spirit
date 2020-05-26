@@ -36,6 +36,9 @@ namespace Utility
         // Creates a toroid
         void Hopfion(Data::Spin_System & s, Vector3 pos, scalar r, int order=1, filterfunction filter=defaultfilter);
 
+        // Create Heliknoton of Nikolai
+        void Heliknoton(Data::Spin_System & s, Vector3 pos, scalar chSize, scalar chPeriod, bool Hopfion, bool Spiralize, filterfunction filter);
+
         // Creates a Skyrmion
         void Skyrmion(Data::Spin_System & s, Vector3 pos, scalar r, scalar order, scalar phase, bool upDown, bool achiral, bool rl, bool experimental, filterfunction filter=defaultfilter);
 

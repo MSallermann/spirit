@@ -595,6 +595,40 @@ catch( ... )
     spirit_handle_exception_api(idx_image, idx_chain);
 }
 
+void Configuration_Heliknoton(State *state, float chSize, float chPeriod, bool Hopfion, bool Spiralize, const float position[3], const float r_cut_rectangular[3], float r_cut_cylindrical, float r_cut_spherical, bool inverted,  int idx_image, int idx_chain) noexcept
+try
+{
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+
+    // Get relative position
+    Vector3 _pos{ position[0], position[1], position[2] };
+    Vector3 vpos = image->geometry->center + _pos;
+
+    // Set cutoff radius
+    if (r_cut_cylindrical < 0) r_cut_cylindrical = 2*chSize;
+
+    // Create position filter
+    auto filter = get_filter(vpos, r_cut_rectangular, r_cut_cylindrical, r_cut_spherical, inverted);
+
+    // Apply configuration
+    image->Lock();
+    Utility::Configurations::Heliknoton( *image, vpos, chSize, chPeriod, Hopfion, Spiralize, filter);
+    image->geometry->Apply_Pinning(*image->spins);
+    image->Unlock();
+
+    Log( Utility::Log_Level::Info, Utility::Log_Sender::API,
+            "Set Heliknoton configuriation ", idx_image, idx_chain);
+}
+catch( ... )
+{
+    spirit_handle_exception_api(idx_image, idx_chain);
+}
+
+
 
 void Configuration_SpinSpiral( State *state, const char * direction_type, float q[3], float axis[3],
                                float theta, const float position[3], const float r_cut_rectangular[3],
