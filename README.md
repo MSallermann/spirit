@@ -9,7 +9,6 @@ This section will be restructured later.
 
 ![Logo](https://imgur.com/iWc1kuE.png "Spirit Logo")
 
-
 &nbsp;
 
 
