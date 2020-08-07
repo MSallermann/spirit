@@ -1,0 +1,83 @@
+#version 450
+#extension GL_KHR_shader_subgroup_arithmetic : enable
+
+layout (local_size_x = 1024, local_size_y = 1,local_size_z = 1) in;
+layout (constant_id = 1) const int sumSubGroupSize = 64;
+layout(binding = 0) readonly buffer Data0
+{
+   float grad [];
+};
+layout(binding = 1) buffer Data2
+{
+   float sd [];
+};
+layout(binding = 2) buffer Data3
+{
+   float s [];
+};
+
+layout(binding = 3) buffer Data4
+{
+   float reduceResults[];
+};
+
+layout(push_constant) uniform PushConsts
+{
+  uint pad;
+  float dt;
+} consts;
+
+void main() {
+	uint id_x=gl_GlobalInvocationID.x;
+	
+	vec3 s_loc;
+	s_loc.x=s[id_x];
+	s_loc.y=s[id_x+consts.pad];
+	s_loc.z=s[id_x+2*consts.pad];
+	vec3 sd_loc;
+	if (reduceResults[1]==0){
+		reduceResults[1]=reduceResults[0];
+		sd_loc.x=-grad[id_x];
+		sd_loc.y=-grad[id_x+consts.pad];
+		sd_loc.z=-grad[id_x+2*consts.pad];	
+	}
+	else{
+		float beta= reduceResults[0]/reduceResults[1];
+		reduceResults[1]=reduceResults[0];
+		sd_loc.x=beta*sd_loc.x-grad[id_x];
+		sd_loc.y=beta*sd_loc.y-grad[id_x+consts.pad];
+		sd_loc.z=beta*sd_loc.z-grad[id_x+2*consts.pad];	
+	}
+	sd_loc*=consts.dt;
+	sd[id_x]=sd_loc.x;
+	sd[id_x+consts.pad]=sd_loc.y;
+	sd[id_x+2*consts.pad]=sd_loc.z;
+	float theta = length(sd_loc);
+	if (theta > 1.0e-20) // if theta is too small we do nothing
+	{
+	
+		float theta_inv = 1.0/theta;
+		float q = cos(theta);
+		float w = 1 - q;
+		float x = -sd_loc.x* theta_inv;
+		float y = -sd_loc.y* theta_inv;
+		float z = -sd_loc.z* theta_inv;
+		float s1 = x * y * w;
+		float s2 = x * z * w;
+		float s3 = z * y * w;
+		float p1 = z * sin(theta);
+		float p2 = y * sin(theta);
+		float p3 = x * sin(theta);
+		vec3 t;
+	
+		t.x = (q + x* x * w) * s_loc.x + (s1 - p1) * s_loc.y + (s2 + p2) * s_loc.z;
+		t.y = (s1 + p1) * s_loc.x + (q + y * y * w) * s_loc.y + (s3 - p3) * s_loc.z;
+		t.z = (s2 - p2) * s_loc.x + (s3 + p3) * s_loc.y + (q + z * z * w) * s_loc.z;
+		t=normalize(t);
+		s[id_x] = t.x;
+		s[id_x+consts.pad] = t.y;
+		s[id_x+2*consts.pad] = t.z;
+    };
+	
+
+}	

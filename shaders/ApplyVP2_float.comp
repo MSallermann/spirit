@@ -1,0 +1,77 @@
+#version 450
+#extension GL_KHR_shader_subgroup_arithmetic : enable
+
+layout (local_size_x = 1024, local_size_y = 1,local_size_z = 1) in;
+layout (constant_id = 1) const int sumSubGroupSize = 64;
+layout(binding = 0) readonly buffer Data0
+{
+   float grad [];
+};
+layout(binding = 1) writeonly buffer Data2
+{
+   float grad_pr [];
+};
+layout(binding = 2) buffer Data3
+{
+   float s [];
+};
+
+layout(binding = 3) readonly buffer Data4
+{
+   float reduceResults[];
+};
+
+layout(push_constant) uniform PushConsts
+{
+  uint pad;
+  float dt;
+  float m_temp_inv;
+} consts;
+
+
+shared float sdata[sumSubGroupSize];
+void main() {
+	uint id_x=gl_GlobalInvocationID.x;
+	grad_pr[id_x]=grad[id_x];
+	grad_pr[id_x+consts.pad]=grad[id_x+consts.pad];
+	grad_pr[id_x+2*consts.pad]=grad[id_x+2*consts.pad];
+	vec3 s_loc;
+	s_loc.x=s[id_x];
+	s_loc.y=s[id_x+consts.pad];
+	s_loc.z=s[id_x+2*consts.pad];
+	float beta= reduceResults[0]/reduceResults[1];
+	if (beta>0) beta=0;
+	vec3 sd_loc;
+	sd_loc.x=consts.dt*grad[id_x]*(beta - consts.m_temp_inv);
+	sd_loc.y=consts.dt*grad[id_x+consts.pad]*(beta - consts.m_temp_inv);
+	sd_loc.z=consts.dt*grad[id_x+2*consts.pad]*(beta - consts.m_temp_inv);
+	
+	float theta = length(sd_loc);
+	if (theta > 1.0e-20) // if theta is too small we do nothing
+	{
+	
+		float theta_inv = 1.0/theta;
+		float q = cos(theta);
+		float w = 1 - q;
+		float x = -sd_loc.x* theta_inv;
+		float y = -sd_loc.y* theta_inv;
+		float z = -sd_loc.z* theta_inv;
+		float s1 = x * y * w;
+		float s2 = x * z * w;
+		float s3 = z * y * w;
+		float p1 = z * sin(theta);
+		float p2 = y * sin(theta);
+		float p3 = x * sin(theta);
+		vec3 t;
+	
+		t.x = (q + x* x * w) * s_loc.x + (s1 - p1) * s_loc.y + (s2 + p2) * s_loc.z;
+		t.y = (s1 + p1) * s_loc.x + (q + y * y * w) * s_loc.y + (s3 - p3) * s_loc.z;
+		t.z = (s2 - p2) * s_loc.x + (s3 + p3) * s_loc.y + (q + z * z * w) * s_loc.z;
+		t=normalize(t);
+		s[id_x] = t.x;
+		s[id_x+consts.pad] = t.y;
+		s[id_x+2*consts.pad] = t.z;
+    };
+	
+
+}	
