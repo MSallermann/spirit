@@ -80,6 +80,150 @@ namespace Engine
         // When parallelising (cuda or openmp), we need all neighbours per spin
         const bool use_redundant_neighbours = true;
 
+
+        // ++++++++ Experimental changes ++++++++
+              
+                auto pair_compare_function = [&] (const Interaction_Pair & l, const Interaction_Pair & r)
+                {
+                    if(l.i < r.i)
+                        return true;
+                    else
+                    {
+                        // Heuristic for sorting the pairs for optimal memory access
+                        // Hereby we sort the interaction pairs such that a bulk spin has optimal access patterns, notice the use of periodic bondaries to avoid -1 indices
+                        auto & lt = l.translations;
+                        auto & rt = r.translations;
+                        auto & n_cells = geometry->n_cells;
+                        int t1[3] = {lt[0] + n_cells[0]/2, lt[1] + n_cells[1]/2, lt[2] + n_cells[2]/2};
+                        int t2[3] = {rt[0] + n_cells[0]/2, rt[1] + n_cells[1]/2, rt[2] + n_cells[2]/2};
+                        return Vectormath::fast_idx_from_translations(t1, this->geometry->n_cells, {1,1,1})
+                             < Vectormath::fast_idx_from_translations(t2, this->geometry->n_cells, {1,1,1});
+                    }
+                };
+
+                // Experimental Exchange
+                this->exchange_pairs      = pairfield(0);
+                this->exchange_magnitudes = scalarfield(0);
+                if( exchange_shell_magnitudes.size() > 0 )
+                {
+                    // Generate Exchange neighbours
+                    intfield exchange_shells(0);
+                    Neighbours::Get_Neighbours_in_Shells(*geometry, exchange_shell_magnitudes.size(), exchange_pairs, exchange_shells, use_redundant_neighbours);
+                    for( unsigned int ipair = 0; ipair < exchange_pairs.size(); ++ipair )
+                    {
+                        this->exchange_magnitudes.push_back(exchange_shell_magnitudes[exchange_shells[ipair]]);
+                    }
+                } else {
+                    this->exchange_pairs = this->exchange_pairs_in;
+                    this->exchange_magnitudes = this->exchange_magnitudes_in;
+                }
+
+                this->exchange_interaction_pairs = field<Exchange_Pair>(0);
+                for(int p=0; p < this->exchange_pairs.size(); p++)
+                {
+                    Exchange_Pair new_pair;
+                    new_pair.i = exchange_pairs[p].i;
+                    new_pair.j = exchange_pairs[p].j;
+                    new_pair.translations[0] = exchange_pairs[p].translations[0];
+                    new_pair.translations[1] = exchange_pairs[p].translations[1];
+                    new_pair.translations[2] = exchange_pairs[p].translations[2];
+
+                    new_pair.magnitude = exchange_magnitudes[p];
+                    exchange_interaction_pairs.push_back(new_pair);
+
+                    if(use_redundant_neighbours)
+                    {
+                        Exchange_Pair new_pair;
+                        new_pair.i = exchange_pairs[p].j;
+                        new_pair.j = exchange_pairs[p].i;
+
+                        auto& t = exchange_pairs[p].translations;
+                        new_pair.translations[0] = -t[0];
+                        new_pair.translations[1] = -t[1];
+                        new_pair.translations[2] = -t[2];
+                        new_pair.magnitude = exchange_magnitudes[p];
+                        exchange_interaction_pairs.push_back(new_pair);
+                    }
+                }
+                // std::sort(exchange_interaction_pairs.begin(), exchange_interaction_pairs.end());
+                std::sort(exchange_interaction_pairs.begin(), exchange_interaction_pairs.end(), pair_compare_function);
+
+
+                for(int i=0; i<exchange_interaction_pairs.size(); i++)
+                {
+                    std::cout << ">>>Exchange Pair #" << i << "<<<\n";
+                    std::cout << "i "<< exchange_interaction_pairs[i].i << "\n";
+                    std::cout << "j "<< exchange_interaction_pairs[i].j << "\n";
+                    std::cout << "t "<< exchange_interaction_pairs[i].translations[0] << " " << exchange_interaction_pairs[i].translations[1] << " " << exchange_interaction_pairs[i].translations[2] << "\n";
+                    std::cout << "m "<< exchange_interaction_pairs[i].magnitude << "\n";
+                }
+
+                // Experimental DMI
+                // DMI
+                this->dmi_pairs      = pairfield(0);
+                this->dmi_magnitudes = scalarfield(0);
+                this->dmi_normals    = vectorfield(0);
+                if( dmi_shell_magnitudes.size() > 0 )
+                {
+                    // Generate DMI neighbours and normals
+                    intfield dmi_shells(0);
+                    Neighbours::Get_Neighbours_in_Shells(*geometry, dmi_shell_magnitudes.size(), dmi_pairs, dmi_shells, use_redundant_neighbours);
+                    for (unsigned int ineigh = 0; ineigh < dmi_pairs.size(); ++ineigh)
+                    {
+                        this->dmi_normals.push_back(Neighbours::DMI_Normal_from_Pair(*geometry, dmi_pairs[ineigh], this->dmi_shell_chirality));
+                        this->dmi_magnitudes.push_back(dmi_shell_magnitudes[dmi_shells[ineigh]]);
+                    }
+                } else {
+                    this->dmi_pairs = this->dmi_pairs_in;
+                    this->dmi_magnitudes = this->dmi_magnitudes_in;
+                    this->dmi_normals = this->dmi_normals_in;
+                }
+
+                this->dmi_interaction_pairs = field<DMI_Pair>(0);
+                for(int p=0; p < this->dmi_pairs.size(); p++)
+                {
+                    DMI_Pair new_pair;
+                    new_pair.i = dmi_pairs[p].i;
+                    new_pair.j = dmi_pairs[p].j;
+                    new_pair.translations[0] = dmi_pairs[p].translations[0];
+                    new_pair.translations[1] = dmi_pairs[p].translations[1];
+                    new_pair.translations[2] = dmi_pairs[p].translations[2];
+                    new_pair.magnitude = dmi_magnitudes[p];
+                    new_pair.normal = dmi_normals[p];
+                    dmi_interaction_pairs.push_back(new_pair);
+
+                    if(use_redundant_neighbours)
+                    {
+                        DMI_Pair new_pair;
+                        new_pair.i = dmi_pairs[p].j;
+                        new_pair.j = dmi_pairs[p].i;
+
+                        auto& t = dmi_pairs[p].translations;
+                        new_pair.translations[0] = -t[0];
+                        new_pair.translations[1] = -t[1];
+                        new_pair.translations[2] = -t[2];
+                        new_pair.magnitude = dmi_magnitudes[p];
+                        new_pair.normal = -dmi_normals[p];
+                        dmi_interaction_pairs.push_back(new_pair);
+                    }
+                }
+                // std::sort(dmi_interaction_pairs.begin(), dmi_interaction_pairs.end());
+                std::sort(dmi_interaction_pairs.begin(), dmi_interaction_pairs.end(), pair_compare_function);
+
+
+                for(int i=0; i<dmi_interaction_pairs.size(); i++)
+                {
+                    std::cout << ">>>DMI Pair #" << i << "<<<\n";
+                    std::cout << "i "<< dmi_interaction_pairs[i].i << "\n";
+                    std::cout << "j "<< dmi_interaction_pairs[i].j << "\n";
+                    std::cout << "t "<< dmi_interaction_pairs[i].translations[0] << " " << dmi_interaction_pairs[i].translations[1] << " " << dmi_interaction_pairs[i].translations[2] << "\n";
+                    std::cout << "m "<< dmi_interaction_pairs[i].magnitude << "\n";
+                }
+
+
+
+        // ++++++++ End Experimental changes ++++++++
+
         // Exchange
         this->exchange_pairs      = pairfield(0);
         this->exchange_magnitudes = scalarfield(0);
@@ -767,11 +911,45 @@ namespace Engine
             }
         }
     }
+
+    __global__ void CU_Gradient_Exchange_New(const Vector3 * spins, const int * atom_types, const int * boundary_conditions, const int * n_cells, int n_cell_atoms,
+            int n_pairs, const Exchange_Pair * exchange_interaction_pairs, Vector3 * gradient, size_t size)
+    {
+
+        int bc[3]={boundary_conditions[0],boundary_conditions[1],boundary_conditions[2]};
+        int nc[3]={n_cells[0],n_cells[1],n_cells[2]};
+
+        for(auto icell = blockIdx.x * blockDim.x + threadIdx.x;
+            icell < size;
+            icell +=  blockDim.x * gridDim.x)
+        {
+            for(auto ipair = 0; ipair < n_pairs; ++ipair)
+            {
+                auto & pair = exchange_interaction_pairs[ipair];
+                int ispin = pair.i + icell * n_cell_atoms;
+                int jspin = cu_idx_from_pair(icell, bc, nc, n_cell_atoms, atom_types, pair);
+                if (jspin >= 0)
+                {
+                    gradient[ispin] -= pair.magnitude * spins[jspin];
+                }
+            }
+        }
+    }
+
     void Hamiltonian_Heisenberg::Gradient_Exchange(const vectorfield & spins, vectorfield & gradient)
     {
         int size = geometry->n_cells_total;
+        bool use_new_gradient = true;
+
+        if(use_new_gradient)
+        {
+            CU_Gradient_Exchange_New<<<(size+1023)/1024, 1024>>>( spins.data(), this->geometry->atom_types.data(), boundary_conditions.data(), geometry->n_cells.data(), geometry->n_cell_atoms,
+                    this->exchange_interaction_pairs.size(), this->exchange_interaction_pairs.data(), gradient.data(), size );
+        } else {
         CU_Gradient_Exchange<<<(size+1023)/1024, 1024>>>( spins.data(), this->geometry->atom_types.data(), boundary_conditions.data(), geometry->n_cells.data(), geometry->n_cell_atoms,
                 this->exchange_pairs.size(), this->exchange_pairs.data(), this->exchange_magnitudes.data(), gradient.data(), size );
+        }
+       
         CU_CHECK_AND_SYNC();
     }
 
@@ -797,11 +975,41 @@ namespace Engine
             }
         }
     }
+
+    __global__ void CU_Gradient_DMI_New(const Vector3 * spins, const int * atom_types, const int * boundary_conditions, const int * n_cells, int n_cell_atoms,
+            int n_pairs, const DMI_Pair * pairs, Vector3 * gradient, size_t size)
+    {
+        int bc[3]={boundary_conditions[0],boundary_conditions[1],boundary_conditions[2]};
+        int nc[3]={n_cells[0],n_cells[1],n_cells[2]};
+
+        for(auto icell = blockIdx.x * blockDim.x + threadIdx.x;
+            icell < size;
+            icell +=  blockDim.x * gridDim.x)
+        {
+            for(auto ipair = 0; ipair < n_pairs; ++ipair)
+            {
+                auto & pair = pairs[ipair];
+                int ispin = pair.i + icell*n_cell_atoms;
+                int jspin = cu_idx_from_pair(icell, bc, nc, n_cell_atoms, atom_types, pairs[ipair]);
+                if (jspin >= 0)
+                {
+                    gradient[ispin] -= pair.magnitude * spins[jspin].cross(pair.normal);
+                }
+            }
+        }
+    }
     void Hamiltonian_Heisenberg::Gradient_DMI(const vectorfield & spins, vectorfield & gradient)
     {
         int size = geometry->n_cells_total;
-        CU_Gradient_DMI<<<(size+1023)/1024, 1024>>>( spins.data(), this->geometry->atom_types.data(), boundary_conditions.data(), geometry->n_cells.data(), geometry->n_cell_atoms,
+        bool use_new_gradient = true;
+        if(use_new_gradient)
+        {
+            CU_Gradient_DMI_New<<<(size+1023)/1024, 1024>>>( spins.data(), this->geometry->atom_types.data(), boundary_conditions.data(), geometry->n_cells.data(), geometry->n_cell_atoms,
+                this->dmi_interaction_pairs.size(), this->dmi_interaction_pairs.data(), gradient.data(), size );
+        } else {
+            CU_Gradient_DMI<<<(size+1023)/1024, 1024>>>( spins.data(), this->geometry->atom_types.data(), boundary_conditions.data(), geometry->n_cells.data(), geometry->n_cell_atoms,
                 this->dmi_pairs.size(),  this->dmi_pairs.data(), this->dmi_magnitudes.data(), this->dmi_normals.data(), gradient.data(), size );
+        }
         CU_CHECK_AND_SYNC();
     }
 

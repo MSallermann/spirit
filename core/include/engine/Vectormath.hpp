@@ -77,6 +77,24 @@ namespace Engine
             tupel[0] = idx_diff / div;
         }
 
+        inline int fast_idx_from_translations(const std::array<int,3> & translations, const field<int> & n_cells, const field<int> & boundary_conditions)
+        {
+            std::array<int, 3> abc;
+            for(int i=0; i<3; i++)
+            {
+                abc[i] = translations[i];
+                if( translations[i] >= n_cells[i] )
+                {
+                    if(boundary_conditions[i] >= 1) abc[i] = abc[i] - n_cells[i];
+                    else return -1;
+                } else if ( translations[i] < 0 ) {
+                    if(boundary_conditions[i] >= 1) abc[i] = n_cells[i] + abc[i];
+                    else return -1;
+                }
+            }
+            return abc[0] + n_cells[0] * ( abc[1] + n_cells[1] * abc[2]);
+        }
+
         inline int idx_from_translations(const intfield & n_cells, const int n_cell_atoms, const std::array<int, 3> & translations_i, const std::array<int, 3> & translations)
         {
             auto& Na = n_cells[0];
@@ -145,6 +163,23 @@ namespace Engine
 
         #endif
         #ifdef SPIRIT_USE_CUDA
+        inline int fast_idx_from_translations(const int * translations, const field<int> & n_cells, const field<int> & boundary_conditions)
+        {
+            std::array<int, 3> abc;
+            for(int i=0; i<3; i++)
+            {
+                abc[i] = translations[i];
+                if( translations[i] >= n_cells[i] )
+                {
+                    if(boundary_conditions[i] >= 1) abc[i] = abc[i] - n_cells[i];
+                    else return -1;
+                } else if ( translations[i] < 0 ) {
+                    if(boundary_conditions[i] >= 1) abc[i] = n_cells[i] + abc[i];
+                    else return -1;
+                }
+            }
+            return abc[0] + n_cells[0] * ( abc[1] + n_cells[1] * abc[2]);
+        }
 
          //Get the linear index in a n-D array where tupel contains the components in n-dimensions from fatest to slowest varying and maxVal is the extent in every dimension
         inline __device__ int cu_idx_from_tupel(field<int>& tupel, field<int>& maxVal)
@@ -190,6 +225,58 @@ namespace Engine
             tupel[0] = idx_diff / div;
         }
 
+        __inline__ __device__ int cu_fast_idx_from_translations(int translation_a, int translation_b, int translation_c, const int * n_cells, const int * boundary_conditions)
+        {
+            int a = translation_a;
+            if( translation_a >= n_cells[0] )
+            {
+                if(boundary_conditions[0] >= 1)
+                    a -= n_cells[0];
+                else
+                    return -1;
+            }
+            else if ( translation_a < 0 )
+            {
+                if(boundary_conditions[0] >= 1)
+                    a += n_cells[0];
+                else
+                    return -1;
+            }
+
+            int b = translation_b;
+            if( translation_b >= n_cells[1] )
+            {
+                if(boundary_conditions[1] >= 1)
+                    b -= n_cells[1];
+                else
+                    return -1;
+            }
+            else if ( translation_b < 0 )
+            {
+                if(boundary_conditions[1] >= 1)
+                    b += n_cells[1];
+                else
+                    return -1;
+            }
+
+            int c = translation_c;
+            if( translation_c >= n_cells[2] )
+            {
+                if(boundary_conditions[2] >= 1)
+                    c -= n_cells[2];
+                else
+                    return -1;
+            }
+            else if ( translation_c < 0 )
+            {
+                if(boundary_conditions[2] >= 1)
+                    c += n_cells[2];
+                else
+                    return -1;
+            }
+
+            return a + n_cells[0] * ( b + n_cells[1] * c);
+        }
 
         inline int idx_from_translations(const intfield & n_cells, const int n_cell_atoms, const std::array<int, 3> & translations_i, const int translations[3])
         {

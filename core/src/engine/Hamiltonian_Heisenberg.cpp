@@ -82,7 +82,137 @@ namespace Engine
         const bool use_redundant_neighbours = false;
         #endif
 
-        // Exchange
+        // ++++++++ Experimental changes ++++++++
+
+                auto pair_compare_function = [&] (const Interaction_Pair & l, const Interaction_Pair & r)
+                {
+                    if(l.i < r.i)
+                        return true;
+                    else
+                    {
+                        // Heuristic for sorting the pairs for optimal memory access
+                        // Hereby we sort the interaction pairs such that a bulk spin has optimal access patterns, notice the use of periodic bondaries to avoid -1 indices
+                        auto & lt = l.translations;
+                        auto & rt = r.translations;
+                        auto & n_cells = geometry->n_cells;
+                        return Vectormath::fast_idx_from_translations({lt[0] + n_cells[0]/2, lt[1] + n_cells[1]/2, lt[2] + n_cells[2]/2}, this->geometry->n_cells, {1,1,1})
+                             < Vectormath::fast_idx_from_translations({rt[0] + n_cells[0]/2, rt[1] + n_cells[1]/2, rt[2] + n_cells[2]/2}, this->geometry->n_cells, {1,1,1});
+                    }
+                };
+
+                // Experimental Exchange
+                this->exchange_pairs      = pairfield(0);
+                this->exchange_magnitudes = scalarfield(0);
+                if( exchange_shell_magnitudes.size() > 0 )
+                {
+                    // Generate Exchange neighbours
+                    intfield exchange_shells(0);
+                    Neighbours::Get_Neighbours_in_Shells(*geometry, exchange_shell_magnitudes.size(), exchange_pairs, exchange_shells, use_redundant_neighbours);
+                    for( unsigned int ipair = 0; ipair < exchange_pairs.size(); ++ipair )
+                    {
+                        this->exchange_magnitudes.push_back(exchange_shell_magnitudes[exchange_shells[ipair]]);
+                    }
+                } else {
+                    this->exchange_pairs = this->exchange_pairs_in;
+                    this->exchange_magnitudes = this->exchange_magnitudes_in;
+                }
+
+                this->exchange_interaction_pairs = field<Exchange_Pair>(0);
+                for(int p=0; p < this->exchange_pairs.size(); p++)
+                {
+                    Exchange_Pair new_pair;
+                    new_pair.i = exchange_pairs[p].i;
+                    new_pair.j = exchange_pairs[p].j;
+                    new_pair.translations = exchange_pairs[p].translations;
+                    new_pair.magnitude = exchange_magnitudes[p];
+                    exchange_interaction_pairs.push_back(new_pair);
+
+                    if(use_redundant_neighbours)
+                    {
+                        Exchange_Pair new_pair;
+                        new_pair.i = exchange_pairs[p].j;
+                        new_pair.j = exchange_pairs[p].i;
+
+                        auto& t = exchange_pairs[p].translations;
+                        new_pair.translations = {-t[0], -t[1], -t[2]};
+                        new_pair.magnitude = exchange_magnitudes[p];
+                        exchange_interaction_pairs.push_back(new_pair);
+                    }
+                }
+                // std::sort(exchange_interaction_pairs.begin(), exchange_interaction_pairs.end());
+                std::sort(exchange_interaction_pairs.begin(), exchange_interaction_pairs.end(), pair_compare_function);
+
+
+                for(int i=0; i<exchange_interaction_pairs.size(); i++)
+                {
+                    std::cout << ">>>Exchange Pair #" << i << "<<<\n";
+                    std::cout << "i "<< exchange_interaction_pairs[i].i << "\n";
+                    std::cout << "j "<< exchange_interaction_pairs[i].j << "\n";
+                    std::cout << "t "<< exchange_interaction_pairs[i].translations[0] << " " << exchange_interaction_pairs[i].translations[1] << " " << exchange_interaction_pairs[i].translations[2] << "\n";
+                    std::cout << "m "<< exchange_interaction_pairs[i].magnitude << "\n";
+                }
+
+                // Experimental DMI
+                // DMI
+                this->dmi_pairs      = pairfield(0);
+                this->dmi_magnitudes = scalarfield(0);
+                this->dmi_normals    = vectorfield(0);
+                if( dmi_shell_magnitudes.size() > 0 )
+                {
+                    // Generate DMI neighbours and normals
+                    intfield dmi_shells(0);
+                    Neighbours::Get_Neighbours_in_Shells(*geometry, dmi_shell_magnitudes.size(), dmi_pairs, dmi_shells, use_redundant_neighbours);
+                    for (unsigned int ineigh = 0; ineigh < dmi_pairs.size(); ++ineigh)
+                    {
+                        this->dmi_normals.push_back(Neighbours::DMI_Normal_from_Pair(*geometry, dmi_pairs[ineigh], this->dmi_shell_chirality));
+                        this->dmi_magnitudes.push_back(dmi_shell_magnitudes[dmi_shells[ineigh]]);
+                    }
+                } else {
+                    this->dmi_pairs = this->dmi_pairs_in;
+                    this->dmi_magnitudes = this->dmi_magnitudes_in;
+                    this->dmi_normals = this->dmi_normals_in;
+                }
+
+                this->dmi_interaction_pairs = field<DMI_Pair>(0);
+                for(int p=0; p < this->dmi_pairs.size(); p++)
+                {
+                    DMI_Pair new_pair;
+                    new_pair.i = dmi_pairs[p].i;
+                    new_pair.j = dmi_pairs[p].j;
+                    new_pair.translations = dmi_pairs[p].translations;
+                    new_pair.magnitude = dmi_magnitudes[p];
+                    new_pair.normal = dmi_normals[p];
+                    dmi_interaction_pairs.push_back(new_pair);
+
+                    if(use_redundant_neighbours)
+                    {
+                        DMI_Pair new_pair;
+                        new_pair.i = dmi_pairs[p].j;
+                        new_pair.j = dmi_pairs[p].i;
+
+                        auto& t = dmi_pairs[p].translations;
+                        new_pair.translations = {-t[0], -t[1], -t[2]};
+                        new_pair.magnitude = dmi_magnitudes[p];
+                        new_pair.normal = -dmi_normals[p];
+                        dmi_interaction_pairs.push_back(new_pair);
+                    }
+                }
+                // std::sort(dmi_interaction_pairs.begin(), dmi_interaction_pairs.end());
+                std::sort(dmi_interaction_pairs.begin(), dmi_interaction_pairs.end(), pair_compare_function);
+
+
+                for(int i=0; i<dmi_interaction_pairs.size(); i++)
+                {
+                    std::cout << ">>>DMI Pair #" << i << "<<<\n";
+                    std::cout << "i "<< dmi_interaction_pairs[i].i << "\n";
+                    std::cout << "j "<< dmi_interaction_pairs[i].j << "\n";
+                    std::cout << "t "<< dmi_interaction_pairs[i].translations[0] << " " << dmi_interaction_pairs[i].translations[1] << " " << dmi_interaction_pairs[i].translations[2] << "\n";
+                    std::cout << "m "<< dmi_interaction_pairs[i].magnitude << "\n";
+                }
+
+
+        // ++++++++ End Experimental changes ++++++++
+
         this->exchange_pairs      = pairfield(0);
         this->exchange_magnitudes = scalarfield(0);
         if( exchange_shell_magnitudes.size() > 0 )
@@ -679,7 +809,52 @@ namespace Engine
 
     void Hamiltonian_Heisenberg::Gradient_Exchange(const vectorfield & spins, vectorfield & gradient)
     {
-        #pragma omp parallel for
+        auto Na = geometry->n_cells[0];
+        auto Nb = geometry->n_cells[1];
+        auto Nc = geometry->n_cells[2];
+        auto n_cell = geometry->n_cell_atoms;
+        std::array<int, 3> translations;
+        int offset, ispin, jspin, i;
+
+        bool new_exchange = true;
+        if(new_exchange)
+        {
+            #pragma omp parallel for collapse(3) schedule(static) private(translations, ispin, jspin, offset)
+            for(int c = 0; c < Nc; c++)
+            {
+                for(int b = 0; b < Nb; b++)
+                {
+                    for(int a = 0; a < Na; a++)
+                    {
+                        for(int p=0; p<exchange_interaction_pairs.size(); p++)
+                        {
+                            auto& pair = exchange_interaction_pairs[p];
+
+                            translations[0] = a + pair.translations[0];
+                            translations[1] = b + pair.translations[1];
+                            translations[2] = c + pair.translations[2];
+                            offset = Vectormath::fast_idx_from_translations(translations, geometry->n_cells, boundary_conditions);
+
+                            ispin = pair.i + n_cell * (a + Na * (b + Nb * c));
+
+                            if(check_atom_type(geometry->atom_types[ispin]))
+                            {
+                                jspin = pair.j + n_cell * offset;
+                                if( offset >= 0 && check_atom_type(geometry->atom_types[jspin]) )
+                                {
+                                    // std::cout << "Interaction of #" << ispin << " with #" << jspin << " with magnitude " << pair.magnitude <<"\n";
+                                    gradient[ispin] -= pair.magnitude * spins[jspin];
+                                    #ifndef SPIRIT_USE_OPENMP
+                                    gradient[jspin] -= pair.magnitude * spins[ispin];
+                                    #endif
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return;
+        }
         for( int icell = 0; icell < geometry->n_cells_total; ++icell )
         {
             for( unsigned int i_pair = 0; i_pair < exchange_pairs.size(); ++i_pair )
@@ -688,6 +863,7 @@ namespace Engine
                 int jspin = idx_from_pair(ispin, boundary_conditions, geometry->n_cells, geometry->n_cell_atoms, geometry->atom_types, exchange_pairs[i_pair]);
                 if( jspin >= 0 )
                 {
+                    // std::cout << "Interaction of #" << ispin << " with #" << jspin << " with magnitude " << exchange_magnitudes[i_pair] <<"\n";
                     gradient[ispin] -= exchange_magnitudes[i_pair] * spins[jspin];
                     #ifndef SPIRIT_USE_OPENMP
                     gradient[jspin] -= exchange_magnitudes[i_pair] * spins[ispin];
@@ -699,6 +875,53 @@ namespace Engine
 
     void Hamiltonian_Heisenberg::Gradient_DMI(const vectorfield & spins, vectorfield & gradient)
     {
+        bool new_dmi = true;
+        if(new_dmi)
+        {
+            auto Na = geometry->n_cells[0];
+            auto Nb = geometry->n_cells[1];
+            auto Nc = geometry->n_cells[2];
+            auto n_cell = geometry->n_cell_atoms;
+            std::array<int, 3> translations;
+            int offset, ispin, jspin;
+
+            #pragma omp parallel for collapse(3) schedule(static) private(translations, offset, ispin, jspin)
+            for(int c = 0; c < Nc; c++)
+            {
+                for(int b = 0; b < Nb; b++)
+                {
+                    for(int a = 0; a < Na; a++)
+                    {
+                        for(int p=0; p<dmi_interaction_pairs.size(); p++)
+                        {
+                            auto& pair = dmi_interaction_pairs[p];
+
+                            translations[0] = a + pair.translations[0];
+                            translations[1] = b + pair.translations[1];
+                            translations[2] = c + pair.translations[2];
+                            offset = Vectormath::fast_idx_from_translations(translations, geometry->n_cells, boundary_conditions);
+
+                            ispin = pair.i + n_cell * (a + Na * (b + Nb * c));
+
+                            if(check_atom_type(geometry->atom_types[ispin]))
+                            {
+                                jspin = pair.j + n_cell * offset;
+                                if( offset >= 0 && check_atom_type(geometry->atom_types[jspin]) )
+                                {
+                                    // std::cout << "Interaction of #" << ispin << " with #" << jspin << " with magnitude " << pair.magnitude <<"\n";
+                                    gradient[ispin] -= pair.magnitude * spins[jspin].cross(pair.normal);
+                                    #ifndef SPIRIT_USE_OPENMP
+                                    gradient[jspin] += pair.magnitude * spins[ispin].cross(pair.normal);
+                                    #endif
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
         #pragma omp parallel for
         for( int icell = 0; icell < geometry->n_cells_total; ++icell )
         {

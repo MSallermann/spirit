@@ -22,6 +22,20 @@ namespace Engine
         None   = SPIRIT_DDI_METHOD_NONE
     };
 
+    struct Interaction_Pair : Pair
+    {};
+
+    struct Exchange_Pair : public Interaction_Pair
+    {
+        scalar magnitude = 0;
+    };
+
+    struct DMI_Pair : public Interaction_Pair
+    {
+        scalar magnitude = 0;
+        Vector3 normal = {0,0,0};
+    };
+
     /*
         The Heisenberg Hamiltonian using Pairs contains all information on the interactions between spins.
         The information is presented in pair lists and parameter lists in order to easily e.g. calculate the energy of the system via summation.
@@ -199,6 +213,10 @@ namespace Engine
         field<int> it_bounds_write_gradients;
         field<int> it_bounds_write_spins;
         field<int> it_bounds_write_dipole;
+
+        field<Exchange_Pair> exchange_interaction_pairs;
+        field<DMI_Pair> dmi_interaction_pairs;
+
     };
 
 
