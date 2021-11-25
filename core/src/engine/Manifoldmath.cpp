@@ -250,10 +250,27 @@ void tangent_basis_spherical( const vectorfield & vf, MatrixX & basis )
     }
 }
 
-void sparse_tangent_basis_spherical( const vectorfield & vf, SpMatrixX & basis )
+void sparse_tangent_basis_spherical( const vectorfield & vf, SpMatrixX & basis,  std::vector<Eigen::Triplet<scalar>> * triplet_list_buffer )
 {
     typedef Eigen::Triplet<scalar> T;
-    std::vector<T> triplet_list;
+
+    // Construct hessian_out
+    typedef Eigen::Triplet<scalar> T;
+    std::vector<T> * tripletList_ptr;
+
+    std::vector<T> tripletList_stack;
+    if(!triplet_list_buffer)
+    {
+        tripletList_stack = std::vector<T>();
+        tripletList_stack.reserve(vf.size() * 3);
+        tripletList_ptr = &tripletList_stack;
+    } else {
+        tripletList_ptr = triplet_list_buffer;
+        tripletList_ptr->resize(0);
+    }
+
+    std::vector<T> & triplet_list = *tripletList_ptr;
+
     triplet_list.reserve( vf.size() * 3 );
 
     Vector3 tmp, etheta, ephi, res;
@@ -500,7 +517,7 @@ void hessian_bordered(
 }
 
 void sparse_hessian_bordered_3N(
-    const vectorfield & image, const vectorfield & gradient, const SpMatrixX & hessian, SpMatrixX & hessian_out )
+    const vectorfield & image, const vectorfield & gradient, const SpMatrixX & hessian, SpMatrixX & hessian_out, std::vector<Eigen::Triplet<scalar>> * triplet_list_buffer)
 {
     // Calculates a 3Nx3N matrix in the bordered Hessian approach
 
@@ -511,8 +528,20 @@ void sparse_hessian_bordered_3N(
 
     // Construct hessian_out
     typedef Eigen::Triplet<scalar> T;
-    std::vector<T> tripletList;
-    tripletList.reserve( hessian.nonZeros() + 3 * nos );
+    std::vector<T> * tripletList_ptr;
+
+    std::vector<T> tripletList_stack;
+    if(!triplet_list_buffer)
+    {
+        tripletList_stack = std::vector<T>();
+        tripletList_stack.reserve(hessian.nonZeros() + 3 * nos);
+        tripletList_ptr = &tripletList_stack;
+    } else {
+        tripletList_ptr = triplet_list_buffer;
+        tripletList_ptr->resize(0);
+    }
+
+    std::vector<T> & tripletList = *tripletList_ptr;
 
     // Iterate over non zero entries of hesiian
     for( int k = 0; k < hessian.outerSize(); ++k )

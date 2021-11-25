@@ -79,6 +79,10 @@ PREFIX void Simulation_LLG_Start(
     State * state, int solver_type, int n_iterations = -1, int n_iterations_log = -1, bool singleshot = false,
     Simulation_Run_Info * info = NULL, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
 
+PREFIX void Simulation_BSGD_Start(
+    State * state, int solver_type, int n_iterations = -1, int n_iterations_log = -1, bool singleshot = false,
+    Simulation_Run_Info * info = NULL, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
+
 // Geodesic nudged elastic band method
 PREFIX void Simulation_GNEB_Start(
     State * state, int solver_type, int n_iterations = -1, int n_iterations_log = -1, bool singleshot = false,

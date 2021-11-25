@@ -6,6 +6,8 @@
 #include <vector>
 
 #include <Eigen/Core>
+#include <Eigen/Dense>
+
 
 #include <engine/Vectormath_Defines.hpp>
 
@@ -53,7 +55,7 @@ MatrixX tangential_projector( const vectorfield & image );
 //      The basis will be a 3Nx2N matrix.
 void tangent_basis_spherical( const vectorfield & vf, MatrixX & basis );
 
-void sparse_tangent_basis_spherical( const vectorfield & vf, SpMatrixX & basis );
+void sparse_tangent_basis_spherical( const vectorfield & vf, SpMatrixX & basis, std::vector<Eigen::Triplet<scalar>> * triplet_list_buffer = nullptr );
 
 // Calculate a matrix of orthonormal basis vectors that span the tangent space to
 //      a vectorfield, considered to live on the direct product of N unit spheres.
@@ -92,9 +94,6 @@ void hessian_bordered(
     const vectorfield & image, const vectorfield & gradient, const MatrixX & hessian, MatrixX & tangent_basis,
     MatrixX & hessian_out );
 
-void sparse_hessian_bordered_3N(
-    const vectorfield & image, const vectorfield & gradient, const SpMatrixX & hessian, SpMatrixX & hessian_out );
-
 // Calculate tangential derivatives and correction terms according to the projector approach
 void hessian_projected(
     const vectorfield & image, const vectorfield & gradient, const MatrixX & hessian, MatrixX & tangent_basis,
@@ -111,7 +110,7 @@ void hessian_covariant(
     const vectorfield & image, const vectorfield & gradient, const MatrixX & hessian, MatrixX & hessian_out );
 
 void sparse_hessian_bordered_3N(
-    const vectorfield & image, const vectorfield & gradient, const SpMatrixX & hessian, SpMatrixX & hessian_out );
+    const vectorfield & image, const vectorfield & gradient, const SpMatrixX & hessian, SpMatrixX & hessian_out, std::vector<Eigen::Triplet<scalar>> * triplet_list_buffer = nullptr );
 
 // Geodesic distance between two vectorfields
 scalar dist_geodesic( const vectorfield & v1, const vectorfield & v2 );

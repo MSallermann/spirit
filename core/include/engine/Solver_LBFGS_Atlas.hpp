@@ -54,17 +54,18 @@ inline void Method_Solver<Solver::LBFGS_Atlas>::Iteration()
 
     // Current force
     this->Calculate_Force( this->configurations, this->forces );
+    this->Calculate_Force_Virtual( this->configurations, this->forces, this->forces_virtual );
 
     for( int img = 0; img < this->noi; img++ )
     {
         auto & image    = *this->configurations[img];
         auto & grad_ref = this->atlas_residuals[img];
 
-        auto fv = this->forces_virtual[img].data();
+        // auto fv = this->forces_virtual[img].data();
         auto f  = this->forces[img].data();
         auto s  = image.data();
 
-        Backend::par::apply( this->nos, [f, fv, s] SPIRIT_LAMBDA( int idx ) { fv[idx] = s[idx].cross( f[idx] ); } );
+        // Backend::par::apply( this->nos, [f, fv, s] SPIRIT_LAMBDA( int idx ) { fv[idx] = s[idx].cross( f[idx] ); } );
 
         Solver_Kernels::atlas_calc_gradients( grad_ref, image, this->forces[img], this->atlas_coords3[img] );
     }

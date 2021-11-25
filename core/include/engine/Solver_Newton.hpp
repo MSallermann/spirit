@@ -132,7 +132,7 @@ inline void Method_Solver<Solver::Newton>::Iteration()
 
         scalar alpha = Solver_Kernels::backtracking_linesearch(
             *hamiltonian, searchdir[img], linear_coeff_delta_e, quadratic_coeff_delta_e,
-            0.01, // 1% agreement between prediciton and reality is required
+            0.01, // 1% agreement between predicition and reality is required
             0.5,  // half step size with every iteration
             image, temp1, energy_buffer_current, energy_buffer_step );
 

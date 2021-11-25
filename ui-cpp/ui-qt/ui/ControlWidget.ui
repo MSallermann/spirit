@@ -370,6 +370,11 @@
          <string>LLG</string>
         </property>
        </item>
+        <item>
+        <property name="text">
+         <string>BSGD</string>
+        </property>
+       </item>
        <item>
         <property name="text">
          <string>GNEB</string>

@@ -6,6 +6,7 @@
 #include <engine/Method_EMA.hpp>
 #include <engine/Method_GNEB.hpp>
 #include <engine/Method_LLG.hpp>
+#include <engine/Method_BSGD.hpp>
 #include <engine/Method_MC.hpp>
 #include <engine/Method_MMF.hpp>
 #include <utility/Exception.hpp>
@@ -187,6 +188,94 @@ catch( ... )
     spirit_handle_exception_api( idx_image, idx_chain );
 }
 
+void Simulation_BSGD_Start(
+    State * state, int solver_type, int n_iterations, int n_iterations_log, bool singleshot, Simulation_Run_Info * info,
+    int idx_image, int idx_chain ) noexcept
+try
+{
+    // Fetch correct indices and pointers for image and chain
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+
+    // Determine wether to stop or start a simulation
+    if( image->iteration_allowed )
+    {
+        // Currently iterating image
+        spirit_throw(
+            Utility::Exception_Classifier::Unknown_Exception, Utility::Log_Level::Warning,
+            fmt::format(
+                "Tried to use Simulation_Start on image {} of chain {}, but there is already a simulation running.",
+                idx_image, idx_chain ) );
+    }
+    else if( chain->iteration_allowed )
+    {
+        // Currently iterating chain
+        spirit_throw(
+            Utility::Exception_Classifier::Unknown_Exception, Utility::Log_Level::Warning,
+            fmt::format(
+                "Tried to use Simulation_Start on image {} of chain {}, but there is already a simulation running.",
+                idx_image, idx_chain ) );
+    }
+    else
+    {
+        // We are not iterating, so we create the Method and call Iterate
+        image->Lock();
+
+        image->iteration_allowed  = true;
+        image->singleshot_allowed = singleshot;
+
+        if( n_iterations > 0 )
+            image->llg_parameters->n_iterations = n_iterations;
+        if( n_iterations_log > 0 )
+            image->llg_parameters->n_iterations_log = n_iterations_log;
+
+        std::shared_ptr<Engine::Method> method;
+        if( solver_type == int( Engine::Solver::SIB ) )
+            method = std::shared_ptr<Engine::Method>(
+                new Engine::Method_BSGD<Engine::Solver::SIB>( image, idx_image, idx_chain ) );
+        else if( solver_type == int( Engine::Solver::Heun ) )
+            method = std::shared_ptr<Engine::Method>(
+                new Engine::Method_BSGD<Engine::Solver::Heun>( image, idx_image, idx_chain ) );
+        else if( solver_type == int( Engine::Solver::Depondt ) )
+            method = std::shared_ptr<Engine::Method>(
+                new Engine::Method_BSGD<Engine::Solver::Depondt>( image, idx_image, idx_chain ) );
+        else if( solver_type == int( Engine::Solver::RungeKutta4 ) )
+            method = std::shared_ptr<Engine::Method>(
+                new Engine::Method_BSGD<Engine::Solver::RungeKutta4>( image, idx_image, idx_chain ) );
+        else if( solver_type == int( Engine::Solver::VP ) )
+            method = std::shared_ptr<Engine::Method>(
+                new Engine::Method_BSGD<Engine::Solver::VP>( image, idx_image, idx_chain ) );
+        else if( solver_type == int( Engine::Solver::LBFGS_OSO ) )
+            method = std::shared_ptr<Engine::Method>(
+                new Engine::Method_BSGD<Engine::Solver::LBFGS_OSO>( image, idx_image, idx_chain ) );
+        else if( solver_type == int( Engine::Solver::LBFGS_Atlas ) )
+            method = std::shared_ptr<Engine::Method>(
+                new Engine::Method_BSGD<Engine::Solver::LBFGS_Atlas>( image, idx_image, idx_chain ) );
+        else if( solver_type == int( Engine::Solver::VP_OSO ) )
+            method = std::shared_ptr<Engine::Method>(
+                new Engine::Method_BSGD<Engine::Solver::VP_OSO>( image, idx_image, idx_chain ) );
+        else if( solver_type == int( Engine::Solver::Newton ) )
+            method = std::shared_ptr<Engine::Method>(
+                new Engine::Method_BSGD<Engine::Solver::Newton>( image, idx_image, idx_chain ) );
+        else
+            spirit_throw(
+                Utility::Exception_Classifier::Unknown_Exception, Utility::Log_Level::Warning,
+                fmt::format( "Invalid solver_type {}", solver_type ) );
+
+        image->Unlock();
+
+        state->method_image[idx_image] = method;
+        run_method( method, singleshot, info );
+    }
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
+}
+
 void Simulation_GNEB_Start(
     State * state, int solver_type, int n_iterations, int n_iterations_log, bool singleshot, Simulation_Run_Info * info,
     int idx_chain ) noexcept
@@ -284,6 +373,8 @@ catch( ... )
 {
     spirit_handle_exception_api( -1, idx_chain );
 }
+
+
 
 void Simulation_MMF_Start(
     State * state, int solver_type, int n_iterations, int n_iterations_log, bool singleshot, Simulation_Run_Info * info,
