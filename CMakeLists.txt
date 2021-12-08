@@ -4,6 +4,11 @@ cmake_minimum_required( VERSION 3.10 )
 cmake_policy( SET CMP0025 NEW )
 ####################################################################
 
+set(REFACTORED_HAMILTONIAN OFF)
+IF(REFACTORED_HAMILTONIAN)
+    ADD_DEFINITIONS(-DSPIRIT_USE_REFACTORED_HAMILTONIAN)
+    message(WARNING "Using refactored Hamiltonian")
+endif()
 
 
 ######### Build options ############################################

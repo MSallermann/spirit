@@ -1,3 +1,5 @@
+#ifndef SPIRIT_USE_REFACTORED_HAMILTONIAN
+
 #ifdef SPIRIT_USE_CUDA
 
 #include <data/Spin_System.hpp>
@@ -1415,5 +1417,7 @@ namespace Engine
     static const std::string name = "Heisenberg";
     const std::string& Hamiltonian_Heisenberg::Name() { return name; }
 }
+
+#endif
 
 #endif

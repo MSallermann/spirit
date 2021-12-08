@@ -1,3 +1,7 @@
+#ifdef SPIRIT_USE_REFACTORED_HAMILTONIAN
+#include <engine/Hamiltonian_Heisenberg_Refactor.hpp>
+#else
+
 #pragma once
 #ifndef SPIRIT_CORE_ENGINE_HAMILTONIAN_HEISENBERG_HPP
 #define SPIRIT_CORE_ENGINE_HAMILTONIAN_HEISENBERG_HPP
@@ -215,5 +219,7 @@ private:
 };
 
 } // namespace Engine
+
+#endif
 
 #endif

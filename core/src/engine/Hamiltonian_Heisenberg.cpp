@@ -1,3 +1,5 @@
+#ifndef SPIRIT_USE_REFACTORED_HAMILTONIAN
+
 #ifndef SPIRIT_USE_CUDA
 
 #include <algorithm>
@@ -1523,5 +1525,7 @@ const std::string & Hamiltonian_Heisenberg::Name()
 }
 
 } // namespace Engine
+
+#endif
 
 #endif
