@@ -7,6 +7,7 @@
 
 #include "Spirit_Defines.h"
 #include <engine/Vectormath_Defines.hpp>
+#include <engine/Heisenberg_Interactions.hpp>
 
 namespace Engine
 {

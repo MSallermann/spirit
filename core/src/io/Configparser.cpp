@@ -1,5 +1,8 @@
 #include <engine/Neighbours.hpp>
 #include <engine/Vectormath.hpp>
+
+#include <engine/Hamiltonian_Heisenberg_Refactor.hpp>
+
 #include <io/Filter_File_Handle.hpp>
 #include <io/IO.hpp>
 #include <utility/Constants.hpp>
@@ -1575,8 +1578,22 @@ std::unique_ptr<Engine::Hamiltonian_Heisenberg> Hamiltonian_Heisenberg_from_Conf
 
     std::unique_ptr<Engine::Hamiltonian_Heisenberg> hamiltonian;
 
+    Engine::Exchange_Configuration exchange_config;
+    Engine::DMI_Configuration dmi_config;
+    Engine::Anisotropy_Configuration anisotropy_config;
+    Engine::Zeeman_Configuration zeeman_config;
+    Engine::DDI_Configuration ddi_config;
+
+    bool use_redundant = false;
+
+    field<Engine::Exchange_Pair> _exchange_pairs;
+    field<Engine::DMI_Pair> _dmi_pairs;
+
     if( hamiltonian_type == "heisenberg_neighbours" )
     {
+        exchange_config.from_shells(*geometry, exchange_magnitudes, use_redundant);
+        dmi_config.from_shells(*geometry, dmi_magnitudes, use_redundant);
+
         hamiltonian = std::make_unique<Engine::Hamiltonian_Heisenberg>(
             B, B_normal, anisotropy_index, anisotropy_magnitude, anisotropy_normal, exchange_magnitudes, dmi_magnitudes,
             dm_chirality, ddi_method, ddi_n_periodic_images, ddi_pb_zero_padding, ddi_radius, quadruplets,
@@ -1584,11 +1601,36 @@ std::unique_ptr<Engine::Hamiltonian_Heisenberg> Hamiltonian_Heisenberg_from_Conf
     }
     else
     {
+        for(int i=0; i<exchange_pairs.size(); i++)
+        {
+            Engine::Exchange_Pair p;
+            p.from_base_pair(exchange_pairs[i]);
+            p.magnitude = exchange_magnitudes[i];
+            _exchange_pairs.push_back( p );
+        }
+
+        for(int i=0; i<dmi_pairs.size(); i++)
+        {
+            Engine::DMI_Pair p;
+            p.from_base_pair(dmi_pairs[i]);
+            p.magnitude = dmi_magnitudes[i];
+            _dmi_pairs.push_back( p );
+        }
+
+        exchange_config.from_unique_pairs(_exchange_pairs, use_redundant);
+        dmi_config.from_unique_pairs(_dmi_pairs, use_redundant);
+
         hamiltonian = std::make_unique<Engine::Hamiltonian_Heisenberg>(
             B, B_normal, anisotropy_index, anisotropy_magnitude, anisotropy_normal, exchange_pairs, exchange_magnitudes,
             dmi_pairs, dmi_magnitudes, dmi_normals, ddi_method, ddi_n_periodic_images, ddi_pb_zero_padding, ddi_radius,
             quadruplets, quadruplet_magnitudes, geometry, boundary_conditions );
     }
+
+//     field<Engine::Exchange_Pair> exchange_pairs;
+//     exchange.from_unique_pairs(  );
+// // 
+    // auto hamiltonian_refactor = Engine::Hamiltonian_Heisenberg_R();
+
     Log( Log_Level::Debug, Log_Sender::IO, "Hamiltonian_Heisenberg: built" );
     return hamiltonian;
 } // end Hamiltonian_Heisenberg_From_Config
