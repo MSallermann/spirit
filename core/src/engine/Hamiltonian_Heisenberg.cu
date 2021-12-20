@@ -10,8 +10,9 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Core>
-
+#include <algorithm>
 #include <complex>
+#include <memory>
 
 using namespace Data;
 using namespace Utility;
@@ -30,12 +31,13 @@ namespace Engine
         const int * n_cells;
         const int n_cell_atoms;
         const int n_cells_total;
+        const int nos;
         const int * atom_types;
         const scalar * mu_s;
         const int * boundary_conditions;
 
         Hamiltonian_Kernel_Data(const Hamiltonian_Heisenberg & ham)
-        : n_cells(ham.geometry->n_cells.data()), n_cell_atoms(ham.geometry->n_cell_atoms), n_cells_total(ham.geometry->n_cells_total), atom_types( ham.geometry->atom_types.data()), mu_s(ham.geometry->mu_s.data()), boundary_conditions(ham.boundary_conditions.data())
+        : n_cells(ham.geometry->n_cells.data()), n_cell_atoms(ham.geometry->n_cell_atoms), n_cells_total(ham.geometry->n_cells_total), nos(ham.geometry->nos), atom_types( ham.geometry->atom_types.data()), mu_s(ham.geometry->mu_s.data()), boundary_conditions(ham.boundary_conditions.data())
         { }
     };
 
@@ -63,13 +65,82 @@ namespace Engine
         { }
     };
 
+    struct Exchange_Pair : Pair
+    {
+        scalar magnitude;
+    };
+
     struct Exchange_Data
     {
-        const scalar * magnitudes;
-        const Pair * pairs;
-        const int n_pairs;
+        const Exchange_Pair * pairs;
+        const int * offsets;
+        const int * m_n_pairs;
+        const int n_pairs_total;
+        const int n_cell_atoms;
 
-        Exchange_Data(const Hamiltonian_Heisenberg & ham) : magnitudes(ham.exchange_magnitudes.data()), pairs(ham.exchange_pairs.data()), n_pairs(ham.exchange_pairs.size()) {}
+        __forceinline__ __device__ int n_pairs(int ispin) const
+        {
+            return m_n_pairs[ispin % n_cell_atoms];
+        }
+
+        __forceinline__ __host__ __device__ const Exchange_Pair & get_pair(int ispin, int ipair) const
+        {
+            return pairs[ipair + offsets[ispin % n_cell_atoms]];
+        }
+
+        Exchange_Data(const Hamiltonian_Heisenberg & ham) : n_pairs_total(ham.exchange_magnitudes.size()), n_cell_atoms(ham.geometry->n_cell_atoms)
+        {
+            _pairs = std::make_unique<field<Exchange_Pair>>(n_pairs_total);
+            _offsets = std::make_unique<field<int>>(n_cell_atoms, 0);
+            _n_pairs = std::make_unique<field<int>>(n_cell_atoms, 0);
+
+            for(int i=0; i<n_pairs_total; i++)
+            {
+                Exchange_Pair new_pair;
+                new_pair.i = ham.exchange_pairs[i].i;
+                new_pair.j = ham.exchange_pairs[i].j;
+                new_pair.translations[0] = ham.exchange_pairs[i].translations[0];
+                new_pair.translations[1] = ham.exchange_pairs[i].translations[1];
+                new_pair.translations[2] = ham.exchange_pairs[i].translations[2];
+                new_pair.magnitude = ham.exchange_magnitudes[i];
+                _pairs->at(i) = new_pair;
+                _n_pairs->at(new_pair.i)++;
+            }
+
+            std::sort(_pairs->begin(), _pairs->end(), [](const Exchange_Pair & a, const Exchange_Pair & b)
+            {
+                return a.i < b.i;
+            });
+
+            _offsets->at(0) = 0;
+            for(int i=1; i<n_cell_atoms; i++)
+            {
+                _offsets->at(i) = _offsets->at(i-1) + _n_pairs->at(i-1);
+            }
+
+            pairs = _pairs->data();
+            offsets = _offsets->data();
+            m_n_pairs = _n_pairs->data();
+        }
+
+        Exchange_Data(const Exchange_Data & other) 
+        : pairs(other.pairs),
+        offsets(other.offsets),
+        m_n_pairs(other.m_n_pairs),
+        n_pairs_total(other.n_pairs_total),
+        n_cell_atoms(other.n_cell_atoms) {}
+
+        std::unique_ptr<field<Exchange_Pair>> _pairs;
+        std::unique_ptr<field<int>> _offsets;
+        std::unique_ptr<field<int>> _n_pairs;
+    };
+
+    Exchange_Data * ex_data = nullptr;
+
+    struct DMI_Pair : Pair
+    {
+        scalar magnitude;
+        Vector3 normal;
     };
 
     struct DMI_Data
@@ -222,6 +293,10 @@ namespace Engine
 
         // Update, which terms still contribute
         this->Update_Energy_Contributions();
+
+        if (ex_data)
+            delete ex_data;
+        ex_data = new Exchange_Data(*this);
     }
 
     void Hamiltonian_Heisenberg::Update_Energy_Contributions()
@@ -355,17 +430,17 @@ namespace Engine
         int bc[3] = {data.boundary_conditions[0], data.boundary_conditions[1], data.boundary_conditions[2]};
         int nc[3] = {data.n_cells[0], data.n_cells[1], data.n_cells[2]};
 
-        for(auto icell = blockIdx.x * blockDim.x + threadIdx.x;
-            icell < data.n_cells_total;
-            icell +=  blockDim.x * gridDim.x)
+        for(auto ispin = blockIdx.x * blockDim.x + threadIdx.x;
+            ispin < data.nos;
+            ispin +=  blockDim.x * gridDim.x)
         {
-            for(auto ipair = 0; ipair < exchange.n_pairs; ++ipair)
+            for(auto ipair = 0; ipair < exchange.n_pairs(ispin); ++ipair)
             {
-                int ispin = exchange.pairs[ipair].i + icell* data.n_cell_atoms;
-                int jspin = cu_idx_from_pair(ispin, bc, nc, data.n_cell_atoms, data.atom_types, exchange.pairs[ipair]);
+                const auto & p = exchange.get_pair(ispin, ipair);
+                int jspin = cu_idx_from_pair(ispin, bc, nc, data.n_cell_atoms, data.atom_types, p);
                 if (jspin >= 0)
                 {
-                    Energy[ispin] -= 0.5 * exchange.magnitudes[ipair] * spins[ispin].dot(spins[jspin]);
+                    Energy[ispin] -= 0.5 * p.magnitude * spins[ispin].dot(spins[jspin]);
                 }
             }
         }
@@ -759,88 +834,86 @@ namespace Engine
         return grad - grad.dot(spin) * spin;
     }
 
-    __device__ void CU_Gradient_Zeeman_Cell(int icell, Vector3 * gradient, const External_Field_Data & external_field, const Hamiltonian_Kernel_Data & data)
+    __device__ void CU_Gradient_Zeeman_Single(int ispin, Vector3 * gradient, const External_Field_Data & external_field, const Hamiltonian_Kernel_Data & data)
     {
-        for (int ibasis=0; ibasis<data.n_cell_atoms; ++ibasis)
-        {
-            int ispin = data.n_cell_atoms * icell + ibasis;
-            if ( cu_check_atom_type(data.atom_types[ispin]) )
-                gradient[ispin] -= data.mu_s[ispin] * external_field.magnitude * external_field.normal;
-        }
+        if( cu_check_atom_type(data.atom_types[ispin]) )
+            gradient[ispin] -= data.mu_s[ispin] * external_field.magnitude * external_field.normal;
     }
     __global__ void CU_Gradient_Zeeman( Vector3 * gradient, External_Field_Data external_field, Hamiltonian_Kernel_Data data)
     {
-        for(auto icell = blockIdx.x * blockDim.x + threadIdx.x;
-            icell < data.n_cells_total;
-            icell +=  blockDim.x * gridDim.x)
+        for(auto ispin = blockIdx.x * blockDim.x + threadIdx.x;
+            ispin < data.nos;
+            ispin +=  blockDim.x * gridDim.x)
         {
-            CU_Gradient_Zeeman_Cell(icell, gradient, external_field, data);
+            CU_Gradient_Zeeman_Single(ispin, gradient, external_field, data);
         }
     }
     void Hamiltonian_Heisenberg::Gradient_Zeeman(vectorfield & gradient)
     {
-        int size = geometry->n_cells_total;
+        int size = geometry->nos;
         CU_Gradient_Zeeman<<<(size+1023)/1024, 1024>>>( gradient.data(), External_Field_Data(*this), Hamiltonian_Kernel_Data(*this));
         CU_CHECK_AND_SYNC();
     }
 
-    __device__ void CU_Gradient_Anisotropy_Cell(int icell, const Vector3 * spins, Vector3 * gradient, const Anisotropy_Data & anisotropy, const Hamiltonian_Kernel_Data & data)
+    __device__ void CU_Gradient_Anisotropy_Single(int ispin, const Vector3 * spins, Vector3 * gradient, const Anisotropy_Data & anisotropy, const Hamiltonian_Kernel_Data & data)
     {
-        for (int iani = 0; iani < anisotropy.n_anisotropies; ++iani)
+        if ( cu_check_atom_type(data.atom_types[ispin]) )
         {
-            int ispin = icell * data.n_cell_atoms + anisotropy.indices[iani];
-            if ( cu_check_atom_type(data.atom_types[ispin]) )
+            for (int iani = 0; iani < anisotropy.n_anisotropies; ++iani)
             {
-                scalar sc = -2 * anisotropy.magnitude[iani] * anisotropy.normal[iani].dot(spins[ispin]);
-                gradient[ispin] += sc*anisotropy.normal[iani];
+                if(anisotropy.indices[iani] == ispin % data.n_cells_total)
+                {
+                    scalar sc = -2 * anisotropy.magnitude[iani] * anisotropy.normal[iani].dot(spins[ispin]);
+                    gradient[ispin] += sc*anisotropy.normal[iani];
+                }
             }
         }
     }
     __global__ void CU_Gradient_Anisotropy(const Vector3 * spins, Vector3 * gradient, Anisotropy_Data anisotropy, Hamiltonian_Kernel_Data data)
     {
-        for(auto icell = blockIdx.x * blockDim.x + threadIdx.x;
-            icell < data.n_cells_total;
-            icell +=  blockDim.x * gridDim.x)
+        for(auto ispin = blockIdx.x * blockDim.x + threadIdx.x;
+            ispin < data.nos;
+            ispin +=  blockDim.x * gridDim.x)
         {
-            CU_Gradient_Anisotropy_Cell(icell, spins, gradient, anisotropy, data);
+            CU_Gradient_Anisotropy_Single(ispin, spins, gradient, anisotropy, data);
         }
     }
     void Hamiltonian_Heisenberg::Gradient_Anisotropy(const vectorfield & spins, vectorfield & gradient)
     {
-        int size = geometry->n_cells_total;
+        int size = geometry->nos;
         CU_Gradient_Anisotropy<<<(size+1023)/1024, 1024>>>( spins.data(), gradient.data(), Anisotropy_Data(*this), Hamiltonian_Kernel_Data(*this));
         CU_CHECK_AND_SYNC();
     }
 
-    __device__ void CU_Gradient_Exchange_Cell(int icell, const Vector3 * spins, Vector3 * gradient, const Exchange_Data & exchange, const Hamiltonian_Kernel_Data & data)
+    __device__ void CU_Gradient_Exchange_Single(int ispin, const Vector3 * spins, Vector3 * gradient, const Exchange_Data & exchange, const Hamiltonian_Kernel_Data & data)
     {
         const int bc[3] = {data.boundary_conditions[0], data.boundary_conditions[1], data.boundary_conditions[2]};
         const int nc[3] = {data.n_cells[0], data.n_cells[1], data.n_cells[2]};
 
-        for(auto ipair = 0; ipair < exchange.n_pairs; ++ipair)
+        for(auto ipair = 0; ipair < exchange.n_pairs(ispin); ++ipair)
         {
-            int ispin = exchange.pairs[ipair].i + icell*data.n_cell_atoms;
-            int jspin = cu_idx_from_pair(ispin, bc, nc, data.n_cell_atoms, data.atom_types, exchange.pairs[ipair]);
+            const auto & pair = exchange.get_pair(ispin, ipair);
+            int jspin = cu_idx_from_pair(ispin, bc, nc, data.n_cell_atoms, data.atom_types, pair);
             if (jspin >= 0)
             {
-                gradient[ispin] -= exchange.magnitudes[ipair]*spins[jspin];
+                gradient[ispin] -= pair.magnitude * spins[jspin];
             }
         }
     }
 
     __global__ void CU_Gradient_Exchange(const Vector3 * spins, Vector3 * gradient, Exchange_Data exchange, Hamiltonian_Kernel_Data data)
     {
-        for(auto icell = blockIdx.x * blockDim.x + threadIdx.x;
-            icell < data.n_cells_total;
-            icell +=  blockDim.x * gridDim.x)
+        for(auto ispin = blockIdx.x * blockDim.x + threadIdx.x;
+            ispin < data.nos;
+            ispin += blockDim.x * gridDim.x)
         {
-            CU_Gradient_Exchange_Cell(icell, spins, gradient, exchange, data);
+            CU_Gradient_Exchange_Single(ispin, spins, gradient, exchange, data);
         }
     }
     void Hamiltonian_Heisenberg::Gradient_Exchange(const vectorfield & spins, vectorfield & gradient)
     {
-        int size = geometry->n_cells_total;
-        CU_Gradient_Exchange<<<(size+1023)/1024, 1024>>>( spins.data(), gradient.data(), Exchange_Data(*this), Hamiltonian_Kernel_Data(*this));
+        int size = geometry->nos;
+        CU_Gradient_Exchange<<<(size+1023)/1024, 1024>>>( spins.data(), gradient.data(), *ex_data, Hamiltonian_Kernel_Data(*this));
         CU_CHECK_AND_SYNC();
     }
 
