@@ -855,10 +855,12 @@ namespace Engine
         return grad - grad.dot(spin) * spin;
     }
 
-    __device__ void CU_Gradient_Zeeman_Single(int ispin, Vector3 * gradient, const External_Field_Data & external_field, const Hamiltonian_Kernel_Data & data)
+    __device__ Vector3 CU_Gradient_Zeeman_Single(int ispin, const External_Field_Data & external_field, const Hamiltonian_Kernel_Data & data)
     {
         if( cu_check_atom_type(data.atom_types[ispin]) )
-            gradient[ispin] -= data.mu_s[ispin] * external_field.magnitude * external_field.normal;
+            return -data.mu_s[ispin] * external_field.magnitude * external_field.normal;
+        else
+            return Vector3::Zero();
     }
     __global__ void CU_Gradient_Zeeman( Vector3 * gradient, External_Field_Data external_field, Hamiltonian_Kernel_Data data)
     {
@@ -866,7 +868,7 @@ namespace Engine
             ispin < data.nos;
             ispin +=  blockDim.x * gridDim.x)
         {
-            CU_Gradient_Zeeman_Single(ispin, gradient, external_field, data);
+            gradient[ispin] += CU_Gradient_Zeeman_Single(ispin, external_field, data);
         }
     }
     void Hamiltonian_Heisenberg::Gradient_Zeeman(vectorfield & gradient)
@@ -876,8 +878,9 @@ namespace Engine
         CU_CHECK_AND_SYNC();
     }
 
-    __device__ void CU_Gradient_Anisotropy_Single(int ispin, const Vector3 * spins, Vector3 * gradient, const Anisotropy_Data & anisotropy, const Hamiltonian_Kernel_Data & data)
+    __device__ Vector3 CU_Gradient_Anisotropy_Single(int ispin, const Vector3 * spins, const Anisotropy_Data & anisotropy, const Hamiltonian_Kernel_Data & data)
     {
+        Vector3 gradient_temp = {0, 0, 0};
         if ( cu_check_atom_type(data.atom_types[ispin]) )
         {
             for (int iani = 0; iani < anisotropy.n_anisotropies; ++iani)
@@ -885,10 +888,11 @@ namespace Engine
                 if(anisotropy.indices[iani] == ispin % data.n_cells_total)
                 {
                     scalar sc = -2 * anisotropy.magnitude[iani] * anisotropy.normal[iani].dot(spins[ispin]);
-                    gradient[ispin] += sc*anisotropy.normal[iani];
+                    gradient_temp += sc*anisotropy.normal[iani];
                 }
             }
         }
+        return gradient_temp;
     }
     __global__ void CU_Gradient_Anisotropy(const Vector3 * spins, Vector3 * gradient, Anisotropy_Data anisotropy, Hamiltonian_Kernel_Data data)
     {
@@ -896,7 +900,7 @@ namespace Engine
             ispin < data.nos;
             ispin +=  blockDim.x * gridDim.x)
         {
-            CU_Gradient_Anisotropy_Single(ispin, spins, gradient, anisotropy, data);
+            gradient[ispin] += CU_Gradient_Anisotropy_Single(ispin, spins, anisotropy, data);
         }
     }
     void Hamiltonian_Heisenberg::Gradient_Anisotropy(const vectorfield & spins, vectorfield & gradient)
@@ -906,20 +910,22 @@ namespace Engine
         CU_CHECK_AND_SYNC();
     }
 
-    __device__ void CU_Gradient_Exchange_Single(int ispin, const Vector3 * spins, Vector3 * gradient, const Exchange_Data & exchange, const Hamiltonian_Kernel_Data & data)
+    __device__ Vector3 CU_Gradient_Exchange_Single(int ispin, const Vector3 * spins, const Exchange_Data & exchange, const Hamiltonian_Kernel_Data & data)
     {
         const int bc[3] = {data.boundary_conditions[0], data.boundary_conditions[1], data.boundary_conditions[2]};
         const int nc[3] = {data.n_cells[0], data.n_cells[1], data.n_cells[2]};
 
+        Vector3 gradient_temp = {0,0,0};
         for(auto ipair = 0; ipair < exchange.n_pairs(ispin); ++ipair)
         {
             const auto & pair = exchange.get_pair(ispin, ipair);
             int jspin = cu_idx_from_pair(ispin, bc, nc, data.n_cell_atoms, data.atom_types, pair);
             if (jspin >= 0)
             {
-                gradient[ispin] -= pair.magnitude * spins[jspin];
+                gradient_temp -= pair.magnitude * spins[jspin];
             }
         }
+        return gradient_temp;
     }
 
     __global__ void CU_Gradient_Exchange(const Vector3 * spins, Vector3 * gradient, Exchange_Data exchange, Hamiltonian_Kernel_Data data)
@@ -928,7 +934,7 @@ namespace Engine
             ispin < data.nos;
             ispin += blockDim.x * gridDim.x)
         {
-            CU_Gradient_Exchange_Single(ispin, spins, gradient, exchange, data);
+            gradient[ispin] += CU_Gradient_Exchange_Single(ispin, spins, exchange, data);
         }
     }
     void Hamiltonian_Heisenberg::Gradient_Exchange(const vectorfield & spins, vectorfield & gradient)
@@ -938,20 +944,21 @@ namespace Engine
         CU_CHECK_AND_SYNC();
     }
 
-    __device__ void CU_Gradient_DMI_Single(int ispin, const Vector3 * spins, Vector3 * gradient, const DMI_Data & dmi, const Hamiltonian_Kernel_Data & data)
+    __device__ Vector3 CU_Gradient_DMI_Single(int ispin, const Vector3 * spins, const DMI_Data & dmi, const Hamiltonian_Kernel_Data & data)
     {
         const int bc[3] = {data.boundary_conditions[0], data.boundary_conditions[1], data.boundary_conditions[2]};
         const int nc[3] = {data.n_cells[0], data.n_cells[1], data.n_cells[2]};
-
+        Vector3 gradient_temp = {0, 0, 0};
         for(auto ipair = 0; ipair < dmi.n_pairs(ispin); ++ipair)
         {
             const auto & p = dmi.get_pair(ispin, ipair);
             int jspin = cu_idx_from_pair(ispin, bc, nc, data.n_cell_atoms, data.atom_types, p);
             if (jspin >= 0)
             {
-                gradient[ispin] -= p.magnitude * spins[jspin].cross(p.normal);
+                gradient_temp -= p.magnitude * spins[jspin].cross(p.normal);
             }
         }
+        return gradient_temp;
     }
  
     __global__ void CU_Gradient_DMI(const Vector3 * spins, Vector3 * gradient, DMI_Data dmi, Hamiltonian_Kernel_Data data)
@@ -960,7 +967,7 @@ namespace Engine
             ispin < data.nos;
             ispin +=  blockDim.x * gridDim.x)
         {
-            CU_Gradient_DMI_Single(ispin, spins, gradient, dmi, data);
+            gradient[ispin] += CU_Gradient_DMI_Single(ispin, spins, dmi, data);
         }
     }
     void Hamiltonian_Heisenberg::Gradient_DMI(const vectorfield & spins, vectorfield & gradient)
