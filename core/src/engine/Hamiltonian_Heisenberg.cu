@@ -141,6 +141,44 @@ namespace Engine
     Exchange_Data * ex_data = nullptr;
     DMI_Data * dmi_data = nullptr;
 
+struct Neumaier_Kahan_Summator
+{
+    __device__ Neumaier_Kahan_Summator() = default;
+
+    __device__ Neumaier_Kahan_Summator & operator+=(const Vector3 & s)
+    {
+        const Vector3 t = sum + s;
+
+        Vector3 v_max; // = sum.cwiseAbs().cwiseMax( s.cwiseAbs() );
+        Vector3 v_min; // = sum.cwiseAbs().cwiseMin( s.cwiseAbs() );
+        for(int i=0; i<3; i++)
+        {
+            if(abs(sum[i]) >= abs(s[i]))
+            {
+                v_max[i] = sum[i];
+                v_min[i] = s[i];
+            } else {
+                v_max[i] = s[i];
+                v_min[i] = sum[i];
+            }
+        }
+
+        compensation += ( v_max - t ) + v_min;
+        sum = t;
+        return *this;
+    }
+
+    __device__ Vector3 get()
+    {
+        return sum + compensation;
+    }
+
+    private:
+    Vector3 sum = Vector3::Zero();
+    Vector3 compensation = Vector3::Zero();
+};
+
+
     // Construct a Heisenberg Hamiltonian with pairs
     Hamiltonian_Heisenberg::Hamiltonian_Heisenberg(
         scalar external_field_magnitude, Vector3 external_field_normal,
@@ -915,6 +953,8 @@ namespace Engine
         const int bc[3] = {data.boundary_conditions[0], data.boundary_conditions[1], data.boundary_conditions[2]};
         const int nc[3] = {data.n_cells[0], data.n_cells[1], data.n_cells[2]};
 
+        Neumaier_Kahan_Summator k_sum;
+
         Vector3 gradient_temp = {0,0,0};
         for(auto ipair = 0; ipair < exchange.n_pairs(ispin); ++ipair)
         {
@@ -922,10 +962,20 @@ namespace Engine
             int jspin = cu_idx_from_pair(ispin, bc, nc, data.n_cell_atoms, data.atom_types, pair);
             if (jspin >= 0)
             {
+                // gradient_temp -= _orth(pair.magnitude * spins[jspin], spins[ispin]);
                 gradient_temp -= pair.magnitude * spins[jspin];
+                // k_sum += _orth(-pair.magnitude * spins[jspin], spins[ispin]);
+
+                // k_sum += -    .magnitude * spins[jspin];
+                // k_sum += pair.magnitude * spins[jspin].dot(spins[ispin])*spins[ispin];
+
+                // return grad - grad.dot(spin) * spin;
+
+
             }
         }
         return gradient_temp;
+        // return k_sum.get();
     }
 
     __global__ void CU_Gradient_Exchange(const Vector3 * spins, Vector3 * gradient, Exchange_Data exchange, Hamiltonian_Kernel_Data data)
