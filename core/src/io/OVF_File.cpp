@@ -16,10 +16,10 @@ OVF_Segment::OVF_Segment( const Data::Spin_System & system )
     auto & geometry = *system.geometry;
 
     this->valuedim      = 0;
-    this->valuelabels   = const_cast<char *>( "" );
-    this->valueunits    = const_cast<char *>( "" );
-    this->meshtype      = const_cast<char *>( "rectangular" );
-    this->meshunit      = const_cast<char *>( "nm" );
+    this->valuelabels   = strdup( "" );
+    this->valueunits    = strdup( "" );
+    this->meshtype      = strdup( "rectangular" );
+    this->meshunit      = strdup( "nm" );
     this->n_cells[0]    = geometry.n_cells[0] * geometry.n_cell_atoms;
     this->n_cells[1]    = geometry.n_cells[1];
     this->n_cells[2]    = geometry.n_cells[2];
@@ -41,12 +41,12 @@ OVF_Segment::OVF_Segment( const Data::Spin_System & system )
 OVF_Segment::~OVF_Segment()
 {
     // TODO: create ovf_segment_free
-    // free(this->title);
-    // free(this->comment);
-    // free(this->meshunit);
-    // free(this->meshtype);
-    // free(this->valuelabels);
-    // free(this->valueunits);
+    free(this->title);
+    free(this->comment);
+    free(this->meshunit);
+    free(this->meshtype);
+    free(this->valuelabels);
+    free(this->valueunits);
     // free(this->meshunit);
     // free(this->n_cells);
     // free(this->step_size);

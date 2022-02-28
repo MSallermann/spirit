@@ -3,6 +3,7 @@
 #define LIBOVF_H
 
 #include <stdbool.h>
+#include <cstddef>
 
 // Platform-specific definition of DLLEXPORT
 #ifdef _WIN32

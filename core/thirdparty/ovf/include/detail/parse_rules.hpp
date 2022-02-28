@@ -1,4 +1,5 @@
 #pragma once
+#include <cstring>
 #ifndef LIBOVF_DETAIL_PARSE_RULES_H
 #define LIBOVF_DETAIL_PARSE_RULES_H
 
@@ -9,6 +10,13 @@
 #include <fmt/format.h>
 
 #include <array>
+
+inline void _strdup(char * & out, const char * in)
+{
+    if (out != NULL)
+        free(out);
+    out = strdup(in);
+}
 
 struct max_index_error : public std::runtime_error
 {
@@ -522,14 +530,14 @@ namespace parse
             {
                 if( f._state->keyword == "title" )
                 {
-                    segment.title = strdup(f._state->value.c_str());
+                    _strdup(segment.title, f._state->value.c_str());
                     f._state->found_title = true;
                 }
                 else if( f._state->keyword == "desc" )
-                    segment.comment = strdup(f._state->value.c_str());
+                    _strdup( segment.comment, f._state->value.c_str());
                 else if( f._state->keyword == "meshunit" )
                 {
-                    segment.meshunit = strdup(f._state->value.c_str());
+                    _strdup(segment.meshunit, f._state->value.c_str());
                     f._state->found_meshunit = true;
                 }
                 else if( f._state->keyword == "valuedim" )
@@ -539,12 +547,12 @@ namespace parse
                 }
                 else if( f._state->keyword == "valueunits" )
                 {
-                    segment.valueunits = strdup(f._state->value.c_str());
+                    _strdup(segment.valueunits, f._state->value.c_str());
                     f._state->found_valueunits = true;
                 }
                 else if( f._state->keyword == "valuelabels" )
                 {
-                    segment.valuelabels = strdup(f._state->value.c_str());
+                    _strdup(segment.valuelabels, f._state->value.c_str());
                     f._state->found_valuelabels = true;
                 }
                 else if( f._state->keyword == "xmin" )
@@ -586,7 +594,7 @@ namespace parse
                         if( meshtype != "rectangular" && meshtype != "irregular" )
                             throw tao::pegtl::parse_error( fmt::format(
                                 "Invalid meshtype: \"{}\"", meshtype), in );
-                        segment.meshtype = strdup(meshtype.c_str());
+                        _strdup(segment.meshtype, meshtype.c_str());
                     }
                     else if( std::string(segment.meshtype) != meshtype )
                     {
@@ -601,7 +609,7 @@ namespace parse
                     if( std::string(segment.meshtype) != "rectangular" )
                         throw tao::pegtl::parse_error( fmt::format(
                             "xbase is only for rectangular meshes! Mesh type is \"{}\"", segment.meshtype), in );
-                    segment.meshtype = strdup("rectangular");
+                    _strdup(segment.meshtype, "rectangular");
                     segment.origin[0] = std::stof(f._state->value.c_str());
                     f._state->found_xbase = true;
                 }
@@ -610,7 +618,7 @@ namespace parse
                     if( std::string(segment.meshtype) != "rectangular" )
                         throw tao::pegtl::parse_error( fmt::format(
                             "ybase is only for rectangular meshes! Mesh type is \"{}\"", segment.meshtype), in );
-                    segment.meshtype = strdup("rectangular");
+                    _strdup(segment.meshtype, "rectangular");
                     segment.origin[1] = std::stof(f._state->value.c_str());
                     f._state->found_ybase = true;
                 }
@@ -619,7 +627,7 @@ namespace parse
                     if( std::string(segment.meshtype) != "rectangular" )
                         throw tao::pegtl::parse_error( fmt::format(
                             "zbase is only for rectangular meshes! Mesh type is \"{}\"", segment.meshtype), in );
-                    segment.meshtype = strdup("rectangular");
+                    _strdup(segment.meshtype, "rectangular");
                     segment.origin[2] = std::stof(f._state->value.c_str());
                     f._state->found_zbase = true;
                 }
@@ -628,7 +636,7 @@ namespace parse
                     if( std::string(segment.meshtype) != "rectangular" )
                         throw tao::pegtl::parse_error( fmt::format(
                             "xstepsize is only for rectangular meshes! Mesh type is \"{}\"", segment.meshtype), in );
-                    segment.meshtype = strdup("rectangular");
+                    _strdup(segment.meshtype, "rectangular");
                     segment.step_size[0] = std::stof(f._state->value.c_str());
                     f._state->found_xstepsize = true;
                 }
@@ -637,7 +645,7 @@ namespace parse
                     if( std::string(segment.meshtype) != "rectangular" )
                         throw tao::pegtl::parse_error( fmt::format(
                             "ystepsize is only for rectangular meshes! Mesh type is \"{}\"", segment.meshtype), in );
-                    segment.meshtype = strdup("rectangular");
+                    _strdup(segment.meshtype, "rectangular");
                     segment.step_size[1] = std::stof(f._state->value.c_str());
                     f._state->found_ystepsize = true;
                 }
@@ -646,7 +654,7 @@ namespace parse
                     if( std::string(segment.meshtype) != "rectangular" )
                         throw tao::pegtl::parse_error( fmt::format(
                             "zstepsize is only for rectangular meshes! Mesh type is \"{}\"", segment.meshtype), in );
-                    segment.meshtype = strdup("rectangular");
+                    _strdup(segment.meshtype, "rectangular");
                     segment.step_size[2] = std::stof(f._state->value.c_str());
                     f._state->found_zstepsize = true;
                 }
@@ -655,7 +663,7 @@ namespace parse
                     if( std::string(segment.meshtype) != "rectangular" )
                         throw tao::pegtl::parse_error( fmt::format(
                             "xnodes is only for rectangular meshes! Mesh type is \"{}\"", segment.meshtype), in );
-                    segment.meshtype = strdup("rectangular");
+                    _strdup(segment.meshtype, "rectangular");
                     segment.n_cells[0] = std::stoi(f._state->value.c_str());
                     f._state->found_xnodes = true;
                 }
@@ -664,7 +672,7 @@ namespace parse
                     if( std::string(segment.meshtype) != "rectangular" )
                         throw tao::pegtl::parse_error( fmt::format(
                             "ynodes is only for rectangular meshes! Mesh type is \"{}\"", segment.meshtype), in );
-                    segment.meshtype = strdup("rectangular");
+                    _strdup(segment.meshtype, "rectangular");
                     segment.n_cells[1] = std::stoi(f._state->value.c_str());
                     f._state->found_ynodes = true;
                 }
@@ -673,7 +681,7 @@ namespace parse
                     if( std::string(segment.meshtype) != "rectangular" )
                         throw tao::pegtl::parse_error( fmt::format(
                             "znodes is only for rectangular meshes! Mesh type is \"{}\"", segment.meshtype), in );
-                    segment.meshtype = strdup("rectangular");
+                    _strdup(segment.meshtype, "rectangular");
                     segment.n_cells[2] = std::stoi(f._state->value.c_str());
                     f._state->found_znodes = true;
                 }
@@ -682,7 +690,7 @@ namespace parse
                     if( std::string(segment.meshtype) != "" && std::string(segment.meshtype) != "irregular" )
                         throw tao::pegtl::parse_error( fmt::format(
                             "pointcount is only for irregular meshes! Mesh type is \"{}\"", segment.meshtype), in );
-                    segment.meshtype = strdup("irregular");
+                    _strdup(segment.meshtype, "irregular");
                     segment.pointcount = std::stoi(f._state->value.c_str());
                     f._state->found_pointcount = true;
                 }
