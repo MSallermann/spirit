@@ -36,7 +36,13 @@ bool Hessian_Partial_Spectrum(
     const MatrixX & hessian, std::size_t n_modes, MatrixX & tangent_basis, MatrixX & hessian_constrained,
     VectorX & eigenvalues, MatrixX & eigenvectors );
 
-} // end namespace Eigenmodes
+bool Sparse_Hessian_Partial_Spectrum(
+    const std::shared_ptr<Data::Parameters_Method> parameters, const vectorfield & spins, const vectorfield & gradient,
+    const SpMatrixX & hessian, int n_modes, SpMatrixX & tangent_basis, SpMatrixX & hessian_constrained, VectorX & eigenvalues,
+    MatrixX & eigenvectors
+);
+
+}; // end namespace Eigenmodes
 } // end namespace Engine
 
 #endif
