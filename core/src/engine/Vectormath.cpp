@@ -715,8 +715,41 @@ void jacobian(const vectorfield & vf, const Data::Geometry & geometry, const int
             }
         }
     }
-
 }
+
+// Computes a translational mode of the vectorfield
+void translational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 translation)
+{
+    scalar squared_norm = 0;
+    for(int i=0; i<vf.size(); i++)
+    {
+        mode[i] = jacobian[i] * translation;
+        squared_norm += mode[i].squaredNorm();
+    }
+
+    for(Vector3 & m : mode)
+    {
+        m /= std::sqrt(squared_norm);
+    }
+}
+
+void rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 axis, Vector3 center)
+{
+    scalar squared_norm = 0;
+
+    // axis = axis.normalize();
+    for(int i=0; i<vf.size(); i++)
+    {
+        mode[i] = jacobian[i] * axis.cross(geometry.positions[i] - center) + axis.cross(vf[i]);
+        squared_norm += mode[i].squaredNorm();
+    }
+
+    for(Vector3 & m : mode)
+    {
+        m /= std::sqrt(squared_norm);
+    }
+}
+
 
 void directional_gradient(
     const vectorfield & vf, const Data::Geometry & geometry, const intfield & boundary_conditions,

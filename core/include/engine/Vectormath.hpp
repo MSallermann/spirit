@@ -558,8 +558,12 @@ void get_gradient_distribution(
 
 // Calculate the jacobian of a vectorfield in a certain direction.
 //      This requires to know the underlying geometry, as well as the boundary conditions.
-void jacobian(
-    const vectorfield & vf, const Data::Geometry & geometry, const intfield & boundary_conditions, field<Matrix3> & jacobian );
+void jacobian(const vectorfield & vf, const Data::Geometry & geometry, const intfield & boundary_conditions, field<Matrix3> & jacobian );
+
+void translational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 translation);
+
+void rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 axis, Vector3 center);
+
 
 /////////////////////////////////////////////////////////////////
 
