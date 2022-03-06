@@ -672,7 +672,7 @@ void jacobian(const vectorfield & vf, const Data::Geometry & geometry, const int
     // 3.) Invert the matrix
     auto inverse_base_matrix = base_matrix.inverse();
 
-    // 4.) Lopp over spins
+    // 4.) Loop over spins
     Matrix3 m_matrix;
     for(int c=0; c<geometry.n_cells[2]; c++)
     {
@@ -693,22 +693,27 @@ void jacobian(const vectorfield & vf, const Data::Geometry & geometry, const int
                         // apply translations in negative direction
                         auto idx1 = geometry.idx(ib, a-trans[0], b-trans[1], c-trans[2], false, boundary_conditions);
 
-                        Vector3 m0 = {0,0,0};
-                        Vector3 m1 = {0,0,0};
+                        Vector3 m0 = {0, 0, 0};
+                        Vector3 m1 = {0, 0, 0};
 
                         scalar factor = 0.5; // Factor 0.5 for central finite differences
-                        if(idx0>0)
+                        if(idx0 >= 0)
                         {
                             m0 = vf[idx0];
-                            factor *= 2; // Increase factor because now only forward difference
-                        }
-                        if(idx1>0)
-                        {
-                            m1 = vf[idx1];
+                        } else {
                             factor *= 2; // Increase factor because now only backward difference
                         }
+                        if(idx1 >= 0)
+                        {
+                            m1 = vf[idx1];
+                        } else {
+                            factor *= 2; // Increase factor because now only forward difference
+                        }
 
-                        m_matrix.row(trans_idx) = factor * (m0 - m1);
+                        Vector3 tmp = factor * (m0 - m1);
+                        tmp         = tmp - tmp.dot(vf[idx_cur]) * vf[idx_cur];
+                        // Manifoldmath::project_orthogonal( tmp , vf[idx_cur]);
+                        m_matrix.row(trans_idx) = tmp;
                     }
                     jacobian[idx_cur] = inverse_base_matrix * m_matrix;
                 }
@@ -733,14 +738,17 @@ void translational_mode(vectorfield & mode, const vectorfield & vf, const Data::
     }
 }
 
-void rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 axis, Vector3 center)
+void spatial_rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 axis, Vector3 center)
 {
     scalar squared_norm = 0;
 
     // axis = axis.normalize();
     for(int i=0; i<vf.size(); i++)
     {
-        mode[i] = jacobian[i] * axis.cross(geometry.positions[i] - center) + axis.cross(vf[i]);
+        mode[i] = jacobian[i] * axis.cross(geometry.positions[i] - center);// - axis.cross(vf[i]);
+        mode[i] = -axis.cross(vf[i]);
+
+
         squared_norm += mode[i].squaredNorm();
     }
 
@@ -749,6 +757,56 @@ void rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geo
         m /= std::sqrt(squared_norm);
     }
 }
+
+void spin_rotational_mode(vectorfield & mode, const vectorfield & vf, Vector3 axis)
+{
+    scalar squared_norm = 0;
+
+    // axis = axis.normalize();
+    for(int i=0; i<vf.size(); i++)
+    {
+        mode[i] = -axis.cross(vf[i]);
+        squared_norm += mode[i].squaredNorm();
+    }
+
+    for(Vector3 & m : mode)
+    {
+        m /= std::sqrt(squared_norm);
+    }
+}
+
+void spin_spatial_rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 axis, Vector3 center)
+{
+    scalar squared_norm = 0;
+
+    // axis = axis.normalize();
+    for(int i=0; i<vf.size(); i++)
+    {
+        mode[i] = jacobian[i] * axis.cross(geometry.positions[i] - center) - axis.cross(vf[i]);
+        squared_norm += mode[i].squaredNorm();
+    }
+
+    for(Vector3 & m : mode)
+    {
+        m /= std::sqrt(squared_norm);
+    }
+}
+
+void stretching_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 center)
+{
+    scalar squared_norm = 0;
+    for(int i=0; i<vf.size(); i++)
+    {
+        mode[i] = jacobian[i] * (geometry.positions[i] - center);
+        squared_norm += mode[i].squaredNorm();
+    }
+
+    for(Vector3 & m : mode)
+    {
+        m /= std::sqrt(squared_norm);
+    }
+}
+
 
 
 void directional_gradient(

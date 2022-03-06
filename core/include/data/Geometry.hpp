@@ -117,14 +117,14 @@ public:
             if(!valid_a)
             {
                 if(bc[0])
-                    a = a%n_cells[0];
+                    a = (n_cells[0] + (a % n_cells[0])) % n_cells[0];
                 else
                     return -1;
             }
             if(!valid_b)
             {
                 if(bc[1])
-                    b = b%n_cells[1];
+                    b = (n_cells[1] + (b % n_cells[1])) % n_cells[1];
                 else
                     return -1;
             }
@@ -132,7 +132,7 @@ public:
             if(!valid_c)
             {
                 if(bc[2])
-                    c = c%n_cells[2];
+                    c = (n_cells[2] + (c % n_cells[2])) % n_cells[2];
                 else
                     return -1;
             }

@@ -562,7 +562,10 @@ void jacobian(const vectorfield & vf, const Data::Geometry & geometry, const int
 
 void translational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 translation);
 
-void rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 axis, Vector3 center);
+void spatial_rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 axis, Vector3 center);
+void spin_spatial_rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 axis, Vector3 center);
+void spin_rotational_mode(vectorfield & mode, const vectorfield & vf, Vector3 axis);
+void stretching_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 center);
 
 
 /////////////////////////////////////////////////////////////////
