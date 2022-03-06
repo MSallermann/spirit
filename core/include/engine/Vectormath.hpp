@@ -541,6 +541,10 @@ void TopologicalChargeDensity(
 // Calculate the topological charge inside a vectorfield
 scalar TopologicalCharge( const vectorfield & vf, const Data::Geometry & geom, const intfield & boundary_conditions );
 
+// Calculate the spatial gradient of a vectorfield in a certain direction.
+//      This requires to know the underlying geometry, as well as the boundary conditions.
+void directional_gradient(const vectorfield & vf, const Data::Geometry & geometry, const intfield & boundary_conditions, const Vector3 & direction, vectorfield & gradient);
+
 void get_random_vector( std::uniform_real_distribution<scalar> & distribution, std::mt19937 & prng, Vector3 & vec );
 void get_random_vectorfield( std::mt19937 & prng, vectorfield & xi );
 void get_random_vector_unitsphere(
@@ -552,11 +556,17 @@ void get_gradient_distribution(
     const Data::Geometry & geometry, Vector3 gradient_direction, scalar gradient_start, scalar gradient_inclination,
     scalarfield & distribution, scalar range_min, scalar range_max );
 
-// Calculate the spatial gradient of a vectorfield in a certain direction.
+// Calculate the jacobian of a vectorfield in a certain direction.
 //      This requires to know the underlying geometry, as well as the boundary conditions.
-void directional_gradient(
-    const vectorfield & vf, const Data::Geometry & geometry, const intfield & boundary_conditions,
-    const Vector3 & direction, vectorfield & gradient );
+void jacobian(const vectorfield & vf, const Data::Geometry & geometry, const intfield & boundary_conditions, field<Matrix3> & jacobian );
+
+void translational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 translation);
+
+void spatial_rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 axis, Vector3 center);
+void spin_spatial_rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 axis, Vector3 center);
+void spin_rotational_mode(vectorfield & mode, const vectorfield & vf, Vector3 axis);
+void stretching_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 center);
+
 
 /////////////////////////////////////////////////////////////////
 

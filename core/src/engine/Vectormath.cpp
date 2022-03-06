@@ -1,3 +1,5 @@
+#include "engine/Vectormath_Defines.hpp"
+#include <engine/Vectormath.hpp>
 #include <engine/Manifoldmath.hpp>
 #include <engine/Vectormath.hpp>
 #include <utility/Constants.hpp>
@@ -650,6 +652,162 @@ void get_gradient_distribution(
     // Cut off negative values
     set_range( distribution, range_min, range_max );
 }
+
+void jacobian(const vectorfield & vf, const Data::Geometry & geometry, const intfield & boundary_conditions, field<Matrix3> & jacobian)
+{
+    // 1.) Choose three linearly independent base vectors, which result from lattice translations
+    // TODO: depending on the basis, the bravais vectors might not be the best choice
+    std::array<std::array<int, 3>, 3> translations  = { 1,0,0, 0,1,0, 0,0,1 };
+
+    Vector3 base_1 = geometry.lattice_constant * geometry.bravais_vectors[0],
+            base_2 = geometry.lattice_constant * geometry.bravais_vectors[1], 
+            base_3 = geometry.lattice_constant * geometry.bravais_vectors[2];
+
+    // 2.) Construct the matrix of base vectors
+    Matrix3 base_matrix;
+    base_matrix.row(0) = base_1;
+    base_matrix.row(1) = base_2;
+    base_matrix.row(2) = base_3;
+
+    // 3.) Invert the matrix
+    auto inverse_base_matrix = base_matrix.inverse();
+
+    // 4.) Loop over spins
+    Matrix3 m_matrix;
+    for(int c=0; c<geometry.n_cells[2]; c++)
+    {
+        for(int b=0; b<geometry.n_cells[1]; b++)
+        {
+            for(int a=0; a<geometry.n_cells[0]; a++)
+            {
+                for(int ib=0; ib<geometry.n_cell_atoms; ib++)
+                {
+                    auto idx_cur = geometry.idx(ib, a, b, c, true);
+
+                    for(int trans_idx=0; trans_idx<3; trans_idx++)
+                    {
+                        auto & trans = translations[trans_idx];
+                        // apply translations in positive direction
+                        auto idx0 = geometry.idx(ib, a+trans[0], b+trans[1], c+trans[2], false, boundary_conditions);
+
+                        // apply translations in negative direction
+                        auto idx1 = geometry.idx(ib, a-trans[0], b-trans[1], c-trans[2], false, boundary_conditions);
+
+                        Vector3 m0 = {0, 0, 0};
+                        Vector3 m1 = {0, 0, 0};
+
+                        scalar factor = 0.5; // Factor 0.5 for central finite differences
+                        if(idx0 >= 0)
+                        {
+                            m0 = vf[idx0];
+                        } else {
+                            factor *= 2; // Increase factor because now only backward difference
+                        }
+                        if(idx1 >= 0)
+                        {
+                            m1 = vf[idx1];
+                        } else {
+                            factor *= 2; // Increase factor because now only forward difference
+                        }
+
+                        Vector3 tmp = factor * (m0 - m1);
+                        tmp         = tmp - tmp.dot(vf[idx_cur]) * vf[idx_cur];
+                        // Manifoldmath::project_orthogonal( tmp , vf[idx_cur]);
+                        m_matrix.row(trans_idx) = tmp;
+                    }
+                    jacobian[idx_cur] = inverse_base_matrix * m_matrix;
+                }
+            }
+        }
+    }
+}
+
+// Computes a translational mode of the vectorfield
+void translational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 translation)
+{
+    scalar squared_norm = 0;
+    for(int i=0; i<vf.size(); i++)
+    {
+        mode[i] = jacobian[i] * translation;
+        squared_norm += mode[i].squaredNorm();
+    }
+
+    for(Vector3 & m : mode)
+    {
+        m /= std::sqrt(squared_norm);
+    }
+}
+
+void spatial_rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 axis, Vector3 center)
+{
+    scalar squared_norm = 0;
+
+    // axis = axis.normalize();
+    for(int i=0; i<vf.size(); i++)
+    {
+        mode[i] = jacobian[i] * axis.cross(geometry.positions[i] - center);// - axis.cross(vf[i]);
+        mode[i] = -axis.cross(vf[i]);
+
+
+        squared_norm += mode[i].squaredNorm();
+    }
+
+    for(Vector3 & m : mode)
+    {
+        m /= std::sqrt(squared_norm);
+    }
+}
+
+void spin_rotational_mode(vectorfield & mode, const vectorfield & vf, Vector3 axis)
+{
+    scalar squared_norm = 0;
+
+    // axis = axis.normalize();
+    for(int i=0; i<vf.size(); i++)
+    {
+        mode[i] = -axis.cross(vf[i]);
+        squared_norm += mode[i].squaredNorm();
+    }
+
+    for(Vector3 & m : mode)
+    {
+        m /= std::sqrt(squared_norm);
+    }
+}
+
+void spin_spatial_rotational_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 axis, Vector3 center)
+{
+    scalar squared_norm = 0;
+
+    // axis = axis.normalize();
+    for(int i=0; i<vf.size(); i++)
+    {
+        mode[i] = jacobian[i] * axis.cross(geometry.positions[i] - center) - axis.cross(vf[i]);
+        squared_norm += mode[i].squaredNorm();
+    }
+
+    for(Vector3 & m : mode)
+    {
+        m /= std::sqrt(squared_norm);
+    }
+}
+
+void stretching_mode(vectorfield & mode, const vectorfield & vf, const Data::Geometry & geometry, const field<Matrix3> & jacobian, Vector3 center)
+{
+    scalar squared_norm = 0;
+    for(int i=0; i<vf.size(); i++)
+    {
+        mode[i] = jacobian[i] * (geometry.positions[i] - center);
+        squared_norm += mode[i].squaredNorm();
+    }
+
+    for(Vector3 & m : mode)
+    {
+        m /= std::sqrt(squared_norm);
+    }
+}
+
+
 
 void directional_gradient(
     const vectorfield & vf, const Data::Geometry & geometry, const intfield & boundary_conditions,
