@@ -172,7 +172,8 @@ void Transition_Without_Zero_Modes( std::shared_ptr<Data::Spin_System_Chain> c, 
             }
 
             scalar dist_current = Engine::Manifoldmath::dist_geodesic( spins_cur, spins_final );
-            scalar angle_scale  =  dist_current / ( total_rotated_angle_sq * 2 * (idx_2 - img) );
+
+            scalar angle_scale = dist_current / ( std::sqrt(total_rotated_angle_sq) * (idx_2 + 1 - img) );
 
             Engine::Vectormath::scale( angle, angle_scale );
             Engine::Vectormath::rotate( spins_cur, axis, angle, spins_cur );
