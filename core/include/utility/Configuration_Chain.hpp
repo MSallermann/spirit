@@ -18,6 +18,8 @@ void Add_Noise_Temperature( std::shared_ptr<Data::Spin_System_Chain> c, int idx_
 // Homogeneous rotation of all spins from first to last configuration of the given configurations
 void Homogeneous_Rotation( std::shared_ptr<Data::Spin_System_Chain> c, int idx_1, int idx_2 );
 
+void Transition_Without_Zero_Modes( std::shared_ptr<Data::Spin_System_Chain> c, int idx_1, int idx_2);
+
 } // namespace Configuration_Chain
 } // namespace Utility
 

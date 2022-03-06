@@ -32,3 +32,11 @@ def add_noise(p_state, temperature, idx_1, idx_2, idx_chain=-1):
     """Add some temperature-scaled noise to a transition between two images of a chain."""
     _Add_Noise_Temperature(ctypes.c_void_p(p_state), ctypes.c_float(temperature),
                            ctypes.c_int(idx_1), ctypes.c_int(idx_2), ctypes.c_int(idx_chain))
+
+_Without_Zero_Modes             = _spirit.Transition_Without_Zero_Modes
+_Without_Zero_Modes.argtypes    = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_Without_Zero_Modes.restype     = None
+def without_zero_modes(p_state, idx_1, idx_2, idx_chain=-1):
+    """Generate transition without zero modes between two images of a chain."""
+    _Without_Zero_Modes(ctypes.c_void_p(p_state), ctypes.c_int(idx_1), ctypes.c_int(idx_2),
+                 ctypes.c_int(idx_chain))
