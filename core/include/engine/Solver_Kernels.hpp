@@ -12,16 +12,86 @@
 #include <engine/Backend_seq.hpp>
 #include <engine/Vectormath.hpp>
 #include <engine/Vectormath_Defines.hpp>
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 
 namespace Engine
 {
 namespace Solver_Kernels
 {
+
+template<typename Propagate>
+scalar backtracking_linesearch(
+    Engine::Hamiltonian & ham, scalar linear_coeff_delta_e,
+    scalar quadratic_coeff_delta_e, scalar energy_current, scalar ratio, scalar tau, const field<Vector3> & spins,
+    field<Vector3> & spins_buffer, Propagate prop )
+{
+
+    scalar delta_e          = 0.0;
+    scalar delta_e_expected = 0.0;
+
+    scalar alpha = 1.0 / tau; // set alpha to 1/tau so that 1 is the first step size that is tried
+    int nos      = spins.size();
+    static vectorfield gradient_throwaway = vectorfield(nos);
+
+    int MAX_ITER        = 20;
+    int iter            = 0;
+    bool stop_criterion = false;
+
+    // fmt::print( "======\n" );
+
+    // fmt::print( "spins[0] = {}\n", spins[0].transpose() );
+
+    while( !stop_criterion )
+    {
+        iter++;
+        alpha *= tau;
+        delta_e_expected = linear_coeff_delta_e * alpha + quadratic_coeff_delta_e * alpha * alpha;
+
+        scalar error_delta_e_expected = std::pow(10,-16) * std::sqrt( linear_coeff_delta_e * alpha * linear_coeff_delta_e * alpha + quadratic_coeff_delta_e * alpha * alpha * quadratic_coeff_delta_e * alpha * alpha);
+
+        // Propagate spins by alpha
+        prop(spins, spins_buffer, alpha);
+        // fmt::print( "spins_buffer[0] = {}", spins_buffer[0].transpose() );
+
+        // Compute energy diff
+        scalar energy_step = 0;
+        ham.Gradient_and_Energy( spins_buffer, gradient_throwaway, energy_step ); // We are just interested in the energy, hence we dont need the oso gradient etc.
+
+        scalar delta_e = energy_step - energy_current;
+
+        scalar error_delta_e       = std::pow(10,-16) * std::sqrt( (1+energy_step) * (1+energy_step) + (1+energy_current) * (1+energy_current) );
+
+        scalar error_ratio         = std::abs(delta_e/delta_e_expected) * std::sqrt( std::pow(error_delta_e / delta_e_expected, 2) + std::pow(error_delta_e_expected / delta_e_expected, 2) );
+
+        bool linesearch_applicable = error_ratio < ratio * 1e-2;
+
+        if(!linesearch_applicable)
+        {
+            return alpha;
+        }
+
+        // fmt::print( "======\n" );
+        // fmt::print( "iter                        {}\n", iter );
+        // fmt::print( "ratio                       {}\n", ratio );
+        // fmt::print( "alpha ls                    {:.15f}\n", alpha );
+        // fmt::print( "delta_e ls                  {:.15f}\n", delta_e );
+        // fmt::print( "delta_e_expected ls         {:.15f}\n", delta_e_expected );
+        // fmt::print( "delta_e_expected/delta_e ls {:.15f}\n", delta_e_expected / delta_e );
+        // fmt::print( "criterion {}\n", std::abs( std::abs( delta_e_expected / delta_e ) - 1 ) );
+
+        stop_criterion = std::abs( std::abs( delta_e / delta_e_expected ) - 1 ) < ratio || iter >= MAX_ITER;
+    };
+    // fmt::print( "Finished line search\n" );
+    return alpha;
+}
+
+
 // SIB
 void sib_transform( const vectorfield & spins, const vectorfield & force, vectorfield & out );
 
 // OSO coordinates
-void oso_rotate( std::vector<std::shared_ptr<vectorfield>> & configurations, std::vector<vectorfield> & searchdir );
+void oso_rotate( vectorfield & configuration, const vectorfield & searchdir, scalar alpha=1.0 );
 void oso_calc_gradients( vectorfield & residuals, const vectorfield & spins, const vectorfield & forces );
 scalar maximum_rotation( const vectorfield & searchdir, scalar maxmove );
 

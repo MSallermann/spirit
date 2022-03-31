@@ -59,37 +59,34 @@ void oso_calc_gradients( vectorfield & grad, const vectorfield & spins, const ve
         spins.size(), [g, s, f, t] SPIRIT_LAMBDA( int idx ) { g[idx] = t * ( -s[idx].cross( f[idx] ) ); } );
 }
 
-void oso_rotate( std::vector<std::shared_ptr<vectorfield>> & configurations, std::vector<vectorfield> & searchdir )
+void oso_rotate( vectorfield & configuration, const vectorfield & searchdir, scalar alpha )
 {
-    int noi = configurations.size();
-    int nos = configurations[0]->size();
-    for( int img = 0; img < noi; ++img )
-    {
+    int nos = configuration.size();
+    auto s  = configuration.data();
+    auto sd_unscaled = searchdir.data();
 
-        auto s  = configurations[img]->data();
-        auto sd = searchdir[img].data();
+    Backend::par::apply(
+        nos,
+        [s, sd_unscaled, alpha] SPIRIT_LAMBDA( int idx )
+        {
+            auto sd = alpha * sd_unscaled[idx];
+            scalar theta = ( sd ).norm();
+            scalar q = cos( theta ), w = 1 - q, x = -sd[0] / theta, y = -sd[1] / theta,
+                    z = -sd[2] / theta, s1 = -y * z * w, s2 = x * z * w, s3 = -x * y * w, p1 = x * sin( theta ),
+                    p2 = y * sin( theta ), p3 = z * sin( theta );
 
-        Backend::par::apply(
-            nos,
-            [s, sd] SPIRIT_LAMBDA( int idx )
+            scalar t1, t2, t3;
+            if( theta > 1.0e-20 ) // if theta is too small we do nothing
             {
-                scalar theta = ( sd[idx] ).norm();
-                scalar q = cos( theta ), w = 1 - q, x = -sd[idx][0] / theta, y = -sd[idx][1] / theta,
-                       z = -sd[idx][2] / theta, s1 = -y * z * w, s2 = x * z * w, s3 = -x * y * w, p1 = x * sin( theta ),
-                       p2 = y * sin( theta ), p3 = z * sin( theta );
-
-                scalar t1, t2, t3;
-                if( theta > 1.0e-20 ) // if theta is too small we do nothing
-                {
-                    t1        = ( q + z * z * w ) * s[idx][0] + ( s1 + p1 ) * s[idx][1] + ( s2 + p2 ) * s[idx][2];
-                    t2        = ( s1 - p1 ) * s[idx][0] + ( q + y * y * w ) * s[idx][1] + ( s3 + p3 ) * s[idx][2];
-                    t3        = ( s2 - p2 ) * s[idx][0] + ( s3 - p3 ) * s[idx][1] + ( q + x * x * w ) * s[idx][2];
-                    s[idx][0] = t1;
-                    s[idx][1] = t2;
-                    s[idx][2] = t3;
-                };
-            } );
-    }
+                t1        = ( q + z * z * w ) * s[idx][0] + ( s1 + p1 ) * s[idx][1] + ( s2 + p2 ) * s[idx][2];
+                t2        = ( s1 - p1 ) * s[idx][0] + ( q + y * y * w ) * s[idx][1] + ( s3 + p3 ) * s[idx][2];
+                t3        = ( s2 - p2 ) * s[idx][0] + ( s3 - p3 ) * s[idx][1] + ( q + x * x * w ) * s[idx][2];
+                s[idx][0] = t1;
+                s[idx][1] = t2;
+                s[idx][2] = t3;
+            };
+        }
+    );
 }
 
 scalar maximum_rotation( const vectorfield & searchdir, scalar maxmove )

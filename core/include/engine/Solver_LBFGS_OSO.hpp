@@ -21,10 +21,17 @@ inline void Method_Solver<Solver::LBFGS_OSO>::Initialize()
     this->alpha          = scalarfield( this->n_lbfgs_memory, 0 );
     this->forces         = std::vector<vectorfield>( this->noi, vectorfield( this->nos, { 0, 0, 0 } ) );
     this->forces_virtual = std::vector<vectorfield>( this->noi, vectorfield( this->nos, { 0, 0, 0 } ) );
+    this->forces_previous = std::vector<vectorfield>( this->noi, vectorfield( this->nos, { 0, 0, 0 } ) );
+
     this->searchdir      = std::vector<vectorfield>( this->noi, vectorfield( this->nos, { 0, 0, 0 } ) );
     this->grad           = std::vector<vectorfield>( this->noi, vectorfield( this->nos, { 0, 0, 0 } ) );
     this->grad_pr        = std::vector<vectorfield>( this->noi, vectorfield( this->nos, { 0, 0, 0 } ) );
     this->q_vec          = std::vector<vectorfield>( this->noi, vectorfield( this->nos, { 0, 0, 0 } ) );
+
+    this->configurations_temp = std::vector<std::shared_ptr<vectorfield>>( this->noi );
+    for( int i = 0; i < this->noi; i++ )
+        configurations_temp[i] = std::shared_ptr<vectorfield>( new vectorfield( this->nos ) );
+
     this->local_iter     = 0;
     this->maxmove        = Constants::Pi / 200.0;
 };
@@ -65,13 +72,76 @@ inline void Method_Solver<Solver::LBFGS_OSO>::Iteration()
     for( int img = 0; img < noi; img++ )
         scaling = std::min( Solver_Kernels::maximum_rotation( searchdir[img], maxmove ), scaling );
 
+
     for( int img = 0; img < noi; img++ )
     {
         Vectormath::scale( searchdir[img], scaling );
     }
 
-    // rotate spins
-    Solver_Kernels::oso_rotate( this->configurations, this->searchdir );
+    // Compute *energy* gradients and energy of current spins
+    // Note that these gradients can be different from the forces which are returned by Calculate_Force
+    // E.g. for a GNEB calculation the forces would also include the springs while the energy gradient does not
+    scalarfield energy    = scalarfield(noi);
+    scalarfield step_size = scalarfield(noi);
+    scalarfield a = scalarfield(noi);
+    scalarfield b = scalarfield(noi);
+    scalarfield c = scalarfield(noi);
+
+    for( int img = 0; img < noi; img++ )
+    {
+        this->systems[img]->hamiltonian->Gradient_and_Energy( *this->configurations[img], this->forces_previous[img], energy[img] );
+        Solver_Kernels::oso_calc_gradients( forces_previous[img], *this->configurations[img], this->forces_previous[img] );
+        c[img] = energy[img];
+        b[img] = -Vectormath::dot( searchdir[img], forces_previous[img] );
+    }
+
+    // TODO: reduce gradient and energy evaluations as much as possible
+
+    // rotate temporary spins
+    for( int img = 0; img < noi; img++ )
+    {
+        Vectormath::set_c_a(1, *this->configurations[img], *this->configurations_temp[img]);
+        Solver_Kernels::oso_rotate( *this->configurations_temp[img], this->searchdir[img] );
+        this->systems[img]->hamiltonian->Gradient_and_Energy( *this->configurations_temp[img], this->forces_previous[img], energy[img] );
+        Solver_Kernels::oso_calc_gradients( forces_previous[img], *this->configurations_temp[img], this->forces_previous[img] );
+        a[img] = 0.5 * ( -Vectormath::dot( searchdir[img], forces_previous[img] ) - b[img] );
+    }
+
+    scalar alpha = 1;
+
+    for( int img = 0; img < noi; img++ )
+    {
+        scalar epsilon             = 5e-2;
+        scalar delta_e             = c[img] - energy[img];
+        scalar error_delta_e       = std::pow(10,-16) * std::sqrt( c[img] * c[img] + energy[img] * energy[img] );
+        bool linesearch_applicable = std::abs(error_delta_e / delta_e) < epsilon * 1e-2;
+
+        // fmt::print("a = {}, b = {}, c  = {}, min = {}, e = {}, delta_e = {} +- {}\n", a[img], b[img], c[img], -b[img]/(2*a[img]), energy[img], delta_e, error_delta_e);
+        // fmt::print( "linesearch_applicable = {}\n", linesearch_applicable );
+
+        if (linesearch_applicable)
+        {
+            auto prop =
+                [
+                    &searchdir = searchdir[img],
+                    img
+                ]( const vectorfield & spins, vectorfield & spins_buffer, scalar alpha )
+                {
+                    Vectormath::set_c_a(1, spins, spins_buffer);
+                    Solver_Kernels::oso_rotate( spins_buffer, searchdir, alpha );
+                };
+
+            scalar alpha_img = Solver_Kernels::backtracking_linesearch( *this->systems[img]->hamiltonian, b[img], a[img], c[img], epsilon, 0.5, *this->configurations[img], *this->configurations_temp[img], prop);
+            alpha = std::min(alpha, alpha_img);
+        }
+    }
+
+    // fmt::print("alpha = {}\n", alpha);
+    for( int img = 0; img < noi; img++ )
+    {
+        Solver_Kernels::oso_rotate( *this->configurations[img], searchdir[img], alpha );
+    }
+
 }
 
 template<>

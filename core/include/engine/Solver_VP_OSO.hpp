@@ -110,7 +110,11 @@ inline void Method_Solver<Solver::VP_OSO>::Iteration()
             nos,
             [sd, dt, m_temp, v, g] SPIRIT_LAMBDA( int idx ) { sd[idx] = dt * v[idx] + 0.5 / m_temp * dt * g[idx]; } );
     }
-    Solver_Kernels::oso_rotate( this->configurations, this->searchdir );
+
+    for(int img=0; img<noi; img++)
+    {
+        Solver_Kernels::oso_rotate( *this->configurations[img], this->searchdir[img] );
+    }
 }
 
 template<>
