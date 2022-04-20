@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <vector>
+#include <limits>
 
 #include <Eigen/Core>
 #include <complex>
@@ -48,7 +49,7 @@ scalar backtracking_linesearch(
         alpha *= tau;
         delta_e_expected = linear_coeff_delta_e * alpha + quadratic_coeff_delta_e * alpha * alpha;
 
-        scalar error_delta_e_expected = std::pow(10,-16) * std::sqrt( linear_coeff_delta_e * alpha * linear_coeff_delta_e * alpha + quadratic_coeff_delta_e * alpha * alpha * quadratic_coeff_delta_e * alpha * alpha);
+        scalar error_delta_e_expected = std::numeric_limits<scalar>::epsilon() * std::sqrt( linear_coeff_delta_e * alpha * linear_coeff_delta_e * alpha + quadratic_coeff_delta_e * alpha * alpha * quadratic_coeff_delta_e * alpha * alpha);
 
         // Propagate spins by alpha
         prop(spins, spins_buffer, alpha);
@@ -60,7 +61,7 @@ scalar backtracking_linesearch(
 
         scalar delta_e = energy_step - energy_current;
 
-        scalar error_delta_e       = std::pow(10,-16) * std::sqrt( (1+energy_step) * (1+energy_step) + (1+energy_current) * (1+energy_current) );
+        scalar error_delta_e       = std::numeric_limits<scalar>::epsilon() * std::sqrt( (1.0+energy_step) * (1.0+energy_step) + (1.0+energy_current) * (1.0+energy_current) );
 
         scalar error_ratio         = std::abs(delta_e/delta_e_expected) * std::sqrt( std::pow(error_delta_e / delta_e_expected, 2) + std::pow(error_delta_e_expected / delta_e_expected, 2) );
 
