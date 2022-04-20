@@ -108,32 +108,21 @@ inline void Method_Solver<Solver::LBFGS_OSO>::Iteration()
     }
 
     scalar alpha = 1;
-
     for( int img = 0; img < noi; img++ )
     {
-        scalar epsilon             = 5e-2;
-        scalar delta_e             = c[img] - energy[img];
-        scalar error_delta_e       = std::pow(10,-16) * std::sqrt( c[img] * c[img] + energy[img] * energy[img] );
-        bool linesearch_applicable = std::abs(error_delta_e / delta_e) < epsilon * 1e-2;
+        scalar epsilon = 5e-2;
+        auto prop =
+            [
+                &searchdir = searchdir[img],
+                img
+            ]( const vectorfield & spins, vectorfield & spins_buffer, scalar alpha )
+            {
+                Vectormath::set_c_a(1, spins, spins_buffer);
+                Solver_Kernels::oso_rotate( spins_buffer, searchdir, alpha );
+            };
 
-        // fmt::print("a = {}, b = {}, c  = {}, min = {}, e = {}, delta_e = {} +- {}\n", a[img], b[img], c[img], -b[img]/(2*a[img]), energy[img], delta_e, error_delta_e);
-        // fmt::print( "linesearch_applicable = {}\n", linesearch_applicable );
-
-        if (linesearch_applicable)
-        {
-            auto prop =
-                [
-                    &searchdir = searchdir[img],
-                    img
-                ]( const vectorfield & spins, vectorfield & spins_buffer, scalar alpha )
-                {
-                    Vectormath::set_c_a(1, spins, spins_buffer);
-                    Solver_Kernels::oso_rotate( spins_buffer, searchdir, alpha );
-                };
-
-            scalar alpha_img = Solver_Kernels::backtracking_linesearch( *this->systems[img]->hamiltonian, b[img], a[img], c[img], epsilon, 0.5, *this->configurations[img], *this->configurations_temp[img], prop);
-            alpha = std::min(alpha, alpha_img);
-        }
+        scalar alpha_img = Solver_Kernels::backtracking_linesearch( *this->systems[img]->hamiltonian, b[img], a[img], c[img], epsilon, 0.5, *this->configurations[img], *this->configurations_temp[img], prop);
+        alpha = std::min(alpha, alpha_img);
     }
 
     // fmt::print("alpha = {}\n", alpha);
