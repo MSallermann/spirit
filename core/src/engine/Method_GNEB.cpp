@@ -56,8 +56,12 @@ Method_GNEB<solver>::Method_GNEB( std::shared_ptr<Data::Spin_System_Chain> chain
 
     // Create shared pointers to the method's systems' spin configurations
     this->configurations = std::vector<std::shared_ptr<vectorfield>>( this->noi );
+
     for( int i = 0; i < this->noi; ++i )
+    {
         this->configurations[i] = this->systems[i]->spins;
+        this->chain->images[i]->hamiltonian->Snapshot_Reference_Energy_Density(*this->configurations[0]);
+    }
 
     // History
     // this->history = std::map<std::string, std::vector<scalar>>{ { "max_torque", { this->max_torque } } };

@@ -1,5 +1,6 @@
 #include <engine/Hamiltonian.hpp>
 #include <engine/Vectormath.hpp>
+#include <engine/Backend_par.hpp>
 #include <utility/Exception.hpp>
 #include <utility/Logging.hpp>
 
@@ -175,6 +176,26 @@ scalar Hamiltonian::Energy_Single_Spin( int ispin, const vectorfield & spins )
     spirit_throw(
         Exception_Classifier::Not_Implemented, Log_Level::Error,
         "Tried to use  Hamiltonian::Energy_Single_Spin() of the Hamiltonian base class!" );
+}
+
+void Hamiltonian::Snapshot_Reference_Energy_Density(const vectorfield & spins)
+{
+    Vectormath::fill(this->reference_energy_density, 0);
+    std::vector<std::pair<std::string, scalarfield>> contributions( 0 );
+    Energy_Contributions_per_Spin(spins, contributions);
+
+    for(auto & p : contributions)
+    {
+        Backend::par::apply(p.second.size(), 
+            [
+                ed = this->reference_energy_density.data(), 
+                c  = p.second.data() 
+            ] SPIRIT_LAMBDA (int idx)
+            {
+                ed[idx] += c[idx];
+            }
+        );
+    }
 }
 
 static const std::string name = "--";
