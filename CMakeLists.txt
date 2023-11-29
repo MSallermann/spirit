@@ -131,7 +131,8 @@ endif()
 # set( USER_COMPILER_CXX  "g++" )
 # set( USER_PATH_COMPILER "/usr/bin" )
 ### Set the following if you need cmake to find your Qt installation
-# set( USER_PATH_QT       "~/QT/5.7" )
+set( USER_PATH_QT       "~/Qt/5.15.2/gcc_64" )
+
 ### Choose the right compiler
 include( ChooseCompiler )
 ####################################################################

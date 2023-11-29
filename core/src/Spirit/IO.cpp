@@ -2,10 +2,11 @@
 #include <Spirit/Configurations.h>
 #include <Spirit/IO.h>
 #include <Spirit/State.h>
-
 #include <data/Spin_System.hpp>
 #include <data/Spin_System_Chain.hpp>
 #include <data/State.hpp>
+#include <engine/Manifoldmath.hpp>
+#include <engine/Sparse_HTST.hpp>
 #include <io/Filter_File_Handle.hpp>
 #include <io/IO.hpp>
 #include <io/OVF_File.hpp>
@@ -1248,6 +1249,179 @@ try
         spirit_handle_exception_api( idx_image, idx_chain );
     }
     image->Unlock();
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
+}
+
+void saveMatrix( const std::string & fname, const SpMatrixX & matrix )
+{
+    std::cout << "Saving matrix to file: " << fname << "\n";
+    std::ofstream file( fname );
+    if( file && file.is_open() )
+    {
+        file << matrix;
+    }
+    else
+    {
+        std::cerr << "Could not save matrix!";
+    }
+    file.close();
+}
+
+void saveTriplets( const std::string & fname, const SpMatrixX & matrix )
+{
+    std::cout << "Saving triplets to file: " << fname << "\n";
+    std::ofstream file( fname );
+    if( file && file.is_open() )
+    {
+        for( int k = 0; k < matrix.outerSize(); ++k )
+        {
+            for( SpMatrixX::InnerIterator it( matrix, k ); it; ++it )
+            {
+                file << it.row() << "\t"; // row index
+                file << it.col() << "\t"; // col index (here it is equal to k)
+                file << it.value() << "\n";
+            }
+        }
+    }
+    else
+    {
+        std::cerr << "Could not save matrix!";
+    }
+    file.close();
+}
+
+void IO_Write_Hessian(
+    State * state, const char * filename, bool triplet_format, int idx_image, int idx_chain ) noexcept
+try
+{
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+    throw_if_nullptr( filename, "filename" );
+
+    // Compute hessian
+    auto nos     = image->geometry->nos;
+    auto & spins = *image->spins;
+
+    SpMatrixX hessian( 3 * nos, 3 * nos );
+    image->hamiltonian->Sparse_Hessian( spins, hessian );
+
+    if( triplet_format )
+        saveTriplets( std::string( filename ), hessian );
+    else
+        saveMatrix( std::string( filename ), hessian );
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
+}
+
+void IO_Write_Hessian_Geodesic(
+    State * state, const char * filename, bool triplet_format, int idx_image, int idx_chain ) noexcept
+try
+{
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+    throw_if_nullptr( filename, "filename" );
+
+    // Compute hessian
+    auto nos     = image->geometry->nos;
+    auto & spins = *image->spins;
+
+    SpMatrixX hessian( 3 * nos, 3 * nos );
+    image->hamiltonian->Sparse_Hessian( spins, hessian );
+
+    // Compute gradient
+    vectorfield gradient( nos, Vector3::Zero() );
+    image->hamiltonian->Gradient( spins, gradient );
+
+    // Compute tangent basis
+    SpMatrixX tangent_basis = SpMatrixX( 3 * nos, 2 * nos );
+    Engine::Manifoldmath::sparse_tangent_basis_spherical( spins, tangent_basis );
+
+    SpMatrixX sparse_hessian_sp_geodesic_3N( 3 * nos, 3 * nos );
+    Engine::Sparse_HTST::sparse_hessian_bordered_3N( spins, gradient, hessian, sparse_hessian_sp_geodesic_3N );
+
+    SpMatrixX sparse_hessian_sp_geodesic_2N = tangent_basis.transpose() * sparse_hessian_sp_geodesic_3N * tangent_basis;
+
+    if( triplet_format )
+        saveTriplets( std::string( filename ), sparse_hessian_sp_geodesic_2N );
+    else
+        saveMatrix( std::string( filename ), sparse_hessian_sp_geodesic_2N );
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
+}
+
+void IO_Write_Basis( State * state, const char * filename, bool triplet_format, int idx_image, int idx_chain ) noexcept
+try
+{
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+    throw_if_nullptr( filename, "filename" );
+
+    // Compute hessian
+    auto nos     = image->geometry->nos;
+    auto & spins = *image->spins;
+
+    // Compute tangent basis
+    SpMatrixX tangent_basis = SpMatrixX( 3 * nos, 2 * nos );
+    Engine::Manifoldmath::sparse_tangent_basis_spherical( spins, tangent_basis );
+
+    if( triplet_format )
+        saveTriplets( std::string( filename ), tangent_basis );
+    else
+        saveMatrix( std::string( filename ), tangent_basis );
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
+}
+
+void IO_Write_Gradient( State * state, const char * filename, int idx_image, int idx_chain ) noexcept
+try
+{
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+    throw_if_nullptr( filename, "filename" );
+
+    auto nos     = image->geometry->nos;
+    auto & spins = *image->spins;
+
+    // Compute gradient
+    vectorfield gradient( nos, Vector3::Zero() );
+    image->hamiltonian->Gradient( spins, gradient );
+
+    std::ofstream file( filename );
+    if( file && file.is_open() )
+    {
+        for( int k = 0; k < nos; ++k )
+        {
+            file << gradient[k][0] << "\n"; // row index
+            file << gradient[k][1] << "\n"; // col index (here it is equal to k)
+            file << gradient[k][2] << "\n";
+        }
+    }
+    else
+    {
+        std::cerr << "Could not save matrix!";
+    }
+    file.close();
 }
 catch( ... )
 {

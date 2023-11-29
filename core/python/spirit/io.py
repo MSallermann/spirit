@@ -389,3 +389,91 @@ def image_write_energy_per_spin(
         ctypes.c_int(idx_image),
         ctypes.c_int(idx_chain),
     )
+
+
+_Write_Hessian = _spirit.IO_Write_Hessian
+_Write_Hessian.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_char_p,
+    ctypes.c_bool,
+    ctypes.c_int,
+    ctypes.c_int,
+]
+_Write_Hessian.restype = None
+
+
+def write_hessian(p_state, filename, triplet_format=True, idx_image=-1, idx_chain=-1):
+    """Writes the embedding Hessian to a file"""
+    _Write_Hessian(
+        ctypes.c_void_p(p_state),
+        ctypes.c_char_p(filename.encode("utf-8")),
+        ctypes.c_bool(triplet_format),
+        ctypes.c_int(idx_image),
+        ctypes.c_int(idx_chain),
+    )
+
+
+_Write_Hessian_Geodesic = _spirit.IO_Write_Hessian_Geodesic
+_Write_Hessian_Geodesic.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_char_p,
+    ctypes.c_bool,
+    ctypes.c_int,
+    ctypes.c_int,
+]
+_Write_Hessian_Geodesic.restype = None
+
+
+def write_hessian_geodesic(
+    p_state, filename, triplet_format=True, idx_image=-1, idx_chain=-1
+):
+    """Writes the geodesic Hessian to a file"""
+    _Write_Hessian_Geodesic(
+        ctypes.c_void_p(p_state),
+        ctypes.c_char_p(filename.encode("utf-8")),
+        ctypes.c_bool(triplet_format),
+        ctypes.c_int(idx_image),
+        ctypes.c_int(idx_chain),
+    )
+
+
+_Write_Basis = _spirit.IO_Write_Basis
+_Write_Basis.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_char_p,
+    ctypes.c_bool,
+    ctypes.c_int,
+    ctypes.c_int,
+]
+_Write_Basis.restype = None
+
+
+def write_basis(p_state, filename, triplet_format=True, idx_image=-1, idx_chain=-1):
+    """Writes the tangent space basis to a file"""
+    _Write_Basis(
+        ctypes.c_void_p(p_state),
+        ctypes.c_char_p(filename.encode("utf-8")),
+        ctypes.c_bool(triplet_format),
+        ctypes.c_int(idx_image),
+        ctypes.c_int(idx_chain),
+    )
+
+
+_Write_Gradient = _spirit.IO_Write_Gradient
+_Write_Gradient.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_char_p,
+    ctypes.c_int,
+    ctypes.c_int,
+]
+_Write_Gradient.restype = None
+
+
+def write_gradient(p_state, filename, idx_image=-1, idx_chain=-1):
+    """Writes the gradient to a file"""
+    _Write_Gradient(
+        ctypes.c_void_p(p_state),
+        ctypes.c_char_p(filename.encode("utf-8")),
+        ctypes.c_int(idx_image),
+        ctypes.c_int(idx_chain),
+    )
