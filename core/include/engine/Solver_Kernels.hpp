@@ -18,6 +18,8 @@ namespace Engine
 namespace Solver_Kernels
 {
 
+Vector3 SPIRIT_LAMBDA cayley_transform( const Vector3 & A, const Vector3 & s );
+
 // SIB
 void sib_transform( const vectorfield & spins, const vectorfield & force, vectorfield & out );
 
@@ -73,13 +75,10 @@ void lbfgs_get_searchdir(
                 rho[i]   = 0.0;
                 auto dai = da[i].data();
                 auto dgi = dg[i].data();
-                Backend::par::apply(
-                    nos,
-                    [dai, dgi] SPIRIT_LAMBDA( int idx )
-                    {
-                        dai[idx] = Vec::Zero();
-                        dgi[idx] = Vec::Zero();
-                    } );
+                Backend::par::apply( nos, [dai, dgi] SPIRIT_LAMBDA( int idx ) {
+                    dai[idx] = Vec::Zero();
+                    dgi[idx] = Vec::Zero();
+                } );
             }
         }
     }
@@ -92,13 +91,10 @@ void lbfgs_get_searchdir(
             auto g    = grad[img].data();
             auto g_pr = grad_pr[img].data();
             auto sd   = searchdir[img].data();
-            Backend::par::apply(
-                nos,
-                [da, dg, g, g_pr, sd] SPIRIT_LAMBDA( int idx )
-                {
-                    da[idx] = sd[idx];
-                    dg[idx] = g[idx] - g_pr[idx];
-                } );
+            Backend::par::apply( nos, [da, dg, g, g_pr, sd] SPIRIT_LAMBDA( int idx ) {
+                da[idx] = sd[idx];
+                dg[idx] = g[idx] - g_pr[idx];
+            } );
         }
 
         scalar rinv_temp = 0;
@@ -178,13 +174,10 @@ void lbfgs_get_searchdir(
             auto g    = grad[img].data();
             auto g_pr = grad_pr[img].data();
             auto sd   = searchdir[img].data();
-            Backend::par::apply(
-                nos,
-                [g, g_pr, sd] SPIRIT_LAMBDA( int idx )
-                {
-                    g_pr[idx] = g[idx];
-                    sd[idx]   = -sd[idx];
-                } );
+            Backend::par::apply( nos, [g, g_pr, sd] SPIRIT_LAMBDA( int idx ) {
+                g_pr[idx] = g[idx];
+                sd[idx]   = -sd[idx];
+            } );
         }
     }
     local_iter++;
