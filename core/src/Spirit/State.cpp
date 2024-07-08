@@ -3,6 +3,7 @@
 
 #include <data/State.hpp>
 #include <io/IO.hpp>
+#include <string_view>
 #include <utility/Configuration_Chain.hpp>
 #include <utility/Configurations.hpp>
 #include <utility/Logging.hpp>
@@ -15,7 +16,7 @@ using namespace Utility;
 // Forward declaration of helper function
 void Save_Initial_Final( State * state, bool initial ) noexcept;
 
-State * State_Setup( const char * config_file, bool quiet ) noexcept
+State * State_Setup( const char * config_file, const char * log_output_folder, bool quiet ) noexcept
 try
 {
     //---------------------- Initial state data ------------------------------------------------
@@ -26,6 +27,8 @@ try
     state->datetime_creation_string = fmt::format( "{:%Y-%m-%d_%H-%M-%S}", state->datetime_creation );
     state->config_file              = config_file;
     state->quiet                    = quiet;
+
+    auto log_output_folder_view = std::string_view( log_output_folder );
 
     // Check if config file exists
     if( !state->config_file.empty() )
@@ -65,17 +68,6 @@ try
         Log( Log_Level::All, Log_Sender::All, fmt::format( "Config file: \"{}\"", state->config_file ) );
     else
         Log( Log_Level::All, Log_Sender::All, "No config file. Will use default parameters." );
-    //------------------------------------------------------------------------------------------
-
-    //---------------------- Initialize the log ------------------------------------------------
-    try
-    {
-        IO::Log_from_Config( state->config_file, state->quiet );
-    }
-    catch( ... )
-    {
-        spirit_handle_exception_api( -1, -1 );
-    }
     //------------------------------------------------------------------------------------------
 
     //----------------------- Additional info log ----------------------------------------------
@@ -120,6 +112,23 @@ try
 #ifdef SPIRIT_SCALAR_TYPE_FLOAT
     block.emplace_back( "    Using float as scalar type" );
 #endif
+
+    //---------------------- Initialize the log ------------------------------------------------
+    try
+    {
+        IO::Log_from_Config( state->config_file, state->quiet );
+        if( !log_output_folder_view.empty() )
+        {
+            Log( Log_Level::Info, Log_Sender::All, fmt::format( "Overwriting log_output_folder to {}" ) );
+            Log.output_folder = log_output_folder;
+        }
+    }
+    catch( ... )
+    {
+        spirit_handle_exception_api( -1, -1 );
+    }
+    //------------------------------------------------------------------------------------------
+
     Log( Log_Level::Info, Log_Sender::All, block );
     Log( Log_Level::All, Log_Sender::All, "=====================================================" );
     //------------------------------------------------------------------------------------------

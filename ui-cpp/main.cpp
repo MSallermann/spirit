@@ -40,15 +40,18 @@ int main( int argc, char ** argv )
     bool show_version = false;
     bool quiet        = false;
 
-    std::string cfgfile   = "input/input.cfg";
-    std::string imagefile = "";
-    std::string chainfile = "";
+    std::string cfgfile           = "input/input.cfg";
+    std::string imagefile         = "";
+    std::string chainfile         = "";
+    std::string log_output_folder = "";
 
     // Command line arguments
     auto cli
         = lyra::cli_parser()
           | lyra::opt( cfgfile, "configuration file" )["-f"]["--cfg"]( "The configuration file to use." )
           | lyra::opt( imagefile, "initial image file" )["-i"]["--image"]( "The initial spin configuration to use." )
+          | lyra::opt( log_output_folder, "log output folder" )["-l"]["--log"](
+              "The output folder for the log file (overwrites settings in input.cfg)." )
           | lyra::opt( chainfile, "initial chain file" )["-c"]["--chain"](
               "The initial chain configuration to use. (Overwrites initial spin configuration)" )
           | lyra::opt( quiet )["-q"]["--quiet"]( "If spirit should run in quiet mode." )
@@ -89,7 +92,9 @@ int main( int argc, char ** argv )
     }
 
     // Initialise state
-    state = std::shared_ptr<State>( State_Setup( cfgfile.c_str(), quiet ), State_Delete );
+    state = std::shared_ptr<State>(
+        State_Setup( cfgfile.c_str(), log_output_folder.empty() ? nullptr : log_output_folder.c_str(), quiet ),
+        State_Delete );
 
     // Standard initial spin configuration
     Configuration_PlusZ( state.get() );

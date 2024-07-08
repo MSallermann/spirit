@@ -49,8 +49,8 @@ class State:
     Can be used as `with spirit.state.State() as p_state:`
     """
 
-    def __init__(self, configfile="", quiet=False):
-        self.p_state = setup(configfile, quiet)
+    def __init__(self, configfile="", log_output_folder="", quiet=False):
+        self.p_state = setup(configfile, log_output_folder, quiet)
 
     def __enter__(self):
         return self.p_state
@@ -61,13 +61,15 @@ class State:
 
 ### Setup State
 _State_Setup = _spirit.State_Setup
-_State_Setup.argtypes = [ctypes.c_char_p, ctypes.c_bool]
+_State_Setup.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool]
 _State_Setup.restype = ctypes.c_void_p
 
 
-def setup(configfile="", quiet=False):
+def setup(configfile="", log_output_folder="", quiet=False):
     return _State_Setup(
-        ctypes.c_char_p(configfile.encode("utf-8")), ctypes.c_bool(quiet)
+        ctypes.c_char_p(configfile.encode("utf-8")),
+        ctypes.c_char_p(log_output_folder.encode("utf-8")),
+        ctypes.c_bool(quiet),
     )
 
 

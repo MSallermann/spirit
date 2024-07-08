@@ -65,10 +65,11 @@ Create the State and fill it with initial data.
 
 - `config_file`: if a config file is given, it will be parsed for
   keywords specifying the initial values. Otherwise, defaults are used
+- `log_file`: the file to be used for logging (overwrites the config file settings)
 - `quiet`: if `true`, the defaults are changed such that only very few
   messages will be printed to the console and no output files are written
 */
-PREFIX State * State_Setup( const char * config_file = "", bool quiet = false ) SUFFIX;
+PREFIX State * State_Setup( const char * config_file = "", const char * log_output_folder = "", bool quiet = false ) SUFFIX;
 
 /*
 Correctly deletes a State and frees the corresponding memory.
