@@ -119,7 +119,8 @@ try
         IO::Log_from_Config( state->config_file, state->quiet );
         if( !log_output_folder_view.empty() )
         {
-            Log( Log_Level::Info, Log_Sender::All, fmt::format( "Overwriting log_output_folder to {}" ) );
+            Log( Log_Level::Info, Log_Sender::All,
+                 fmt::format( "Overwriting log_output_folder to {}", log_output_folder_view ) );
             Log.output_folder = log_output_folder;
         }
     }
