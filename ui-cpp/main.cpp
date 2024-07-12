@@ -93,7 +93,7 @@ int main( int argc, char ** argv )
 
     // Initialise state
     state = std::shared_ptr<State>(
-        State_Setup( cfgfile.c_str(), log_output_folder.empty() ? nullptr : log_output_folder.c_str(), quiet ),
+        State_Setup( cfgfile.c_str(), log_output_folder.c_str(), quiet ),
         State_Delete );
 
     // Standard initial spin configuration
