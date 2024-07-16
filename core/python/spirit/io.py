@@ -477,3 +477,23 @@ def write_gradient(p_state, filename, idx_image=-1, idx_chain=-1):
         ctypes.c_int(idx_image),
         ctypes.c_int(idx_chain),
     )
+
+
+_Write_Jacobian = _spirit.IO_Write_Jacobian
+_Write_Jacobian.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_char_p,
+    ctypes.c_int,
+    ctypes.c_int,
+]
+_Write_Jacobian.restype = None
+
+
+def write_jacobian(p_state, filename, idx_image=-1, idx_chain=-1):
+    """Writes the jacobian to a file"""
+    _Write_Jacobian(
+        ctypes.c_void_p(p_state),
+        ctypes.c_char_p(filename.encode("utf-8")),
+        ctypes.c_int(idx_image),
+        ctypes.c_int(idx_chain),
+    )

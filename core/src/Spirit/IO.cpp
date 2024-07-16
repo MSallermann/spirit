@@ -1,3 +1,6 @@
+#include "data/Geometry.hpp"
+#include "engine/Vectormath.hpp"
+#include "engine/Vectormath_Defines.hpp"
 #include <Spirit/Chain.h>
 #include <Spirit/Configurations.h>
 #include <Spirit/IO.h>
@@ -1415,6 +1418,48 @@ try
             file << gradient[k][0] << "\n"; // row index
             file << gradient[k][1] << "\n"; // col index (here it is equal to k)
             file << gradient[k][2] << "\n";
+        }
+    }
+    else
+    {
+        std::cerr << "Could not save matrix!";
+    }
+    file.close();
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
+}
+
+void IO_Write_Jacobian( State * state, const char * filename, int idx_image, int idx_chain ) noexcept
+try
+{
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+    throw_if_nullptr( filename, "filename" );
+
+    const auto nos                  = image->geometry->nos;
+    const Data::Geometry & geometry = *image->geometry;
+    const vectorfield & spins       = *image->spins;
+
+    field<Matrix3> jacobian( nos );
+    Engine::Vectormath::jacobian( spins, geometry, image->hamiltonian->boundary_conditions, jacobian );
+
+    std::ofstream file( filename );
+    if( file && file.is_open() )
+    {
+        for( int k = 0; k < nos; ++k )
+        {
+            for( int row = 0; row < 3; row++ )
+            {
+                for( int col = 0; col < 3; col++ )
+                {
+                    file << jacobian[k]( row, col ) << "\n";
+                }
+            }
         }
     }
     else
