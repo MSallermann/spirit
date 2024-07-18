@@ -72,5 +72,13 @@ PREFIX bool Parameters_EMA_Get_Snapshot( State * state, int idx_image = -1, int 
 // Returns whether to use sparse matrices.
 PREFIX bool Parameters_EMA_Get_Sparse( State * state, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
 
+// Gets the eigenvalues of the modes
+// The memory for the eigenvalues has to be allocated by the caller it of size sizeof(scalar) * n_modes
+PREFIX void Parameters_EMA_Get_Eigenvalues( State * state, scalar * eigenvalues, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
+
+// Gets the modes
+// The memory for the modes has to be allocated by the caller it is of size sizeof(scalar) * 3 * NOS * n_modes
+PREFIX void Parameters_EMA_Get_Modes( State * state, scalar * modes, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
+
 #include "DLL_Undefine_Export.h"
 #endif

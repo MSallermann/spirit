@@ -1,5 +1,7 @@
+#include "engine/Vectormath_Defines.hpp"
 #include <Spirit/Parameters_EMA.h>
 
+#include <cstddef>
 #include <data/Spin_System.hpp>
 #include <data/Spin_System_Chain.hpp>
 #include <data/State.hpp>
@@ -267,4 +269,55 @@ catch( ... )
 {
     spirit_handle_exception_api( idx_image, idx_chain );
     return false;
+}
+
+void Parameters_EMA_Get_Eigenvalues( State * state, scalar * eigenvalues, int idx_image, int idx_chain ) noexcept
+try
+{
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+
+    throw_if_nullptr( eigenvalues, "eigenvalues" );
+
+    const size_t n_modes = image->ema_parameters->n_modes;
+    for( size_t i = 0; i < n_modes; i++ )
+    {
+        eigenvalues[i] = image->eigenvalues[i];
+    }
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
+}
+
+void Parameters_EMA_Get_Modes( State * state, scalar * modes, int idx_image, int idx_chain ) noexcept
+try
+{
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+
+    throw_if_nullptr( modes, "mode" );
+
+    const size_t nos     = image->nos;
+    const size_t n_modes = image->ema_parameters->n_modes;
+
+    for( size_t i_mode = 0; i_mode < n_modes; i_mode++ )
+    {
+        for( size_t i_spin = 0; i_spin < nos; i_spin++ )
+        {
+            modes[3 * nos * i_mode + 3 * i_spin]     = ( *image->modes[i_mode] )[i_spin][0];
+            modes[3 * nos * i_mode + 3 * i_spin + 1] = ( *image->modes[i_mode] )[i_spin][1];
+            modes[3 * nos * i_mode + 3 * i_spin + 2] = ( *image->modes[i_mode] )[i_spin][2];
+        }
+    }
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
 }

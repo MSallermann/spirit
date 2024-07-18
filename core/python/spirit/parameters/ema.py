@@ -6,8 +6,10 @@ This method, if needed, calculates modes (they can also be read in from a file)
 and perturbs the spin system periodically in the direction of the eigenmode.
 """
 
-from spirit import spiritlib
+from spirit import spiritlib, system
+from spirit.scalar import scalar
 import ctypes
+import numpy as np
 
 # Load Library
 _spirit = spiritlib.load_spirit_library()
@@ -109,10 +111,71 @@ _EMA_Get_Sparse.argtypes = [ctypes.c_void_p, ctypes.c_bool, ctypes.c_int, ctypes
 _EMA_Get_Sparse.restype = ctypes.c_bool
 
 
-def get_sparse(p_state, sparse, idx_image=-1, idx_chain=-1):
-    """Set wether to use sparse matrices."""
+def get_sparse(p_state, idx_image=-1, idx_chain=-1):
+    """Get wether to use sparse matrices."""
     return bool(
         _EMA_Get_Sparse(
             ctypes.c_void_p(p_state), ctypes.c_int(idx_image), ctypes.c_int(idx_chain)
         )
     )
+
+
+_EMA_Get_Eigenvalues = _spirit.Parameters_EMA_Get_Eigenvalues
+_EMA_Get_Eigenvalues.argtypes = [
+    ctypes.c_void_p,
+    ctypes.POINTER(scalar),
+    ctypes.c_int,
+    ctypes.c_int,
+]
+_EMA_Get_Eigenvalues.restype = None
+
+
+def get_eigenvalues(p_state, idx_image=-1, idx_chain=-1):
+    """Get the eigenvalues."""
+
+    n_modes = get_n_modes(p_state, idx_image, idx_chain)
+    ArrayType = scalar * n_modes
+    eigenvalues = [] * n_modes
+    _eigenvalues_buffer = ArrayType(*eigenvalues)
+
+    _EMA_Get_Eigenvalues(
+        ctypes.c_void_p(p_state),
+        _eigenvalues_buffer,
+        ctypes.c_int(idx_image),
+        ctypes.c_int(idx_chain),
+    )
+
+    eigenvalues_array = np.ctypeslib.as_array(_eigenvalues_buffer)
+    return eigenvalues_array
+
+
+_EMA_Get_Modes = _spirit.Parameters_EMA_Get_Modes
+_EMA_Get_Modes.argtypes = [
+    ctypes.c_void_p,
+    ctypes.POINTER(scalar),
+    ctypes.c_int,
+    ctypes.c_int,
+]
+_EMA_Get_Modes.restype = None
+
+
+def get_modes(p_state, idx_image=-1, idx_chain=-1):
+    """Get the modes."""
+
+    n_modes = get_n_modes(p_state, idx_image, idx_chain)
+    nos = system.get_nos(p_state, idx_image, idx_chain)
+
+    ArrayType = scalar * (3 * nos * n_modes)
+    mode = [] * (3 * nos * n_modes)
+    _mode_buffer = ArrayType(*mode)
+
+    _EMA_Get_Modes(
+        ctypes.c_void_p(p_state),
+        _mode_buffer,
+        ctypes.c_int(idx_image),
+        ctypes.c_int(idx_chain),
+    )
+
+    mode_array = np.ctypeslib.as_array(_mode_buffer)
+    mode_array.shape = (n_modes, 3*nos)
+    return mode_array
