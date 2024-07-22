@@ -446,7 +446,7 @@ _Write_Basis.restype = None
 
 
 def write_basis(p_state, filename, triplet_format=True, idx_image=-1, idx_chain=-1):
-    """Writes the tangent space basis to a file"""
+    """Writes the tangent space basis to a file. The shape is 3N x 2N"""
     _Write_Basis(
         ctypes.c_void_p(p_state),
         ctypes.c_char_p(filename.encode("utf-8")),
