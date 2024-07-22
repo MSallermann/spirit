@@ -78,6 +78,29 @@ def set_sparse(p_state, sparse, idx_image=-1, idx_chain=-1):
     )
 
 
+_EMA_Set_Mode = _spirit.Parameters_EMA_Set_Mode
+_EMA_Set_Mode.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_int,
+    ctypes.POINTER(scalar),
+    ctypes.c_int,
+    ctypes.c_int,
+]
+_EMA_Set_Mode.restype = None
+
+
+def set_mode(p_state, idx_mode, mode_array, idx_image=-1, idx_chain=-1):
+    """Set the mode at idx_mode"""
+
+    _EMA_Set_Mode(
+        ctypes.c_void_p(p_state),
+        ctypes.c_int(idx_mode),
+        np.ravel(mode_array).ctypes.data_as(ctypes.POINTER(scalar)),
+        ctypes.c_int(idx_image),
+        ctypes.c_int(idx_chain),
+    )
+
+
 # ---------------------------------- Get ----------------------------------
 
 _EMA_Get_N_Modes = _spirit.Parameters_EMA_Get_N_Modes
@@ -177,5 +200,5 @@ def get_modes(p_state, idx_image=-1, idx_chain=-1):
     )
 
     mode_array = np.ctypeslib.as_array(_mode_buffer)
-    mode_array.shape = (n_modes, 3*nos)
+    mode_array.shape = (n_modes, 3 * nos)
     return mode_array

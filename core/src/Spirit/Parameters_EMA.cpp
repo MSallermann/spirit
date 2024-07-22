@@ -164,6 +164,37 @@ catch( ... )
     spirit_handle_exception_api( idx_image, idx_chain );
 }
 
+void Parameters_EMA_Set_Mode( State * state, int idx_mode, const scalar * mode, int idx_image, int idx_chain ) noexcept
+try
+{
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+
+    throw_if_nullptr( mode, "mode" );
+
+    Log( Utility::Log_Level::Info, Utility::Log_Sender::API, fmt::format( "Setting mode at {}", idx_mode ),
+         idx_image, idx_chain );
+
+    image->Lock();
+    const size_t nos = image->nos;
+
+    for( size_t i_spin = 0; i_spin < nos; i_spin++ )
+    {
+        ( *image->modes[idx_mode] )[i_spin][0] = mode[3 * i_spin];
+        ( *image->modes[idx_mode] )[i_spin][1] = mode[3 * i_spin + 1];
+        ( *image->modes[idx_mode] )[i_spin][2] = mode[3 * i_spin + 2];
+    }
+
+    image->Unlock();
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
+}
+
 /*------------------------------------------------------------------------------------------------------ */
 /*---------------------------------- Get EMA ----------------------------------------------------------- */
 /*------------------------------------------------------------------------------------------------------ */

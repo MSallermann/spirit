@@ -49,6 +49,9 @@ PREFIX void Parameters_EMA_Set_Snapshot( State * state, bool snapshot, int idx_i
 // Set whether to use sparse matrices.
 PREFIX void Parameters_EMA_Set_Sparse( State * state, bool sparse, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
 
+// Set the mode at idx_mode to the values in the mode poiter.
+PREFIX void Parameters_EMA_Set_Mode( State * state, int idx_mode, const scalar * mode, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
+
 /*
 Get
 --------------------------------------------------------------------
