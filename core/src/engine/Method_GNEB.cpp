@@ -91,7 +91,7 @@ void Method_GNEB<solver>::Calculate_Force(
 {
     // We assume here that we receive a vector of configurations that corresponds to the vector of systems we gave the
     // Solver.
-    //      The Solver shuld respect this, but there is no way to enforce it.
+    //      The Solver should respect this, but there is no way to enforce it.
     // Get Energy and Gradient of configurations
     for( int img = 0; img < chain->noi; ++img )
     {

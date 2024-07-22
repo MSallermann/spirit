@@ -1,4 +1,6 @@
 #pragma once
+#include <functional>
+#include <optional>
 #ifndef SPIRIT_CORE_ENGINE_HAMILTONIAN_HEISENBERG_HPP
 #define SPIRIT_CORE_ENGINE_HAMILTONIAN_HEISENBERG_HPP
 
@@ -55,7 +57,7 @@ public:
     void Sparse_Hessian( const vectorfield & spins, SpMatrixX & hessian ) override;
 
     void Gradient( const vectorfield & spins, vectorfield & gradient ) override;
-    void Gradient_and_Energy( const vectorfield & spins, vectorfield & gradient, scalar & energy ) override;
+    void Gradient_and_Energy( const vectorfield & spins, vectorfield & gradient, scalar & energy, std::optional< const std::reference_wrapper<scalarfield>> reference_energy_density = std::nullopt ) override;
 
     void Energy_Contributions_per_Spin(
         const vectorfield & spins, std::vector<std::pair<std::string, scalarfield>> & contributions ) override;
@@ -112,9 +114,6 @@ public:
     // ------------ Quadruplet Interactions ------------
     quadrupletfield quadruplets;
     scalarfield quadruplet_magnitudes;
-
-    scalarfield energy_density;
-
 
     std::shared_ptr<Data::Geometry> geometry;
 

@@ -1,9 +1,11 @@
 #pragma once
+#include <functional>
 #ifndef SPIRIT_CORE_ENGINE_HAMILTONIAN_HPP
 #define SPIRIT_CORE_ENGINE_HAMILTONIAN_HPP
 
 #include <Spirit/Spirit_Defines.h>
 #include <engine/Vectormath_Defines.hpp>
+#include <optional>
 
 #include <random>
 #include <vector>
@@ -62,7 +64,9 @@ public:
      * The implementation provided here is a fallback for derived classes and *not* more efficient than
      * separate calls.
      */
-    virtual void Gradient_and_Energy( const vectorfield & spins, vectorfield & gradient, scalar & energy );
+    virtual void Gradient_and_Energy(
+        const vectorfield & spins, vectorfield & gradient, scalar & energy,
+        std::optional<const std::reference_wrapper<scalarfield>> reference_energy_density = std::nullopt );
 
     /*
      * Calculate the energy gradient of a spin configuration.
@@ -77,13 +81,14 @@ public:
     // Calculate the Energy contributions for a spin configuration
     virtual std::vector<std::pair<std::string, scalar>> Energy_Contributions( const vectorfield & spins );
 
+    // Calculate the Overall energy density
+    virtual scalarfield Energy_Density( const vectorfield & spins );
+
     // Calculate the Energy of a spin configuration
     virtual scalar Energy( const vectorfield & spins );
 
     // Calculate the total energy for a single spin
     virtual scalar Energy_Single_Spin( int ispin, const vectorfield & spins );
-
-    void Snapshot_Reference_Energy_Density(const vectorfield & spins);
 
     virtual std::size_t Number_of_Interactions();
 
@@ -96,7 +101,6 @@ public:
 protected:
     // Energy contributions per spin
     std::vector<std::pair<std::string, scalarfield>> energy_contributions_per_spin;
-    scalarfield reference_energy_density;
 
     std::mt19937 prng;
     std::uniform_int_distribution<int> distribution_int;
