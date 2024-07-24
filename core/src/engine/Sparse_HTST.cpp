@@ -26,6 +26,12 @@ namespace Engine
 namespace Sparse_HTST
 {
 
+const auto Log_and_Append
+    = []( Utility::Log_Level level, Utility::Log_Sender sender, auto message, int idx_image = -1, int idx_chain = -1 ) {
+          Log( level, sender, message, idx_image, idx_chain );
+          Log.Append_to_File();
+      };
+
 // TODO: fix the mess of the partial spectrum solvers, should in general be refactored and merged with ema method somehow
 enum Partial_Spectrum_Solver
 {
@@ -37,7 +43,8 @@ const Partial_Spectrum_Solver spectrum_solver = Partial_Spectrum_Solver::LANCZOS
 void Sparse_Get_Lowest_Eigenvectors(
     const SpMatrixX & matrix, scalar max_evalue, scalarfield & evalues, std::vector<VectorX> & evecs )
 {
-    Log( Utility::Log_Level::All, Utility::Log_Sender::HTST, "    Using Spectra to compute lowest eigenmodes..." );
+    Log_and_Append(
+        Utility::Log_Level::All, Utility::Log_Sender::HTST, "    Using Spectra to compute lowest eigenmodes..." );
 
     int nos     = matrix.rows() / 2;
     int n_modes = 6; // Number of lowest modes to be computed (should always be enough)
@@ -55,15 +62,17 @@ void Sparse_Get_Lowest_Eigenvectors(
 
     if( matrix_spectrum.info() != Spectra::CompInfo::Successful )
     {
-        Log( Utility::Log_Level::All, Utility::Log_Sender::HTST,
-             "        Failed to calculate lowest eigenmode. Aborting!" );
+        Log_and_Append(
+            Utility::Log_Level::All, Utility::Log_Sender::HTST,
+            "        Failed to calculate lowest eigenmode. Aborting!" );
         return;
     }
 
     for( int i = 0; i < n_modes; i++ )
     {
-        Log( Utility::Log_Level::All, Utility::Log_Sender::HTST,
-             fmt::format( "        eigenvalue[{}] = {}", i, matrix_spectrum.eigenvalues().real()[i] ) );
+        Log_and_Append(
+            Utility::Log_Level::All, Utility::Log_Sender::HTST,
+            fmt::format( "        eigenvalue[{}] = {}", i, matrix_spectrum.eigenvalues().real()[i] ) );
 
         evalues.push_back( matrix_spectrum.eigenvalues().real()[i] );
         evecs.push_back( matrix_spectrum.eigenvectors().col( i ).real() );
@@ -91,9 +100,10 @@ void Inverse_Shift_PowerMethod(
     solver.analyzePattern( matrix - tmp );
     solver.factorize( matrix - tmp );
 
-    Log( Utility::Log_Level::All, Utility::Log_Sender::HTST,
-         fmt::format(
-             "        ... Improve eigenpair estimate with power method for eigenvalue = {}", evalue_estimate ) );
+    Log_and_Append(
+        Utility::Log_Level::All, Utility::Log_Sender::HTST,
+        fmt::format(
+            "        ... Improve eigenpair estimate with power method for eigenvalue = {}", evalue_estimate ) );
     for( int i = 0; i < n_iter; i++ )
     {
         evec_estimate = solver.solve( evec_estimate );
@@ -106,20 +116,23 @@ void Inverse_Shift_PowerMethod(
             tmp.setIdentity();
             tmp *= evalue_estimate;
             solver.factorize( matrix - tmp );
-            Log( Utility::Log_Level::All, Utility::Log_Sender::HTST,
-                 fmt::format( "            Iteration {}/{}, e_value = {}", i, n_iter, evalue_estimate ) );
+            Log_and_Append(
+                Utility::Log_Level::All, Utility::Log_Sender::HTST,
+                fmt::format( "            Iteration {}/{}, e_value = {}", i, n_iter, evalue_estimate ) );
         }
     }
     evalue_estimate = evec_estimate.dot( matrix * evec_estimate );
-    Log( Utility::Log_Level::All, Utility::Log_Sender::HTST,
-         fmt::format( "        ... Improved eigenvalue = {}", evalue_estimate ) );
+    Log_and_Append(
+        Utility::Log_Level::All, Utility::Log_Sender::HTST,
+        fmt::format( "        ... Improved eigenvalue = {}", evalue_estimate ) );
 }
 
 void Sparse_Get_Lowest_Eigenvectors_VP(
     const SpMatrixX & matrix, scalar max_evalue, scalarfield & evalues, std::vector<VectorX> & evecs )
 {
-    Log( Utility::Log_Level::All, Utility::Log_Sender::HTST,
-         fmt::format( "    Computing eigenvalues smaller than {}", max_evalue ) );
+    Log_and_Append(
+        Utility::Log_Level::All, Utility::Log_Sender::HTST,
+        fmt::format( "    Computing eigenvalues smaller than {}", max_evalue ) );
     scalar tol              = 1e-8;
     std::int64_t n_log_step = 20000;
     std::int64_t max_iter   = 10 * n_log_step;
@@ -154,7 +167,8 @@ void Sparse_Get_Lowest_Eigenvectors_VP(
         velocity.setZero();
 
         bool search = true;
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, fmt::format( "        Search for eigenpair" ) );
+        Log_and_Append(
+            Utility::Log_Level::Info, Utility::Log_Sender::HTST, fmt::format( "        Search for eigenpair" ) );
 
         while( search )
         {
@@ -207,10 +221,11 @@ void Sparse_Get_Lowest_Eigenvectors_VP(
                 max_grad_comp = std::max( std::abs( g ), max_grad_comp );
 
             if( n_iter % n_log_step == 0 )
-                Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST,
-                     fmt::format(
-                         "        ... Iteration {} (max. {} [{}%]): Evalue estimate = {}, Grad. norm = {} (> {})",
-                         n_iter, max_iter, n_iter / max_iter * 100, cur_evalue_estimate, max_grad_comp, tol ) );
+                Log_and_Append(
+                    Utility::Log_Level::Info, Utility::Log_Sender::HTST,
+                    fmt::format(
+                        "        ... Iteration {} (max. {} [{}%]): Evalue estimate = {}, Grad. norm = {} (> {})",
+                        n_iter, max_iter, n_iter / max_iter * 100, cur_evalue_estimate, max_grad_comp, tol ) );
 
             search = max_grad_comp > tol && n_iter < max_iter;
         }
@@ -224,19 +239,23 @@ void Sparse_Get_Lowest_Eigenvectors_VP(
         evecs.push_back( x );
         evalues.push_back( x.dot( matrix * x ) );
 
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST,
-             fmt::format( "        ... Found an eigenpair after {} iterations", n_iter ) );
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST,
-             fmt::format( "        ... Eigenvalue  = {}", evalues.back() ) );
+        Log_and_Append(
+            Utility::Log_Level::Info, Utility::Log_Sender::HTST,
+            fmt::format( "        ... Found an eigenpair after {} iterations", n_iter ) );
+        Log_and_Append(
+            Utility::Log_Level::Info, Utility::Log_Sender::HTST,
+            fmt::format( "        ... Eigenvalue  = {}", evalues.back() ) );
         if( 2 * nos >= 4 )
-            Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST,
-                 fmt::format(
-                     "        ... Eigenvector = ({}, {}, {}, ..., {})", evecs.back()[0], evecs.back()[1],
-                     evecs.back()[2], evecs.back()[2 * nos - 1] ) );
+            Log_and_Append(
+                Utility::Log_Level::Info, Utility::Log_Sender::HTST,
+                fmt::format(
+                    "        ... Eigenvector = ({}, {}, {}, ..., {})", evecs.back()[0], evecs.back()[1],
+                    evecs.back()[2], evecs.back()[2 * nos - 1] ) );
         if( evalues.back() > max_evalue )
         {
-            Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST,
-                 fmt::format( "        No more eigenvalues < {} found. Stopping.", max_evalue ) );
+            Log_and_Append(
+                Utility::Log_Level::Info, Utility::Log_Sender::HTST,
+                fmt::format( "        No more eigenvalues < {} found. Stopping.", max_evalue ) );
             run = false;
         }
     }
@@ -246,7 +265,7 @@ void Sparse_Get_Lowest_Eigenvectors_VP(
 // Non-extremal images may yield incorrect Hessians and thus incorrect results
 void Calculate( Data::HTST_Info & htst_info )
 {
-    Log( Utility::Log_Level::All, Utility::Log_Sender::HTST, "Sparse Prefactor calculation" );
+    Log_and_Append( Utility::Log_Level::All, Utility::Log_Sender::HTST, "Sparse Prefactor calculation" );
     bool lowest_mode_spectra    = false;
     htst_info.sparse            = true;
     htst_info.n_eigenmodes_keep = 0;
@@ -259,7 +278,7 @@ void Calculate( Data::HTST_Info & htst_info )
 
     std::size_t nos = image_minimum.size();
 
-    Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Saving NO eigenvectors." );
+    Log_and_Append( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Saving NO eigenvectors." );
 
     vectorfield force_tmp( nos, { 0, 0, 0 } );
     std::vector<std::string> block;
@@ -268,46 +287,52 @@ void Calculate( Data::HTST_Info & htst_info )
     bool is_afm = false;
 
     // The gradient (unprojected)
-    Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST,
-         "    Evaluation of the gradient at the initial configuration..." );
+    Log_and_Append(
+        Utility::Log_Level::Info, Utility::Log_Sender::HTST,
+        "    Evaluation of the gradient at the initial configuration..." );
     vectorfield gradient_minimum( nos, { 0, 0, 0 } );
     htst_info.minimum->hamiltonian->Gradient( image_minimum, gradient_minimum );
 
     // Check if the configuration is actually an extremum
-    Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST,
-         "    Checking if initial configuration is an extremum..." );
+    Log_and_Append(
+        Utility::Log_Level::Info, Utility::Log_Sender::HTST,
+        "    Checking if initial configuration is an extremum..." );
     Vectormath::set_c_a( 1, gradient_minimum, force_tmp );
     Manifoldmath::project_tangential( force_tmp, image_minimum );
     scalar fmax_minimum = Vectormath::max_norm( force_tmp );
     if( fmax_minimum > epsilon_force )
     {
-        Log( Utility::Log_Level::Error, Utility::Log_Sender::All,
-             fmt::format(
-                 "HTST: the initial configuration is not a converged minimum, its max. torque is above the threshold "
-                 "({} > {})!",
-                 fmax_minimum, epsilon_force ) );
+        Log_and_Append(
+            Utility::Log_Level::Error, Utility::Log_Sender::All,
+            fmt::format(
+                "HTST: the initial configuration is not a converged minimum, its max. torque is above the threshold "
+                "({} > {})!",
+                fmax_minimum, epsilon_force ) );
         return;
     }
 
     // The gradient (unprojected)
-    Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST,
-         "    Evaluation of the gradient at the transition configuration..." );
+    Log_and_Append(
+        Utility::Log_Level::Info, Utility::Log_Sender::HTST,
+        "    Evaluation of the gradient at the transition configuration..." );
     vectorfield gradient_sp( nos, { 0, 0, 0 } );
     htst_info.saddle_point->hamiltonian->Gradient( image_sp, gradient_sp );
 
     // Check if the configuration is actually an extremum
-    Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST,
-         "    Checking if transition configuration is an extremum..." );
+    Log_and_Append(
+        Utility::Log_Level::Info, Utility::Log_Sender::HTST,
+        "    Checking if transition configuration is an extremum..." );
     Vectormath::set_c_a( 1, gradient_sp, force_tmp );
     Manifoldmath::project_tangential( force_tmp, image_sp );
     scalar fmax_sp = Vectormath::max_norm( force_tmp );
     if( fmax_sp > epsilon_force )
     {
-        Log( Utility::Log_Level::Error, Utility::Log_Sender::All,
-             fmt::format(
-                 "HTST: the transition configuration is not a converged saddle point, its max. torque is above the "
-                 "threshold ({} > {})!",
-                 fmax_sp, epsilon_force ) );
+        Log_and_Append(
+            Utility::Log_Level::Error, Utility::Log_Sender::All,
+            fmt::format(
+                "HTST: the transition configuration is not a converged saddle point, its max. torque is above the "
+                "threshold ({} > {})!",
+                fmax_sp, epsilon_force ) );
         return;
     }
 
@@ -316,31 +341,33 @@ void Calculate( Data::HTST_Info & htst_info )
     std::size_t n_zero_modes_sp = 0;
     scalarfield evalues_sp      = scalarfield( 0 );
     {
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "Calculation for the Saddle Point" );
+        Log_and_Append( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "Calculation for the Saddle Point" );
 
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Evaluate tangent basis ..." );
+        Log_and_Append( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Evaluate tangent basis ..." );
         SpMatrixX tangent_basis = SpMatrixX( 3 * nos, 2 * nos );
         Manifoldmath::sparse_tangent_basis_spherical( image_sp, tangent_basis );
 
         // Evaluation of the Hessian...
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Evaluate the Hessian..." );
+        Log_and_Append( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Evaluate the Hessian..." );
         SpMatrixX sparse_hessian_sp( 3 * nos, 3 * nos );
         htst_info.saddle_point->hamiltonian->Sparse_Hessian( image_sp, sparse_hessian_sp );
 
         // Transform into geodesic Hessian
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Transform Hessian into geodesic Hessian..." );
+        Log_and_Append(
+            Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Transform Hessian into geodesic Hessian..." );
         SpMatrixX sparse_hessian_sp_geodesic_3N( 3 * nos, 3 * nos );
         sparse_hessian_bordered_3N( image_sp, gradient_sp, sparse_hessian_sp, sparse_hessian_sp_geodesic_3N );
         SpMatrixX sparse_hessian_sp_geodesic_2N
             = tangent_basis.transpose() * sparse_hessian_sp_geodesic_3N * tangent_basis;
 
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST,
-             "    Sparse LU Decomposition of geodesic Hessian..." );
+        Log_and_Append(
+            Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Sparse LU Decomposition of geodesic Hessian..." );
         Eigen::SparseLU<SpMatrixX, Eigen::COLAMDOrdering<int>> solver;
         solver.analyzePattern( sparse_hessian_sp_geodesic_2N );
         solver.factorize( sparse_hessian_sp_geodesic_2N );
 
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Evaluate lowest eigenmode of the Hessian..." );
+        Log_and_Append(
+            Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Evaluate lowest eigenmode of the Hessian..." );
 
         std::vector<VectorX> evecs_sp = std::vector<VectorX>( 0 );
 
@@ -355,18 +382,21 @@ void Calculate( Data::HTST_Info & htst_info )
         htst_info.det_sp = solver.logAbsDeterminant() - std::log( -lowest_evalue );
 
         // Check if lowest eigenvalue < 0 (else it's not a SP)
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Check if actually a saddle point..." );
+        Log_and_Append(
+            Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Check if actually a saddle point..." );
         if( lowest_evalue > -epsilon )
         {
-            Log( Utility::Log_Level::Error, Utility::Log_Sender::All,
-                 fmt::format(
-                     "HTST: the transition configuration is not a saddle point, its lowest eigenvalue is above the "
-                     "threshold ({} > {})!",
-                     lowest_evalue, -epsilon ) );
+            Log_and_Append(
+                Utility::Log_Level::Error, Utility::Log_Sender::All,
+                fmt::format(
+                    "HTST: the transition configuration is not a saddle point, its lowest eigenvalue is above the "
+                    "threshold ({} > {})!",
+                    lowest_evalue, -epsilon ) );
             return;
         }
         // Check if second-lowest eigenvalue < 0 (higher-order SP)
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Check if higher order saddle point..." );
+        Log_and_Append(
+            Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Check if higher order saddle point..." );
         int n_negative = 0;
         for( const auto & i : evalues_sp )
         {
@@ -376,27 +406,28 @@ void Calculate( Data::HTST_Info & htst_info )
 
         if( n_negative > 1 )
         {
-            Log( Utility::Log_Level::Error, Utility::Log_Sender::All,
-                 fmt::format( "HTST: the image you passed is a higher order saddle point (N={})!", n_negative ) );
+            Log_and_Append(
+                Utility::Log_Level::Error, Utility::Log_Sender::All,
+                fmt::format( "HTST: the image you passed is a higher order saddle point (N={})!", n_negative ) );
             return;
         }
 
         // Perpendicular velocity
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Calculate dynamical contribution" );
+        Log_and_Append( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Calculate dynamical contribution" );
 
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Evaluate the dynamical matrix" );
+        Log_and_Append( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Evaluate the dynamical matrix" );
         SpMatrixX velocity( 3 * nos, 3 * nos );
         Sparse_Calculate_Dynamical_Matrix(
             image_sp, htst_info.saddle_point->geometry->mu_s, sparse_hessian_sp_geodesic_3N, velocity );
         SpMatrixX projected_velocity = tangent_basis.transpose() * velocity * tangent_basis;
 
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Solving H^-1 V q_1 ..." );
+        Log_and_Append( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Solving H^-1 V q_1 ..." );
         VectorX x( 2 * nos );
         x           = solver.solve( projected_velocity.transpose() * lowest_evector );
         htst_info.s = std::sqrt( lowest_evector.transpose() * projected_velocity * x );
         // Checking for zero modes at the saddle point...
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST,
-             "    Checking for zero modes at the saddle point..." );
+        Log_and_Append(
+            Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Checking for zero modes at the saddle point..." );
         for( const auto & i : evalues_sp )
         {
             if( std::abs( i ) <= epsilon )
@@ -406,8 +437,9 @@ void Calculate( Data::HTST_Info & htst_info )
         htst_info.volume_sp = 1;
         if( n_zero_modes_sp > 0 )
         {
-            Log( Utility::Log_Level::All, Utility::Log_Sender::HTST,
-                 fmt::format( "ZERO MODES AT SADDLE POINT (N={})", n_zero_modes_sp ) );
+            Log_and_Append(
+                Utility::Log_Level::All, Utility::Log_Sender::HTST,
+                fmt::format( "ZERO MODES AT SADDLE POINT (N={})", n_zero_modes_sp ) );
             htst_info.volume_sp = HTST::Calculate_Zero_Volume( htst_info.saddle_point );
         }
     }
@@ -420,27 +452,28 @@ void Calculate( Data::HTST_Info & htst_info )
     std::size_t n_zero_modes_minimum = 0;
     scalarfield evalues_min          = scalarfield( 0 );
     {
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "Calculation for the Minimum" );
+        Log_and_Append( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "Calculation for the Minimum" );
 
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Evaluate tangent basis ..." );
+        Log_and_Append( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Evaluate tangent basis ..." );
         SpMatrixX tangent_basis = SpMatrixX( 3 * nos, 2 * nos );
         Manifoldmath::sparse_tangent_basis_spherical( image_minimum, tangent_basis );
 
         // Evaluation of the Hessian...
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Evaluate the Hessian..." );
+        Log_and_Append( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Evaluate the Hessian..." );
         SpMatrixX sparse_hessian_minimum = SpMatrixX( 3 * nos, 3 * nos );
         htst_info.minimum->hamiltonian->Sparse_Hessian( image_minimum, sparse_hessian_minimum );
 
         // Transform into geodesic Hessian
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Transforming Hessian into geodesic Hessian..." );
+        Log_and_Append(
+            Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Transforming Hessian into geodesic Hessian..." );
         SpMatrixX sparse_hessian_geodesic_min_3N = SpMatrixX( 3 * nos, 3 * nos );
         sparse_hessian_bordered_3N(
             image_minimum, gradient_minimum, sparse_hessian_minimum, sparse_hessian_geodesic_min_3N );
         SpMatrixX sparse_hessian_geodesic_min_2N
             = tangent_basis.transpose() * sparse_hessian_geodesic_min_3N * tangent_basis;
 
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST,
-             "    Sparse LU Decomposition of geodesic Hessian..." );
+        Log_and_Append(
+            Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Sparse LU Decomposition of geodesic Hessian..." );
         Eigen::SparseLU<SpMatrixX, Eigen::COLAMDOrdering<int>> solver;
         solver.analyzePattern( sparse_hessian_geodesic_min_2N );
         solver.factorize( sparse_hessian_geodesic_min_2N );
@@ -455,7 +488,8 @@ void Calculate( Data::HTST_Info & htst_info )
             Sparse_Get_Lowest_Eigenvectors( sparse_hessian_geodesic_min_2N, epsilon, evalues_min, evecs_min );
 
         // Checking for zero modes at the minimum..
-        Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Checking for zero modes at the minimum ..." );
+        Log_and_Append(
+            Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Checking for zero modes at the minimum ..." );
         for( const auto & i : evalues_min )
         {
             if( std::abs( i ) <= epsilon )
@@ -464,16 +498,18 @@ void Calculate( Data::HTST_Info & htst_info )
             {
                 // The Question is if we should terminate the calculation here or allow to
                 // continue since often the negatives cancel sqrt(-x) * sqrt(-x) = sqrt(x^2)
-                Log( Utility::Log_Level::Warning, Utility::Log_Sender::HTST,
-                     fmt::format( "    Minimum has a negative mode with eigenvalue = {}!", i ) );
+                Log_and_Append(
+                    Utility::Log_Level::Warning, Utility::Log_Sender::HTST,
+                    fmt::format( "    Minimum has a negative mode with eigenvalue = {}!", i ) );
             }
         }
         // Deal with zero modes if any (calculate volume)
         htst_info.volume_min = 1;
         if( n_zero_modes_minimum > 0 )
         {
-            Log( Utility::Log_Level::All, Utility::Log_Sender::HTST,
-                 fmt::format( "ZERO MODES AT MINIMUM (N={})", n_zero_modes_minimum ) );
+            Log_and_Append(
+                Utility::Log_Level::All, Utility::Log_Sender::HTST,
+                fmt::format( "ZERO MODES AT MINIMUM (N={})", n_zero_modes_minimum ) );
             htst_info.volume_min = HTST::Calculate_Zero_Volume( htst_info.minimum );
         }
     }
@@ -482,7 +518,7 @@ void Calculate( Data::HTST_Info & htst_info )
 
     ////////////////////////////////////////////////////////////////////////
     // Calculation of the prefactor...
-    Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "Calculating prefactor..." );
+    Log_and_Append( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "Calculating prefactor..." );
 
     // Calculate the exponent for the temperature-dependence of the prefactor
     //      The exponent depends on the number of zero modes at the different states
@@ -512,23 +548,22 @@ void Calculate( Data::HTST_Info & htst_info )
     htst_info.prefactor
         = C::g_e / ( C::hbar * 1e-12 ) * htst_info.Omega_0 * htst_info.prefactor_dynamical / ( 2 * C::Pi );
 
-    Log( Utility::Log_Level::All, Utility::Log_Sender::HTST,
-         {
-             "---- Prefactor calculation successful!",
-             fmt::format( "exponent      = {:^20e}", htst_info.temperature_exponent ),
-             fmt::format( "me            = {:^20e}", htst_info.me ),
-             fmt::format( "m = Omega_0   = {:^20e}", htst_info.Omega_0 ),
-             fmt::format( "s             = {:^20e}", htst_info.s ),
-             fmt::format( "volume_sp     = {:^20e}", htst_info.volume_sp ),
-             fmt::format( "volume_min    = {:^20e}", htst_info.volume_min ),
-             fmt::format( "log |det_min| = {:^20e}", htst_info.det_min ),
-             fmt::format( "log |det_sp|  = {:^20e}", htst_info.det_sp ),
-             fmt::format( "0-mode factor = {:^20e}", zero_mode_factor ),
-             fmt::format( "hbar[meV*s]   = {:^20e}", C::hbar * 1e-12 ),
-             fmt::format( "v = dynamical prefactor = {:^20e}", htst_info.prefactor_dynamical ),
-             fmt::format( "prefactor               = {:^20e}", htst_info.prefactor ),
-         },
-         -1, -1 );
+    std::string msg{};
+    msg += "---- Prefactor calculation successful!";
+    msg += fmt::format( "exponent      = {:^20e}", htst_info.temperature_exponent );
+    msg += fmt::format( "me            = {:^20e}", htst_info.me );
+    msg += fmt::format( "m = Omega_0   = {:^20e}", htst_info.Omega_0 );
+    msg += fmt::format( "s             = {:^20e}", htst_info.s );
+    msg += fmt::format( "volume_sp     = {:^20e}", htst_info.volume_sp );
+    msg += fmt::format( "volume_min    = {:^20e}", htst_info.volume_min );
+    msg += fmt::format( "log |det_min| = {:^20e}", htst_info.det_min );
+    msg += fmt::format( "log |det_sp|  = {:^20e}", htst_info.det_sp );
+    msg += fmt::format( "0-mode factor = {:^20e}", zero_mode_factor );
+    msg += fmt::format( "hbar[meV*s]   = {:^20e}", C::hbar * 1e-12 );
+    msg += fmt::format( "v = dynamical prefactor = {:^20e}", htst_info.prefactor_dynamical );
+    msg += fmt::format( "prefactor               = {:^20e}", htst_info.prefactor );
+
+    Log_and_Append( Utility::Log_Level::All, Utility::Log_Sender::HTST, msg, -1, -1 );
 }
 
 void Sparse_Calculate_Dynamical_Matrix(
@@ -659,7 +694,8 @@ void Sparse_Geodesic_Eigen_Decomposition(
     const vectorfield & image, const vectorfield & gradient, const SpMatrixX & hessian, SpMatrixX & hessian_geodesic_3N,
     SpMatrixX & hessian_geodesic_2N, SpMatrixX & tangent_basis, VectorX & eigenvalues, MatrixX & eigenvectors )
 {
-    Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "---------- Sparse Geodesic Eigen Decomposition" );
+    Log_and_Append(
+        Utility::Log_Level::Info, Utility::Log_Sender::HTST, "---------- Sparse Geodesic Eigen Decomposition" );
 
     std::size_t nos = image.size();
 
@@ -668,19 +704,21 @@ void Sparse_Geodesic_Eigen_Decomposition(
     sparse_hessian_bordered_3N( image, gradient, hessian, hessian_geodesic_3N );
 
     // Transform into geodesic Hessian
-    Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Transforming Hessian into geodesic Hessian..." );
+    Log_and_Append(
+        Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Transforming Hessian into geodesic Hessian..." );
     hessian_geodesic_2N = SpMatrixX( 2 * nos, 2 * nos );
     hessian_geodesic_2N = tangent_basis.transpose() * hessian_geodesic_3N * tangent_basis;
 
     // Calculate full eigenspectrum
-    Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Calculation of full eigenspectrum..." );
+    Log_and_Append( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "    Calculation of full eigenspectrum..." );
 
     eigenvalues  = VectorX::Zero( 2 * nos );
     eigenvectors = MatrixX::Zero( 2 * nos, 2 * nos );
 
     Sparse_Eigen_Decomposition( hessian_geodesic_2N, eigenvalues, eigenvectors );
 
-    Log( Utility::Log_Level::Info, Utility::Log_Sender::HTST, "---------- Sparse Geodesic Eigen Decomposition Done" );
+    Log_and_Append(
+        Utility::Log_Level::Info, Utility::Log_Sender::HTST, "---------- Sparse Geodesic Eigen Decomposition Done" );
 }
 
 } // namespace Sparse_HTST
