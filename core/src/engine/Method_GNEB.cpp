@@ -361,7 +361,7 @@ void Method_GNEB<solver>::Calculate_Force(
                     F_gradient    = F_gradient[img].data(),
                     forces        = forces[img].data(),
                     tangents      = tangents[img].data(),
-                    tangent_coeff = spring_constant * (delta_Rx - delta_Rx0),
+                    spring_coeff = spring_constant * (delta_Rx - delta_Rx0),
                     F_sym = F_symmetric.data(),
                     F_asym = F_anti_symmetric.data(),
                     sign,
@@ -375,9 +375,9 @@ void Method_GNEB<solver>::Calculate_Force(
                     const Vector3 rotational_force = sign * rotational_coeff * (F_asym[idx] - tangent_projection_anti_symmetric * tangents[idx]);
                     const Vector3 orthogonal_force = orthogonal_coeff * (F_sym[idx] - tangent_projection_symmetric * tangents[idx]);
                     const Vector3 parallel_force = -parallel_coeff * tangent_projection_symmetric * tangents[idx];
-                    const Vector3 tangent_force = sign * tangent_coeff * tangents[idx];
+                    const Vector3 spring_force = sign * spring_coeff * tangents[idx];
 
-                    forces[idx] = rotational_force + orthogonal_force + parallel_force + tangent_force;
+                    forces[idx] = rotational_force + orthogonal_force + parallel_force + spring_force;
 
                     F_total[idx] = forces[idx];
                 }
