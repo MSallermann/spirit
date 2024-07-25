@@ -76,8 +76,11 @@ private:
     std::vector<vectorfield> F_spring;
     vectorfield f_shrink;
 
-    vectorfield F_translation_left;
-    vectorfield F_translation_right;
+    // Forces on endpoints
+    vectorfield F_symmetric_left;
+    vectorfield F_symmetric_right;
+    vectorfield F_anti_symmetric_left;
+    vectorfield F_anti_symmetric_right;
 
     // Last calculated tangents
     std::vector<vectorfield> tangents;

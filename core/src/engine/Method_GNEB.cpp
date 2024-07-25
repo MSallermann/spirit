@@ -1,3 +1,4 @@
+#include "engine/Vectormath_Defines.hpp"
 #include <Spirit/Spirit_Defines.h>
 #include <data/Spin_System_Chain.hpp>
 #include <engine/Backend_par.hpp>
@@ -43,8 +44,11 @@ Method_GNEB<solver>::Method_GNEB( std::shared_ptr<Data::Spin_System_Chain> chain
     this->f_shrink   = vectorfield( this->nos, { 0, 0, 0 } );                                        // [nos]
     this->xi         = vectorfield( this->nos, { 0, 0, 0 } );
 
-    this->F_translation_left  = vectorfield( this->nos, { 0, 0, 0 } );
-    this->F_translation_right = vectorfield( this->nos, { 0, 0, 0 } );
+    this->F_symmetric_left      = vectorfield( this->nos, { 0, 0, 0 } );
+    this->F_anti_symmetric_left = vectorfield( this->nos, { 0, 0, 0 } );
+
+    this->F_symmetric_right      = vectorfield( this->nos, { 0, 0, 0 } );
+    this->F_anti_symmetric_right = vectorfield( this->nos, { 0, 0, 0 } );
 
     // Tangents
     this->tangents = std::vector<vectorfield>( this->noi, vectorfield( this->nos, { 0, 0, 0 } ) ); // [noi][nos]
@@ -106,13 +110,10 @@ void Method_GNEB<solver>::Calculate_Force(
         //      while the gradient force is manipulated (e.g. projected)
         auto eff_field = this->chain->images[img]->effective_field.data();
         auto f_grad    = F_gradient[img].data();
-        Backend::par::apply(
-            image.size(),
-            [eff_field, f_grad] SPIRIT_LAMBDA( int idx )
-            {
-                eff_field[idx] *= -1;
-                f_grad[idx] = eff_field[idx];
-            } );
+        Backend::par::apply( image.size(), [eff_field, f_grad] SPIRIT_LAMBDA( int idx ) {
+            eff_field[idx] *= -1;
+            f_grad[idx] = eff_field[idx];
+        } );
 
         if( img > 0 )
         {
@@ -262,46 +263,58 @@ void Method_GNEB<solver>::Calculate_Force(
     if( chain->gneb_parameters->moving_endpoints )
     {
         int noi = chain->noi;
+
+        // Since we now also move the endpoints, we have to perform the projection into the tangent space of the
+        // gradient forces at the endpoints
         Manifoldmath::project_tangential( F_gradient[0], *configurations[0] );
         Manifoldmath::project_tangential( F_gradient[noi - 1], *configurations[noi - 1] );
+        // clang-format off
+        Backend::par::apply(nos,
+            [
+                F_sym_l  = F_symmetric_left.data(),
+                F_asym_l = F_anti_symmetric_left.data(),
+                F_sym_r = F_symmetric_right.data(),
+                F_asym_r = F_anti_symmetric_right.data(),
+                F_gradient_left     = F_gradient[0].data(),
+                F_gradient_right    = F_gradient[noi-1].data(),
+                spins_left  = this->chain->images[0]->spins->data(),
+                spins_right = this->chain->images[noi-1]->spins->data()
+            ] SPIRIT_LAMBDA ( int idx)
+            {
+                const Vector3 axis = spins_left[idx].cross(spins_right[idx]);
+                const scalar angle = acos(spins_left[idx].dot(spins_right[idx]));
 
-        // Overall translational force
-        if( chain->gneb_parameters->translating_endpoints )
-        {
-            // clang-format off
-            Backend::par::apply(nos,
-                [
-                    F_translation_left  = F_translation_left.data(),
-                    F_translation_right = F_translation_right.data(),
-                    F_gradient_left     = F_gradient[0].data(),
-                    F_gradient_right    = F_gradient[noi-1].data(),
-                    spins_left  = this->chain->images[0]->spins->data(),
-                    spins_right = this->chain->images[noi-1]->spins->data()
-                ] SPIRIT_LAMBDA ( int idx)
-                {
-                    const Vector3 axis = spins_left[idx].cross(spins_right[idx]);
-                    const scalar angle = acos(spins_left[idx].dot(spins_right[idx]));
+                // Rotation matrix that rotates spin_left to spin_right
+                Matrix3 rotation_matrix = Eigen::AngleAxis<scalar>(angle, axis.normalized()).toRotationMatrix();
 
-                    // Rotation matrix that rotates spin_left to spin_right
-                    Matrix3 rotation_matrix = Eigen::AngleAxis<scalar>(angle, axis.normalized()).toRotationMatrix();
+                if ( abs(spins_left[idx].dot(spins_right[idx])) >= 1.0 ) // Angle can become nan for collinear spins
+                    rotation_matrix = Matrix3::Identity();
 
-                    if ( abs(spins_left[idx].dot(spins_right[idx])) >= 1.0 ) // Angle can become nan for collinear spins
-                        rotation_matrix = Matrix3::Identity();
+                const Vector3 F_gradient_right_rotated = rotation_matrix * F_gradient_right[idx];
+                F_sym_l[idx] = 0.5 * (F_gradient_left[idx] + F_gradient_right_rotated);
+                F_asym_l[idx] = 0.5 * (F_gradient_left[idx] - F_gradient_right_rotated);
 
-                    const Vector3 F_gradient_right_rotated = rotation_matrix * F_gradient_right[idx];
-                    F_translation_left[idx] = -0.5 * (F_gradient_left[idx] + F_gradient_right_rotated);
+                const Vector3 F_gradient_left_rotated = rotation_matrix.transpose() * F_gradient_left[idx];
+                F_sym_r[idx] = 0.5 *  (F_gradient_left_rotated + F_gradient_right[idx] );
+                F_asym_r[idx] = 0.5 * (F_gradient_left_rotated - F_gradient_right[idx]);
+            }
+        );
+        // clang-format on
 
-                    const Vector3 F_gradient_left_rotated = rotation_matrix.transpose() * F_gradient_left[idx];
-                    F_translation_right[idx] = -0.5 * (F_gradient_left_rotated + F_gradient_right[idx]);
-                }
-            );
-            // clang-format on
-
-            Manifoldmath::project_parallel( F_translation_left, tangents[0] );
-            Manifoldmath::project_parallel( F_translation_right, tangents[chain->noi - 1] );
-        }
-
+        // Coefficient for the force that rotates the dimer into the orthogonal mode
         scalar rotational_coeff = 1.0;
+
+        // Coefficient for the force that relaxes the energy of the dimer following a ridge
+        scalar orthogonal_coeff = 1.0;
+
+        // Coefficient for the force that pushes the dimer up an energy slope
+        scalar parallel_coeff = 0.0;
+        if( chain->gneb_parameters->translating_endpoints )
+            parallel_coeff = 1.0;
+
+        // The estimated curvature is the finite difference approximation of the Rayleigh quotient
+        // t^T H t / (t^T t)
+        // const scalar estimated_curvature = 
         if( chain->gneb_parameters->escape_first )
         {
             // Estimate the curvature along the tangent and only activate the rotational force, if it is negative
@@ -315,24 +328,30 @@ void Method_GNEB<solver>::Calculate_Force(
 
         for( int img : { 0, chain->noi - 1 } )
         {
-            if ( img == 0 && chain->gneb_parameters->fix_left )
+            if( img == 0 && chain->gneb_parameters->fix_left )
                 continue;
-            else if ( img == chain->noi-1 && chain->gneb_parameters->fix_right )
+            else if( img == chain->noi - 1 && chain->gneb_parameters->fix_right )
                 continue;
 
-            scalar delta_Rx0 = ( img == 0 ) ? chain->gneb_parameters->equilibrium_delta_Rx_left :
-                                              chain->gneb_parameters->equilibrium_delta_Rx_right;
-            scalar delta_Rx  = ( img == 0 ) ? Rx[1] - Rx[0] : Rx[chain->noi - 1] - Rx[chain->noi - 2];
+            const scalar sign = ( img == 0 ) ? 1.0 : -1.0;
 
-            auto spring_constant = ( ( img == 0 ) ? 1.0 : -1.0 ) * this->chain->gneb_parameters->spring_constant;
-            auto projection      = Vectormath::dot( F_gradient[img], tangents[img] );
+            // The equilibrium delta_Rx
+            const scalar delta_Rx0 = ( img == 0 ) ? chain->gneb_parameters->equilibrium_delta_Rx_left :
+                                                    chain->gneb_parameters->equilibrium_delta_Rx_right;
 
-            auto F_translation = ( img == 0 ) ? F_translation_left.data() : F_translation_right.data();
+            // The current delta_rx
+            const scalar delta_Rx = ( img == 0 ) ? Rx[1] - Rx[0] : Rx[chain->noi - 1] - Rx[chain->noi - 2];
 
-            // std::cout << " === " << img << " ===\n";
-            // fmt::print( "tangent_coeff = {}\n",  spring_constant * (delta_Rx - delta_Rx0) );
-            // fmt::print( "delta_Rx {}\n", delta_Rx );
-            // fmt::print( "delta_Rx0 {}\n", delta_Rx0 );
+            // Spring constant
+            const scalar spring_constant = this->chain->gneb_parameters->spring_constant;
+
+            // Get the (anti-)symmetric force for the current image
+            const auto & F_symmetric      = ( img == 0 ) ? F_symmetric_left : F_symmetric_right;
+            const auto & F_anti_symmetric = ( img == 0 ) ? F_anti_symmetric_left : F_anti_symmetric_right;
+
+            // Projections onto the tangent
+            const scalar tangent_projection_symmetric      = Vectormath::dot( F_symmetric, tangents[img] );
+            const scalar tangent_projection_anti_symmetric = Vectormath::dot( F_anti_symmetric, tangents[img] );
 
             // clang-format off
             Backend::par::apply(
@@ -343,16 +362,23 @@ void Method_GNEB<solver>::Calculate_Force(
                     forces        = forces[img].data(),
                     tangents      = tangents[img].data(),
                     tangent_coeff = spring_constant * (delta_Rx - delta_Rx0),
-                    F_translation,
-                    projection,
-                    rotational_coeff
+                    F_sym = F_symmetric.data(),
+                    F_asym = F_anti_symmetric.data(),
+                    sign,
+                    rotational_coeff,
+                    parallel_coeff,
+                    orthogonal_coeff,
+                    tangent_projection_symmetric,
+                    tangent_projection_anti_symmetric
                 ] SPIRIT_LAMBDA ( int idx )
                 {
-                    forces[idx] =   rotational_coeff * (F_gradient[idx] - projection * tangents[idx])
-                                    + tangent_coeff * tangents[idx]
-                                    + F_translation[idx];
+                    const Vector3 rotational_force = sign * rotational_coeff * (F_asym[idx] - tangent_projection_anti_symmetric * tangents[idx]);
+                    const Vector3 orthogonal_force = orthogonal_coeff * (F_sym[idx] - tangent_projection_symmetric * tangents[idx]);
+                    const Vector3 parallel_force = -parallel_coeff * tangent_projection_symmetric * tangents[idx];
+                    const Vector3 tangent_force = sign * tangent_coeff * tangents[idx];
 
-                    // std::cout << F_translation[idx].transpose() << "\n";
+                    forces[idx] = rotational_force + orthogonal_force + parallel_force + tangent_force;
+
                     F_total[idx] = forces[idx];
                 }
             );
@@ -465,7 +491,7 @@ template<Solver solver>
 void Method_GNEB<solver>::Calculate_Interpolated_Energy_Contributions()
 {
     // This whole method could be made faster by calculating the energies from the gradients and not allocating the
-    // temporaries eacht time the method is called, but since this method should be called rather sparingly it should
+    // temporaries each time the method is called, but since this method should be called rather sparingly it should
     // not matter very much.
 
     Log( Utility::Log_Level::Debug, Utility::Log_Sender::GNEB,
