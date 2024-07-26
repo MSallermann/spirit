@@ -199,6 +199,14 @@ void ParametersWidget::Load_Parameters_Contents()
     this->doubleSpinBox_delta_Rx_left->setValue( delta_Rx_left );
     this->doubleSpinBox_delta_Rx_right->setValue( delta_Rx_right );
 
+    scalar rotational_coeff = Parameters_GNEB_Get_Rotational_Coeff(state.get());
+    scalar parallel_coeff = Parameters_GNEB_Get_Parallel_Coeff(state.get());
+    scalar orthogonal_coeff = Parameters_GNEB_Get_Orthogonal_Coeff(state.get());
+
+    this->doubleSpinBox_rotational_coefficient->setValue(rotational_coeff);
+    this->doubleSpinBox_orthogonal_coefficient->setValue(orthogonal_coeff);
+    this->doubleSpinBox_parallel_coefficient->setValue(parallel_coeff);
+
     //      EMA
     // modes to calculate and visualize
     i1 = Parameters_EMA_Get_N_Modes( state.get() );
@@ -465,6 +473,17 @@ void ParametersWidget::set_parameters_gneb()
     Parameters_GNEB_Set_Moving_Endpoints( state.get(), moving_endpoints );
     Parameters_GNEB_Set_Translating_Endpoints( state.get(), translating_endpoints );
     Parameters_GNEB_Set_Equilibrium_Delta_Rx( state.get(), delta_Rx_left, delta_Rx_right );
+
+
+    scalar rotational_coeff  = this->doubleSpinBox_rotational_coefficient->value();
+    Parameters_GNEB_Set_Rotational_Coeff(state.get(), rotational_coeff);
+
+    scalar parallel_coeff  = this->doubleSpinBox_parallel_coefficient->value();
+    Parameters_GNEB_Set_Parallel_Coeff(state.get(), parallel_coeff);
+
+    scalar orthogonal_coeff  = this->doubleSpinBox_orthogonal_coefficient->value();
+    Parameters_GNEB_Set_Orthogonal_Coeff(state.get(), orthogonal_coeff);
+
 }
 
 void ParametersWidget::set_gneb_auto_image_type()
