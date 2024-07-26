@@ -206,5 +206,11 @@ PREFIX int Parameters_GNEB_Get_Climbing_Falling( State * state, int idx_image = 
 // Returns the number of energy values interpolated between images.
 PREFIX int Parameters_GNEB_Get_N_Energy_Interpolations( State * state, int idx_chain = -1 ) SUFFIX;
 
+PREFIX scalar Parameters_GNEB_Get_Orthogonal_Coeff( State * state, int idx_chain = -1 ) SUFFIX;
+
+PREFIX scalar Parameters_GNEB_Get_Parallel_Coeff( State * state, int idx_chain = -1 ) SUFFIX;
+
+PREFIX scalar Parameters_GNEB_Get_Rotational_Coeff( State * state, int idx_chain = -1 ) SUFFIX;
+
 #include "DLL_Undefine_Export.h"
 #endif

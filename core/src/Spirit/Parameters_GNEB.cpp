@@ -752,3 +752,54 @@ catch( ... )
     spirit_handle_exception_api( -1, idx_chain );
     return 0;
 }
+
+scalar Parameters_GNEB_Get_Orthogonal_Coeff( State * state, int idx_chain ) noexcept
+try
+{
+    int idx_image = -1;
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+    auto p = chain->gneb_parameters;
+    return p->orthogonal_coeff;
+}
+catch( ... )
+{
+    spirit_handle_exception_api( -1, idx_chain );
+}
+
+scalar Parameters_GNEB_Get_Parallel_Coeff( State * state, int idx_chain ) noexcept
+try
+{
+    int idx_image = -1;
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+    auto p = chain->gneb_parameters;
+    return p->parallel_coeff;
+}
+catch( ... )
+{
+    spirit_handle_exception_api( -1, idx_chain );
+}
+
+scalar Parameters_GNEB_Get_Rotational_Coeff( State * state, int idx_chain ) noexcept
+try
+{
+       int idx_image = -1;
+std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+    auto p = chain->gneb_parameters;
+    return p->rotational_coeff;
+}
+catch( ... )
+{
+    spirit_handle_exception_api( -1, idx_chain );
+}
