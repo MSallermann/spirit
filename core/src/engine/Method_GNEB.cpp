@@ -284,11 +284,7 @@ void Method_GNEB<solver>::Calculate_Force(
                 spins_right = spins_right.data()
             ] SPIRIT_LAMBDA ( int idx)
             {
-                const Vector3 axis = spins_left[idx].cross(spins_right[idx]);
-                const scalar dot = spins_left[idx].dot(spins_right[  idx]);
-
-                // Rotation matrix that rotates spin_left to spin_right
-                const Matrix3 rotation_matrix =  abs(dot) >= 1.0 ? Matrix3::Identity() : Eigen::AngleAxis<scalar>(acos(dot), axis.normalized()).toRotationMatrix();
+                const Matrix3 rotation_matrix = Manifoldmath::parallel_transport(spins_left[idx], spins_right[idx]);
 
                 const Vector3 F_gradient_right_rotated = rotation_matrix * F_gradient_right[idx];
                 F_sym_l[idx] = 0.5 * (F_gradient_left[idx] + F_gradient_right_rotated);
@@ -309,7 +305,6 @@ void Method_GNEB<solver>::Calculate_Force(
         scalar parallel_coeff   = chain->gneb_parameters->parallel_coeff;
 
         // Coefficient for the force that pushes the dimer up an energy slope
-        scalar parallel_coeff = 0.0;
         if( chain->gneb_parameters->translating_endpoints )
             parallel_coeff = 1.0;
 
@@ -319,13 +314,13 @@ void Method_GNEB<solver>::Calculate_Force(
         // Estimate the curvature along the tangent and only activate the rotational force, if it is negative
         const scalar dot    = 2.0 * Vectormath::dot( F_anti_symmetric_left, tangents[0] );
         estimated_curvature = dot / delta_Rx;
-            scalar proj_left  = Vectormath::dot( F_gradient[0], tangents[0] );
-            scalar proj_right = Vectormath::dot( F_gradient[chain->noi - 1], tangents[chain->noi - 1] );
-            if( proj_left > proj_right )
-            {
-                rotational_coeff = 0.0;
-            }
-        }
+
+        // if( estimated_curvature.has_value() )
+        // {
+        //     fmt::print( "estimated_curvature = {}\n", estimated_curvature.value() );
+        // }
+        // fmt::print( "dot = {}\n", dot );
+        // fmt::print( "delta_Rx = {}\n", delta_Rx );
 
         for( int img : { 0, chain->noi - 1 } )
         {
@@ -658,9 +653,8 @@ void Method_GNEB<solver>::Save_Current( std::string starttime, int iteration, bo
         preEnergiesFile = this->parameters->output_folder + "/" + fileTag + "Chain_Energies";
 
         // Function to write or append image and energy files
-        auto writeOutputChain
-            = [this, preChainFile, preEnergiesFile, iteration]( const std::string & suffix, bool append )
-        {
+        auto writeOutputChain = [this, preChainFile, preEnergiesFile,
+                                 iteration]( const std::string & suffix, bool append ) {
             try
             {
                 // File name
@@ -704,8 +698,7 @@ void Method_GNEB<solver>::Save_Current( std::string starttime, int iteration, bo
         };
 
         Calculate_Interpolated_Energy_Contributions();
-        auto writeOutputEnergies = [this, preChainFile, preEnergiesFile, iteration]( const std::string & suffix )
-        {
+        auto writeOutputEnergies = [this, preChainFile, preEnergiesFile, iteration]( const std::string & suffix ) {
             bool normalize   = this->chain->gneb_parameters->output_energies_divide_by_nspins;
             bool readability = this->chain->gneb_parameters->output_energies_add_readability_lines;
 
