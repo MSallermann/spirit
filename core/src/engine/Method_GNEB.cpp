@@ -264,6 +264,9 @@ void Method_GNEB<solver>::Calculate_Force(
     {
         int noi = chain->noi;
 
+        const vectorfield & spins_left  = *( this->chain->images[0]->spins );
+        const vectorfield & spins_right = *( this->chain->images[noi - 1]->spins );
+
         // Since we now also move the endpoints, we have to perform the projection into the tangent space of the
         // gradient forces at the endpoints
         Manifoldmath::project_tangential( F_gradient[0], *configurations[0] );
@@ -277,18 +280,15 @@ void Method_GNEB<solver>::Calculate_Force(
                 F_asym_r = F_anti_symmetric_right.data(),
                 F_gradient_left     = F_gradient[0].data(),
                 F_gradient_right    = F_gradient[noi-1].data(),
-                spins_left  = this->chain->images[0]->spins->data(),
-                spins_right = this->chain->images[noi-1]->spins->data()
+                spins_left  = spins_left.data(),
+                spins_right = spins_right.data()
             ] SPIRIT_LAMBDA ( int idx)
             {
                 const Vector3 axis = spins_left[idx].cross(spins_right[idx]);
-                const scalar angle = acos(spins_left[idx].dot(spins_right[idx]));
+                const scalar dot = spins_left[idx].dot(spins_right[  idx]);
 
                 // Rotation matrix that rotates spin_left to spin_right
-                Matrix3 rotation_matrix = Eigen::AngleAxis<scalar>(angle, axis.normalized()).toRotationMatrix();
-
-                if ( abs(spins_left[idx].dot(spins_right[idx])) >= 1.0 ) // Angle can become nan for collinear spins
-                    rotation_matrix = Matrix3::Identity();
+                const Matrix3 rotation_matrix =  abs(dot) >= 1.0 ? Matrix3::Identity() : Eigen::AngleAxis<scalar>(acos(dot), axis.normalized()).toRotationMatrix();
 
                 const Vector3 F_gradient_right_rotated = rotation_matrix * F_gradient_right[idx];
                 F_sym_l[idx] = 0.5 * (F_gradient_left[idx] + F_gradient_right_rotated);
