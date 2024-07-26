@@ -238,8 +238,7 @@ catch( ... )
 }
 
 // Set if moving endpoints should be used
-void Parameters_GNEB_Set_Moving_Endpoints(
-    State * state, bool moving_endpoints, bool fix_left, bool fix_right, int idx_chain ) noexcept
+void Parameters_GNEB_Set_Moving_Endpoints( State * state, bool moving_endpoints, int idx_chain ) noexcept
 try
 {
     int idx_image = -1;
@@ -252,15 +251,11 @@ try
     chain->Lock();
     auto p              = chain->gneb_parameters;
     p->moving_endpoints = moving_endpoints;
-    p->fix_left         = fix_left;
-    p->fix_right        = fix_right;
 
     chain->Unlock();
 
     Log( Utility::Log_Level::Parameter, Utility::Log_Sender::API,
-         fmt::format(
-             "Set GNEB moving endpoints = {}, fix_left = {}, fix_right = {}", moving_endpoints, fix_left, fix_right ),
-         idx_image, idx_chain );
+         fmt::format( "Set GNEB moving endpoints = {}", moving_endpoints ), idx_image, idx_chain );
 }
 catch( ... )
 {
@@ -458,6 +453,50 @@ try
     chain->E_interpolated                      = std::vector<scalar>( size_interpolated, 0 );
     chain->E_array_interpolated = std::vector<std::vector<scalar>>( 7, std::vector<scalar>( size_interpolated, 0 ) );
     chain->Unlock();
+}
+catch( ... )
+{
+    spirit_handle_exception_api( -1, idx_chain );
+}
+
+void Parameters_GNEB_Set_Fix_Left_Endpoint( State * state, bool fix, int idx_chain ) noexcept
+try
+{
+    int idx_image = -1;
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+
+    chain->Lock();
+    chain->gneb_parameters->fix_left = fix;
+    chain->Unlock();
+
+    Log( Utility::Log_Level::Parameter, Utility::Log_Sender::API, fmt::format( "GNEB: set fix_left to {}", fix ),
+         idx_image, idx_chain );
+}
+catch( ... )
+{
+    spirit_handle_exception_api( -1, idx_chain );
+}
+
+void Parameters_GNEB_Set_Fix_Right_Endpoint( State * state, bool fix, int idx_chain ) noexcept
+try
+{
+    int idx_image = -1;
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+
+    chain->Lock();
+    chain->gneb_parameters->fix_right = fix;
+    chain->Unlock();
+
+    Log( Utility::Log_Level::Parameter, Utility::Log_Sender::API, fmt::format( "GNEB: set fix_right to {}", fix ),
+         idx_image, idx_chain );
 }
 catch( ... )
 {
@@ -768,6 +807,7 @@ try
 catch( ... )
 {
     spirit_handle_exception_api( -1, idx_chain );
+    return 0;
 }
 
 scalar Parameters_GNEB_Get_Parallel_Coeff( State * state, int idx_chain ) noexcept
@@ -785,13 +825,14 @@ try
 catch( ... )
 {
     spirit_handle_exception_api( -1, idx_chain );
+    return 0;
 }
 
 scalar Parameters_GNEB_Get_Rotational_Coeff( State * state, int idx_chain ) noexcept
 try
 {
-       int idx_image = -1;
-std::shared_ptr<Data::Spin_System> image;
+    int idx_image = -1;
+    std::shared_ptr<Data::Spin_System> image;
     std::shared_ptr<Data::Spin_System_Chain> chain;
 
     // Fetch correct indices and pointers
@@ -802,4 +843,41 @@ std::shared_ptr<Data::Spin_System> image;
 catch( ... )
 {
     spirit_handle_exception_api( -1, idx_chain );
+    return 0;
+}
+
+bool Parameters_GNEB_Get_Fix_Left_Endpoint( State * state, int idx_chain ) noexcept
+try
+{
+    int idx_image = -1;
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+    auto p = chain->gneb_parameters;
+    return p->fix_left;
+}
+catch( ... )
+{
+    spirit_handle_exception_api( -1, idx_chain );
+    return false;
+}
+
+bool Parameters_GNEB_Get_Fix_Right_Endpoint( State * state, int idx_chain ) noexcept
+try
+{
+    int idx_image = -1;
+    std::shared_ptr<Data::Spin_System> image;
+    std::shared_ptr<Data::Spin_System_Chain> chain;
+
+    // Fetch correct indices and pointers
+    from_indices( state, idx_image, idx_chain, image, chain );
+    auto p = chain->gneb_parameters;
+    return p->fix_right;
+}
+catch( ... )
+{
+    spirit_handle_exception_api( -1, idx_chain );
+    return false;
 }

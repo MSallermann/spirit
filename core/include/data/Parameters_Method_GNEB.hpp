@@ -36,7 +36,7 @@ struct Parameters_Method_GNEB : Parameters_Method_Solver
     bool moving_endpoints      = false;
     bool translating_endpoints = false;
 
-    bool fix_left  = true;
+    bool fix_left  = false;
     bool fix_right = false;
 
     scalar equilibrium_delta_Rx_left  = 1.0;

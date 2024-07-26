@@ -113,8 +113,13 @@ PREFIX void Parameters_GNEB_Set_Path_Shortening_Constant(
     State * state, scalar path_shortening_constant, int idx_chain = -1 ) SUFFIX;
 
 // Set if moving endpoints should be used
-PREFIX void Parameters_GNEB_Set_Moving_Endpoints(
-    State * state, bool moving_endpoints, bool fix_left = false, bool fix_right = false, int idx_chain = -1 ) SUFFIX;
+PREFIX void Parameters_GNEB_Set_Moving_Endpoints( State * state, bool moving_endpoints, int idx_chain = -1 ) SUFFIX;
+
+PREFIX void
+Parameters_GNEB_Set_Fix_Left_Endpoint( State * state, bool fix, int idx_chain = -1 ) SUFFIX;
+
+PREFIX void
+Parameters_GNEB_Set_Fix_Right_Endpoint( State * state, bool fix, int idx_chain = -1 ) SUFFIX;
 
 PREFIX void Parameters_GNEB_Set_Orthogonal_Coeff( State * state, scalar coeff, int idx_chain = -1 ) SUFFIX;
 PREFIX void Parameters_GNEB_Set_Parallel_Coeff( State * state, scalar coeff, int idx_chain = -1 ) SUFFIX;
@@ -211,6 +216,10 @@ PREFIX scalar Parameters_GNEB_Get_Orthogonal_Coeff( State * state, int idx_chain
 PREFIX scalar Parameters_GNEB_Get_Parallel_Coeff( State * state, int idx_chain = -1 ) SUFFIX;
 
 PREFIX scalar Parameters_GNEB_Get_Rotational_Coeff( State * state, int idx_chain = -1 ) SUFFIX;
+
+PREFIX bool Parameters_GNEB_Get_Fix_Left_Endpoint( State * state, int idx_chain = -1 ) SUFFIX;
+
+PREFIX bool Parameters_GNEB_Get_Fix_Right_Endpoint( State * state, int idx_chain = -1 ) SUFFIX;
 
 #include "DLL_Undefine_Export.h"
 #endif

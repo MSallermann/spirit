@@ -277,31 +277,53 @@ def set_path_shortening_constant(
 
 
 _GNEB_Set_Moving_Endpoints = _spirit.Parameters_GNEB_Set_Moving_Endpoints
-_GNEB_Set_Moving_Endpoints.argtypes = [ctypes.c_void_p, ctypes.c_bool, ctypes.c_int]
-_GNEB_Set_Moving_Endpoints.restype = None
-
-
-_GNEB_Set_Moving_Endpoints = _spirit.Parameters_GNEB_Set_Moving_Endpoints
 _GNEB_Set_Moving_Endpoints.argtypes = [
     ctypes.c_void_p,
-    ctypes.c_bool,
-    ctypes.c_bool,
     ctypes.c_bool,
     ctypes.c_int,
 ]
 _GNEB_Set_Moving_Endpoints.restype = None
 
 
-def set_moving_endpoints(
-    p_state, moving_endpoints, fix_left=False, fix_right=False, idx_chain=-1
-):
+def set_moving_endpoints(p_state, moving_endpoints, idx_chain=-1):
     """Set if moving endpoints should be used."""
     _GNEB_Set_Moving_Endpoints(
         ctypes.c_void_p(p_state),
         ctypes.c_bool(moving_endpoints),
-        ctypes.c_bool(fix_left),
-        ctypes.c_bool(fix_right),
         ctypes.c_int(idx_chain),
+    )
+
+
+_GNEB_Set_Fix_Left_Endpoint = _spirit.Parameters_GNEB_Set_Fix_Left_Endpoint
+_GNEB_Set_Fix_Left_Endpoint.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_bool,
+    ctypes.c_int,
+]
+_GNEB_Set_Fix_Left_Endpoint.restype = None
+
+
+def set_fix_left_endpoint(p_state, fix, idx_chain=-1):
+    _GNEB_Set_Fix_Left_Endpoint(
+        ctypes.c_void_p(p_state),
+        ctypes.c_bool(fix),
+        ctypes.c_int(idx_chain)
+    )
+
+_GNEB_Set_Fix_Right_Endpoint = _spirit.Parameters_GNEB_Set_Fix_Right_Endpoint
+_GNEB_Set_Fix_Right_Endpoint.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_bool,
+    ctypes.c_int,
+]
+_GNEB_Set_Fix_Right_Endpoint.restype = None
+
+
+def set_fix_right_endpoint(p_state, fix, idx_chain=-1):
+    _GNEB_Set_Fix_Right_Endpoint(
+        ctypes.c_void_p(p_state),
+        ctypes.c_bool(fix),
+        ctypes.c_int(idx_chain)
     )
 
 
