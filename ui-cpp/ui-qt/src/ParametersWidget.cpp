@@ -207,6 +207,11 @@ void ParametersWidget::Load_Parameters_Contents()
     this->doubleSpinBox_orthogonal_coefficient->setValue(orthogonal_coeff);
     this->doubleSpinBox_parallel_coefficient->setValue(parallel_coeff);
 
+    const bool fix_left = Parameters_GNEB_Get_Fix_Left_Endpoint(state.get());
+    this->checkBox_fix_left_endpoint->setChecked(fix_left);
+    const bool fix_right = Parameters_GNEB_Get_Fix_Right_Endpoint(state.get());
+    this->checkBox_fix_right_endpoint->setChecked(fix_right);
+
     //      EMA
     // modes to calculate and visualize
     i1 = Parameters_EMA_Get_N_Modes( state.get() );
@@ -475,15 +480,20 @@ void ParametersWidget::set_parameters_gneb()
     Parameters_GNEB_Set_Equilibrium_Delta_Rx( state.get(), delta_Rx_left, delta_Rx_right );
 
 
-    scalar rotational_coeff  = this->doubleSpinBox_rotational_coefficient->value();
+    const scalar rotational_coeff  = this->doubleSpinBox_rotational_coefficient->value();
     Parameters_GNEB_Set_Rotational_Coeff(state.get(), rotational_coeff);
 
-    scalar parallel_coeff  = this->doubleSpinBox_parallel_coefficient->value();
+    const scalar parallel_coeff  = this->doubleSpinBox_parallel_coefficient->value();
     Parameters_GNEB_Set_Parallel_Coeff(state.get(), parallel_coeff);
 
-    scalar orthogonal_coeff  = this->doubleSpinBox_orthogonal_coefficient->value();
+    const scalar orthogonal_coeff  = this->doubleSpinBox_orthogonal_coefficient->value();
     Parameters_GNEB_Set_Orthogonal_Coeff(state.get(), orthogonal_coeff);
 
+    const bool fix_left = this->checkBox_fix_left_endpoint->isChecked();
+    Parameters_GNEB_Set_Fix_Left_Endpoint(state.get(), fix_left);
+
+    const bool fix_right = this->checkBox_fix_right_endpoint->isChecked();
+    Parameters_GNEB_Set_Fix_Right_Endpoint(state.get(), fix_right);
 }
 
 void ParametersWidget::set_gneb_auto_image_type()
@@ -744,6 +754,11 @@ void ParametersWidget::Setup_Parameters_Slots()
     connect( this->checkBox_translating_endpoints, SIGNAL( stateChanged( int ) ), this, SLOT( set_parameters_gneb() ) );
     connect( this->doubleSpinBox_delta_Rx_left, SIGNAL( editingFinished() ), this, SLOT( set_parameters_gneb() ) );
     connect( this->doubleSpinBox_delta_Rx_right, SIGNAL( editingFinished() ), this, SLOT( set_parameters_gneb() ) );
+    connect( this->doubleSpinBox_rotational_coefficient, SIGNAL( editingFinished() ), this, SLOT( set_parameters_gneb() ) );
+    connect( this->doubleSpinBox_orthogonal_coefficient, SIGNAL( editingFinished() ), this, SLOT( set_parameters_gneb() ) );
+    connect( this->doubleSpinBox_parallel_coefficient, SIGNAL( editingFinished() ), this, SLOT( set_parameters_gneb() ) );
+    connect( this->checkBox_fix_left_endpoint, SIGNAL( stateChanged( int ) ), this, SLOT( set_parameters_gneb() ) );
+    connect( this->checkBox_fix_right_endpoint, SIGNAL( stateChanged( int ) ), this, SLOT( set_parameters_gneb() ) );
 
     //      EMA
     connect( this->spinBox_ema_n_modes, SIGNAL( editingFinished() ), this, SLOT( set_parameters_ema() ) );
