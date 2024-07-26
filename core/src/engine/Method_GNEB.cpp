@@ -302,10 +302,11 @@ void Method_GNEB<solver>::Calculate_Force(
         // clang-format on
 
         // Coefficient for the force that rotates the dimer into the orthogonal mode
-        scalar rotational_coeff = 1.0;
+        scalar rotational_coeff = chain->gneb_parameters->rotational_coeff;
 
         // Coefficient for the force that relaxes the energy of the dimer following a ridge
-        scalar orthogonal_coeff = 1.0;
+        scalar orthogonal_coeff = chain->gneb_parameters->orthogonal_coeff;
+        scalar parallel_coeff   = chain->gneb_parameters->parallel_coeff;
 
         // Coefficient for the force that pushes the dimer up an energy slope
         scalar parallel_coeff = 0.0;

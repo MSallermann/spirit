@@ -380,6 +380,52 @@ def set_image_type_automatically(p_state, idx_chain=-1):
     )
 
 
+_spirit.Parameters_GNEB_Set_Parallel_Coeff.argtypes = [
+    ctypes.c_void_p,
+    scalar,
+    ctypes.c_int,
+]
+_spirit.Parameters_GNEB_Set_Parallel_Coeff.restype = None
+
+
+def set_parallel_coeff(p_state, coeff, idx_chain=-1):
+    """Set the parallel coeff of the endpoints"""
+    _spirit.Parameters_GNEB_Set_Parallel_Coeff(
+        ctypes.c_void_p(p_state), scalar(coeff), ctypes.c_int(idx_chain)
+    )
+
+
+_spirit.Parameters_GNEB_Set_Orthogonal_Coeff.argtypes = [
+    ctypes.c_void_p,
+    scalar,
+    ctypes.c_int,
+]
+_spirit.Parameters_GNEB_Set_Orthogonal_Coeff.restype = None
+
+
+def set_orthogonal_coeff(p_state, coeff, idx_chain=-1):
+    """Set the orthogonal coeff of the endpoints"""
+    _spirit.Parameters_GNEB_Set_Orthogonal_Coeff(
+        ctypes.c_void_p(p_state), scalar(coeff), ctypes.c_int(idx_chain)
+    )
+
+
+_spirit.Parameters_GNEB_Set_Rotational_Coeff.argtypes = [
+    ctypes.c_void_p,
+    scalar,
+    ctypes.c_int,
+]
+_spirit.Parameters_GNEB_Set_Rotational_Coeff.restype = None
+
+
+def set_rotational_coeff(p_state, coeff, idx_chain=-1):
+    """Set the rotational coeff of the endpoints"""
+
+    _spirit.Parameters_GNEB_Set_Rotational_Coeff(
+        ctypes.c_void_p(p_state), scalar(coeff), ctypes.c_int(idx_chain)
+    )
+
+
 ### ---------------------------------- Get ----------------------------------
 
 _GNEB_Get_N_Iterations = _spirit.Parameters_GNEB_Get_N_Iterations

@@ -42,7 +42,9 @@ struct Parameters_Method_GNEB : Parameters_Method_Solver
     scalar equilibrium_delta_Rx_left  = 1.0;
     scalar equilibrium_delta_Rx_right = 1.0;
 
-    bool escape_first = false;
+    scalar rotational_coeff = 1.0;
+    scalar orthogonal_coeff = 1.0;
+    scalar parallel_coeff = 0.0;
 
     // ----------------- Output --------------
     bool output_energies_step                  = false;
