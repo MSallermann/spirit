@@ -1,4 +1,5 @@
 #pragma once
+#include "engine/Backend_par.hpp"
 #ifndef SPIRIT_CORE_ENGINE_MANIFOLDMATH_HPP
 #define SPIRIT_CORE_ENGINE_MANIFOLDMATH_HPP
 
@@ -41,6 +42,10 @@ void invert_orthogonal( vectorfield & vf1, const vectorfield & vf2 );
 // Project vf1's vectors into the tangent plane of vf2
 //      Note: vf2 must have normalized vectors
 void project_tangential( vectorfield & vf1, const vectorfield & vf2 );
+
+// Return a matrix that transports tangent vectors in the tangent space of point_src to the tangent space of point_dst
+SPIRIT_HD Matrix3
+parallel_transport( const Vector3 & point_src, const Vector3 & point_dst );
 
 // The tangential projector is a matrix which projects any vector into the tangent
 //      space of a vectorfield, considered to live on the direct product of N unit
@@ -113,7 +118,8 @@ void hessian_covariant(
 scalar dist_geodesic( const vectorfield & v1, const vectorfield & v2 );
 
 // Helper function for a more accurate tangent
-void Geodesic_Tangent( vectorfield & tangent, const vectorfield & image_1, const vectorfield & image_2, const vectorfield & image_mid );
+void Geodesic_Tangent(
+    vectorfield & tangent, const vectorfield & image_1, const vectorfield & image_2, const vectorfield & image_mid );
 
 // Calculate the "tangent" vectorfields pointing between a set of configurations
 void Tangents(

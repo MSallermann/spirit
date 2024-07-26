@@ -1,3 +1,4 @@
+#include "engine/Vectormath_Defines.hpp"
 #include <engine/Backend_par.hpp>
 #include <engine/Manifoldmath.hpp>
 #include <engine/Vectormath.hpp>
@@ -20,9 +21,9 @@ namespace Manifoldmath
 void project_parallel( vectorfield & vf1, const vectorfield & vf2 )
 {
     scalar proj = Vectormath::dot( vf1, vf2 );
-    Backend::par::apply(
-        vf1.size(),
-        [vf1 = vf1.data(), vf2 = vf2.data(), proj] SPIRIT_LAMBDA( int idx ) { vf1[idx] = proj * vf2[idx]; } );
+    Backend::par::apply( vf1.size(), [vf1 = vf1.data(), vf2 = vf2.data(), proj] SPIRIT_LAMBDA( int idx ) {
+        vf1[idx] = proj * vf2[idx];
+    } );
 }
 
 void project_orthogonal( vectorfield & vf1, const vectorfield & vf2 )
@@ -32,6 +33,20 @@ void project_orthogonal( vectorfield & vf1, const vectorfield & vf2 )
 #pragma omp parallel for
     for( unsigned int i = 0; i < vf1.size(); ++i )
         vf1[i] -= x * vf2[i];
+}
+
+SPIRIT_HD Matrix3
+parallel_transport( const Vector3 & point_src, const Vector3 & point_dst )
+{
+    const scalar dot   = point_src.dot( point_dst );
+    const Vector3 axis = point_src.cross( point_dst );
+
+    // Rotation matrix that rotates point_src to point_dest
+    const Matrix3 rotation_matrix = abs( dot ) >= 1.0 ?
+                                        Matrix3::Identity() :
+                                        Eigen::AngleAxis<scalar>( acos( dot ), axis.normalized() ).toRotationMatrix();
+
+    return rotation_matrix;
 }
 
 void invert_parallel( vectorfield & vf1, const vectorfield & vf2 )

@@ -14,6 +14,12 @@
 #endif
 // clang-format on
 
+#ifdef SPIRIT_USE_CUDA
+    #define SPIRIT_HD __host__ __device__
+# else
+    #define SPIRIT_HD
+#endif
+
 namespace Engine
 {
 namespace Backend
