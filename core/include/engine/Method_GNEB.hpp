@@ -82,6 +82,8 @@ private:
     vectorfield F_anti_symmetric_left;
     vectorfield F_anti_symmetric_right;
 
+    std::optional<scalar> estimated_curvature{};
+
     // Last calculated tangents
     std::vector<vectorfield> tangents;
 

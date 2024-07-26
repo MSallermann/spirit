@@ -313,11 +313,11 @@ void Method_GNEB<solver>::Calculate_Force(
             parallel_coeff = 1.0;
 
         // The estimated curvature is the finite difference approximation of the Rayleigh quotient
-        // t^T H t / (t^T t)
-        // const scalar estimated_curvature = 
-        if( chain->gneb_parameters->escape_first )
-        {
-            // Estimate the curvature along the tangent and only activate the rotational force, if it is negative
+        // d^T H d / (d^T d), where d is the vector connecting the dimer endpoints
+        const scalar delta_Rx = Rx[1] - Rx[0];
+        // Estimate the curvature along the tangent and only activate the rotational force, if it is negative
+        const scalar dot    = 2.0 * Vectormath::dot( F_anti_symmetric_left, tangents[0] );
+        estimated_curvature = dot / delta_Rx;
             scalar proj_left  = Vectormath::dot( F_gradient[0], tangents[0] );
             scalar proj_right = Vectormath::dot( F_gradient[chain->noi - 1], tangents[chain->noi - 1] );
             if( proj_left > proj_right )
