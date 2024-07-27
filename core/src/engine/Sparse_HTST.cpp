@@ -550,18 +550,18 @@ void Calculate( Data::HTST_Info & htst_info )
 
     std::string msg{};
     msg += "---- Prefactor calculation successful!";
-    msg += fmt::format( "exponent      = {:^20e}", htst_info.temperature_exponent );
-    msg += fmt::format( "me            = {:^20e}", htst_info.me );
-    msg += fmt::format( "m = Omega_0   = {:^20e}", htst_info.Omega_0 );
-    msg += fmt::format( "s             = {:^20e}", htst_info.s );
-    msg += fmt::format( "volume_sp     = {:^20e}", htst_info.volume_sp );
-    msg += fmt::format( "volume_min    = {:^20e}", htst_info.volume_min );
-    msg += fmt::format( "log |det_min| = {:^20e}", htst_info.det_min );
-    msg += fmt::format( "log |det_sp|  = {:^20e}", htst_info.det_sp );
-    msg += fmt::format( "0-mode factor = {:^20e}", zero_mode_factor );
-    msg += fmt::format( "hbar[meV*s]   = {:^20e}", C::hbar * 1e-12 );
-    msg += fmt::format( "v = dynamical prefactor = {:^20e}", htst_info.prefactor_dynamical );
-    msg += fmt::format( "prefactor               = {:^20e}", htst_info.prefactor );
+    msg += fmt::format( "exponent      = {:^20e}\n", htst_info.temperature_exponent );
+    msg += fmt::format( "me            = {:^20e}\n", htst_info.me );
+    msg += fmt::format( "m = Omega_0   = {:^20e}\n", htst_info.Omega_0 );
+    msg += fmt::format( "s             = {:^20e}\n", htst_info.s );
+    msg += fmt::format( "volume_sp     = {:^20e}\n", htst_info.volume_sp );
+    msg += fmt::format( "volume_min    = {:^20e}\n", htst_info.volume_min );
+    msg += fmt::format( "log |det_min| = {:^20e}\n", htst_info.det_min );
+    msg += fmt::format( "log |det_sp|  = {:^20e}\n", htst_info.det_sp );
+    msg += fmt::format( "0-mode factor = {:^20e}\n", zero_mode_factor );
+    msg += fmt::format( "hbar[meV*s]   = {:^20e}\n", C::hbar * 1e-12 );
+    msg += fmt::format( "v = dynamical prefactor = {:^20e}\n", htst_info.prefactor_dynamical );
+    msg += fmt::format( "prefactor               = {:^20e}\n", htst_info.prefactor );
 
     Log_and_Append( Utility::Log_Level::All, Utility::Log_Sender::HTST, msg, -1, -1 );
 }
