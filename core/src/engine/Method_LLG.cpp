@@ -160,11 +160,11 @@ void Method_LLG<solver>::Calculate_Force_Virtual(
 
         // This is the force calculation as it should be for direct minimization
         // TODO: Also calculate force for VP solvers without additional scaling
-        if( solver == Solver::LBFGS_OSO || solver == Solver::LBFGS_Atlas )
+        if( solver == Solver::LBFGS_OSO || solver == Solver::LBFGS_Atlas || solver == Solver::VP || solver == Solver::VP_OSO )
         {
             Vectormath::set_c_cross( 1.0, image, force, force_virtual );
         }
-        else if( parameters.direct_minimization || solver == Solver::VP || solver == Solver::VP_OSO )
+        else if( parameters.direct_minimization )
         {
             dtg = parameters.dt * Constants::gamma / Constants::mu_B;
             Vectormath::set_c_cross( dtg, image, force, force_virtual );
@@ -255,6 +255,8 @@ void Method_LLG<solver>::Hook_Post_Iteration()
     {
         this->force_converged[img] = false;
         // auto fmax = this->Force_on_Image_MaxAbsComponent(*(this->systems[img]->spins), this->forces_virtual[img]);
+
+        // auto fmax = this->MaxTorque_on_Image( *( this->systems[img]->spins ), this->forces[img] );
         auto fmax = this->MaxTorque_on_Image( *( this->systems[img]->spins ), this->forces_virtual[img] );
 
         if( fmax > 0 )
