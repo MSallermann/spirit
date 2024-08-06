@@ -1,7 +1,9 @@
 #pragma once
+#include <optional>
 #ifndef SPIRIT_CORE_DATA_PARAMETERS_METHOD_GNEB_HPP
 #define SPIRIT_CORE_DATA_PARAMETERS_METHOD_GNEB_HPP
 
+#include <Spirit/Spirit_Defines.h>
 #include <data/Parameters_Method_Solver.hpp>
 
 #include <random>
@@ -44,7 +46,7 @@ struct Parameters_Method_GNEB : Parameters_Method_Solver
 
     scalar rotational_coeff = 1.0;
     scalar orthogonal_coeff = 1.0;
-    scalar parallel_coeff = 0.0;
+    scalar parallel_coeff   = 0.0;
 
     // ----------------- Output --------------
     bool output_energies_step                  = false;
