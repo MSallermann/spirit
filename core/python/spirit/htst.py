@@ -192,7 +192,6 @@ def get_eigenvectors_min(p_state, idx_chain=-1):
     """Returns a numpy array view to the eigenvectors at the minimum with `shape(n_eigenmodes_keep, 2*nos)`."""
     n_modes = get_info_dict(p_state)["n_eigenmodes_keep"]
     nos = system.get_nos(p_state, -1, idx_chain)
-    eigenvectors_min = (2 * nos * n_modes * scalar)()
 
     ArrayType = scalar * (2 * nos * n_modes)
     ev_list = [] * (2 * nos * n_modes)
@@ -200,7 +199,7 @@ def get_eigenvectors_min(p_state, idx_chain=-1):
 
     _Get_Eigenvectors_Min(ctypes.c_void_p(p_state), _ev_buffer, ctypes.c_int(idx_chain))
 
-    ev_array = np.array(_ev_buffer)
+    ev_array = np.ctypeslib.as_array(_ev_buffer)
     ev_view = ev_array.view()
     ev_view.shape = (n_modes, 2 * nos)
 

@@ -192,7 +192,7 @@ def start(
     single_shot=False,
     idx_image=-1,
     idx_chain=-1,
-):
+) -> simulation_run_info:
     """Start any kind of iterative calculation method.
 
     - `method_type`: one of the integers defined above
