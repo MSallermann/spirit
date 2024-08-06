@@ -183,7 +183,7 @@ _EMA_Get_Modes.restype = None
 
 
 def get_modes(p_state, idx_image=-1, idx_chain=-1):
-    """Get the modes."""
+    """Get the modes. Shape is (n_modes, 3*nos)"""
 
     n_modes = get_n_modes(p_state, idx_image, idx_chain)
     nos = system.get_nos(p_state, idx_image, idx_chain)
