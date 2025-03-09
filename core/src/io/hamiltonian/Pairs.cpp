@@ -122,6 +122,7 @@ try
                         continue;
 
                     already_in = true;
+                    atposition = icheck;
                     dfact      = pred;
                     break;
                 }
