@@ -462,7 +462,11 @@ try
     // Fetch correct indices and pointers
     auto [image, _] = from_indices( state, idx_image, idx_chain );
     // TODO: we should also check if idx_image < 0 and log the promotion to idx_active_image
-    static vectorfield positions = image->hamiltonian->get_geometry().positions;
+    const auto & image_positions = image->hamiltonian->get_geometry().positions;
+    static auto positions        = std::vector<Vector3>( image_positions.size(), Vector3::Zero() );
+    if( positions.size() != image_positions.size() )
+        positions.resize( image_positions.size() );
+    std::copy( image_positions.begin(), image_positions.end(), positions.begin() );
     return (scalar *)positions[0].data();
 }
 catch( ... )
@@ -479,7 +483,11 @@ try
     auto [image, chain] = from_indices( state, idx_image, idx_chain );
 
     // TODO: we should also check if idx_image < 0 and log the promotion to idx_active_image
-    static intfield atom_types = image->hamiltonian->get_geometry().atom_types;
+    const auto & image_atom_types = image->hamiltonian->get_geometry().atom_types;
+    static auto atom_types        = std::vector<int>( image_atom_types.size(), 0 );
+    if( atom_types.size() != image_atom_types.size() )
+        atom_types.resize( image_atom_types.size() );
+    std::copy( image_atom_types.begin(), image_atom_types.end(), atom_types.begin() );
     return (int *)atom_types.data();
 }
 catch( ... )
@@ -622,7 +630,12 @@ try
     // Fetch correct indices and pointers
     auto [image, chain] = from_indices( state, idx_image, idx_chain );
 
-    static std::vector<Vector3> cell_atoms = image->hamiltonian->get_geometry().cell_atoms;
+    const auto & image_cell_atoms = image->hamiltonian->get_geometry().cell_atoms;
+    static auto cell_atoms        = std::vector<Vector3>( image_cell_atoms.size(), Vector3::Zero() );
+    if( cell_atoms.size() != image_cell_atoms.size() )
+        cell_atoms.resize( image_cell_atoms.size() );
+    std::copy( image_cell_atoms.begin(), image_cell_atoms.end(), cell_atoms.begin() );
+
     if( atoms != nullptr )
         *atoms = reinterpret_cast<scalar *>( cell_atoms[0].data() );
 
