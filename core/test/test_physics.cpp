@@ -51,6 +51,8 @@ TEST_CASE( "Dynamics solvers should follow Larmor precession", "[physics]" )
 
     // Create State
     auto state = std::shared_ptr<State>( State_Setup( input_file ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     // Set up one the initial direction of the spin
     scalar init_direction[3] = { 1., 0., 0. };           // vec parallel to x-axis
@@ -122,6 +124,8 @@ TEST_CASE(
 
     // Create State
     auto state = std::shared_ptr<State>( State_Setup( input_file ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     // Set up one the initial direction of the spin
     static constexpr scalar theta  = 0.1 * Utility::Constants::Pi;
@@ -218,6 +222,8 @@ TEST_CASE( "Finite difference and regular Hamiltonian should match", "[physics]"
         INFO( " Testing " << input_file );
 
         auto state = std::shared_ptr<State>( State_Setup( input_file ), State_Delete );
+        REQUIRE( state != nullptr );
+        REQUIRE( !state->config_file.empty() );
         Configuration_Random( state.get() );
         const auto & system_state = *state->active_image->state;
         auto & hamiltonian        = state->active_image->hamiltonian;
@@ -269,6 +275,8 @@ TEST_CASE( "Dipole-Dipole Interaction", "[physics]" )
     // Config file where only DDI is enabled
     constexpr auto input_file = "core/test/input/physics_ddi.cfg";
     auto state                = std::shared_ptr<State>( State_Setup( input_file ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     Configuration_Random( state.get() );
     auto & system_state = *state->active_image->state;

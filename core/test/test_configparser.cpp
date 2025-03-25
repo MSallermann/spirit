@@ -36,6 +36,8 @@ TEST_CASE( "Parse Hamiltonian (Pairs) config and check parsed values using the C
     static constexpr auto input_file = "core/test/input/configparser_hamiltonian_pairs.cfg";
 
     auto state = std::shared_ptr<State>( State_Setup( input_file ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     SECTION( "External field" )
     {

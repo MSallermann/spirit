@@ -28,6 +28,7 @@ TEST_CASE( "State", "[state]" )
 
         // Test the default config explicitly
         CHECK_NOTHROW( state = std::shared_ptr<State>( State_Setup(), State_Delete ) );
+        REQUIRE( state != nullptr );
         CHECK_NOTHROW( Configuration_PlusZ( state.get() ) );
         CHECK_NOTHROW( Simulation_LLG_Start( state.get(), Solver_VP, 1 ) );
 
@@ -35,11 +36,15 @@ TEST_CASE( "State", "[state]" )
         CHECK_NOTHROW(
             state
             = std::shared_ptr<State>( State_Setup( "__surely__this__file__does__not__exist__.cfg" ), State_Delete ) );
+        REQUIRE( state != nullptr );
+        REQUIRE( state->config_file.empty() );
         CHECK_NOTHROW( Configuration_PlusZ( state.get() ) );
         CHECK_NOTHROW( Simulation_LLG_Start( state.get(), Solver_VP, 1 ) );
 
         // Test the default input file
         CHECK_NOTHROW( state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete ) );
+        REQUIRE( state != nullptr );
+        REQUIRE( !state->config_file.empty() );
 
         // TODO: actual test
     }
@@ -48,6 +53,8 @@ TEST_CASE( "State", "[state]" )
     {
         // Create a state with two images. Let the second one to be the active
         auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+        REQUIRE( state != nullptr );
+        REQUIRE( !state->config_file.empty() );
         Chain_Image_to_Clipboard( state.get(), 0, 0 );   // Copy to "clipboard"
         Chain_Insert_Image_Before( state.get(), 0, 0 );  // Add before active
         REQUIRE( Chain_Get_NOI( state.get() ) == 2 );    // Number of images is 2
@@ -80,6 +87,8 @@ TEST_CASE( "State", "[state]" )
 TEST_CASE( "Configurations", "[configurations]" )
 {
     auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     // Filters
     scalar position[3]{ 0, 0, 0 };
@@ -156,7 +165,9 @@ TEST_CASE( "Quantities", "[quantities]" )
 {
     SECTION( "Magnetization" )
     {
-        auto state  = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+        auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+        REQUIRE( state != nullptr );
+        REQUIRE( !state->config_file.empty() );
         scalar m[3] = { 0, 0, 1 };
 
         SECTION( "001" )
@@ -185,6 +196,8 @@ TEST_CASE( "Quantities", "[quantities]" )
     SECTION( "Topological Charge" )
     {
         auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+        REQUIRE( state != nullptr );
+        REQUIRE( !state->config_file.empty() );
 
         SECTION( "negative charge" )
         {

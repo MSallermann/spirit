@@ -56,6 +56,7 @@ using Catch::Matchers::WithinAbs;
 TEST_CASE( "Uniaxial nisotropy", "[anisotropy]" )
 {
     auto state = std::shared_ptr<State>( State_Setup(), State_Delete );
+    REQUIRE( state != nullptr );
 
     // Set the uniaxial anisotropy
     scalar init_magnitude = 0.1;
@@ -122,6 +123,7 @@ TEST_CASE( "Cubic anisotropy", "[anisotropy]" )
     using Engine::Spin::StateType;
 
     auto state = std::shared_ptr<State>( State_Setup(), State_Delete );
+    REQUIRE( state != nullptr );
     StateType system_state{ vectorfield( state->nos ) };
 
     // Set uniaxial anisotropy to zero
@@ -215,6 +217,7 @@ TEST_CASE( "Biaxial anisotropy", "[anisotropy]" )
     using Engine::Spin::StateType;
 
     auto state = std::shared_ptr<State>( State_Setup(), State_Delete );
+    REQUIRE( state != nullptr );
 
     int idx_image = -1, idx_chain = -1;
     auto [image, chain] = from_indices( state.get(), idx_image, idx_chain );

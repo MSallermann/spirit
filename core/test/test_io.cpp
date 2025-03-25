@@ -21,6 +21,8 @@ using Catch::Matchers::WithinAbs;
 TEST_CASE( "IO: files written and read back in should restore the spin configuration", "[io]" )
 {
     auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     // files to be written
     std::vector<std::pair<std::string, int>> files{
@@ -67,6 +69,8 @@ TEST_CASE( "IO: files written and read back in should restore the spin configura
 TEST_CASE( "IO-EIGENMODE-WRITE", "[io-ema]" )
 {
     auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     // Files to be written
     std::vector<std::pair<std::string, int>> files{
@@ -94,6 +98,8 @@ TEST_CASE( "IO-EIGENMODE-WRITE", "[io-ema]" )
 TEST_CASE( "IO-CHAIN-WRITE", "[io-chain]" )
 {
     auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     // Create 2 additional images
     Chain_Image_to_Clipboard( state.get() );
@@ -130,6 +136,8 @@ TEST_CASE( "IO-CHAIN-WRITE", "[io-chain]" )
 TEST_CASE( "IO-CHAIN-READ", "[io-chain]" )
 {
     auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     std::vector<std::pair<std::string, int>> filetypes{
         { "core/test/io_test_files/chain_ovf_bin_4.ovf", IO_Fileformat_OVF_bin4 },
@@ -204,6 +212,8 @@ TEST_CASE( "IO-OVF-CAPITALIZATION", "[io-ovf]" )
 
     // 2. Read the upper case file
     auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     IO_Image_Read( state.get(), "core/test/io_test_files/image_ovf_txt_CAP.ovf" );
 
@@ -266,6 +276,8 @@ TEST_CASE( "IO-READ-TXT-AND-CSV", "[io-txt-csv]" )
         to = filetypes[i].second;
 
         auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+        REQUIRE( state != nullptr );
+        REQUIRE( !state->config_file.empty() );
 
         IO_Image_Read( state.get(), to.c_str() );
 
@@ -289,6 +301,8 @@ TEST_CASE( "IO-READ-TXT-AND-CSV", "[io-txt-csv]" )
         to = filetypes[i].second;
 
         auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+        REQUIRE( state != nullptr );
+        REQUIRE( !state->config_file.empty() );
 
         IO_Chain_Read( state.get(), to.c_str() );
 
@@ -316,6 +330,8 @@ TEST_CASE( "IO-OVF-N_SEGMENTS", "[io-OVF-n_segments]" )
     };
 
     auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     std::string file;
     int noi_read  = 0;
@@ -337,6 +353,8 @@ TEST_CASE( "IO-OVF-N_SEGMENTS", "[io-OVF-n_segments]" )
 TEST_CASE( "IO-INTERACTION-PAIRS", "[io-interactions-pairs]" )
 {
     auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     IO_Image_Write_Neighbours_Exchange( state.get(), "core/test/io_test_files/neighbours_J.dat" );
     IO_Image_Write_Neighbours_DMI( state.get(), "core/test/io_test_files/neighbours_DMI.dat" );

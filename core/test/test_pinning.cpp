@@ -48,6 +48,8 @@ TEST_CASE( "Dynamics solvers should follow Larmor precession with one pinned spi
 
     // Create State
     auto state = std::shared_ptr<State>( State_Setup( input_file ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     const auto setup = []( auto * state )
     {

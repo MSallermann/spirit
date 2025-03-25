@@ -38,7 +38,10 @@ TEST_CASE( "Direction Constrained Monte Carlo should preserve direction", "[mc]"
     constexpr auto input_file = "core/test/input/mc.cfg";
 
     // Set up the initial direction of the spins
-    auto state                   = std::shared_ptr<State>( State_Setup( input_file ), State_Delete );
+    auto state = std::shared_ptr<State>( State_Setup( input_file ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
+
     const Vector3 init_direction = Vector3{ 0.99, 0., 0.1 }.normalized();
     Configuration_Domain( state.get(), init_direction.data() );
 
@@ -85,6 +88,8 @@ TEST_CASE( "Single Spin Energy Difference should agree with plain energy differe
 
     // Set up the initial direction of the spins
     auto state = std::shared_ptr<State>( State_Setup( input_file ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     const Vector3 init_direction = Vector3{ 0, 0., 1.0 };
     Configuration_Domain( state.get(), init_direction.data() );

@@ -9,6 +9,7 @@
 #include <Spirit/System.h>
 #include <Spirit/Transitions.h>
 #include <Spirit/Version.h>
+#include <data/State.hpp>
 #include <engine/spin/Method_Solver.hpp>
 
 #include "catch.hpp"
@@ -52,6 +53,8 @@ TEST_CASE( "Solvers should find Skyrmion energy minimum with direct minimization
     std::vector<scalar> magnetization_expected{ 0, 0, 2.0 * 0.79977 };
 
     auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     // Reduce convergence threshold if float accuracy
     if( std::string( Spirit_Scalar_Type() ) == "float" )
@@ -98,6 +101,8 @@ TEST_CASE( "Solvers should find Skyrmion collapse barrier with GNEB method", "[s
     std::vector<scalar> magnetization_sp_expected{ 0, 0, 2.0 * 0.96657 };
 
     auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     // Reduce convergence threshold if float accuracy
     if( std::string( Spirit_Scalar_Type() ) == "float" )

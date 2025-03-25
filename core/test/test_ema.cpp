@@ -12,6 +12,8 @@ constexpr auto inputfile = "core/test/input/fd_pairs.cfg";
 TEST_CASE( "Trivial", "[EMA]" )
 {
     auto state = std::shared_ptr<State>( State_Setup( inputfile ), State_Delete );
+    REQUIRE( state != nullptr );
+    REQUIRE( !state->config_file.empty() );
 
     Parameters_EMA_Set_N_Modes( state.get(), 4 );
     Parameters_EMA_Set_N_Mode_Follow( state.get(), 0 );

@@ -55,6 +55,9 @@ TEST_CASE( "Ensure that Hamiltonian is really just an aggregator", "[aggregation
         INFO( " Testing" << input_file );
 
         auto state = std::shared_ptr<State>( State_Setup( input_file ), State_Delete );
+        REQUIRE( state != nullptr );
+        REQUIRE( !state->config_file.empty() );
+
         Configuration_Random( state.get() );
         const auto & spins = *state->active_image->state;
         auto & hamiltonian = state->active_image->hamiltonian;
