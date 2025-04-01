@@ -65,7 +65,7 @@
 # $DateTime: 2020/06/01 22:17:03 $$Author: bbarber $
 
 project(qhull)
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required( VERSION 3.5 FATAL_ERROR )
 
 # Define qhull_VERSION in README.txt, Announce.txt, qh-get.htm, CMakeLists.txt
 #   qhull-zip.sh (twice), qhull-wiki.md, qhull-news.htm, File_id.diz, index.htm
