@@ -2,6 +2,7 @@
 #ifndef SPIRIT_CORE_ENGINE_INTERACTION_DMI_HPP
 #define SPIRIT_CORE_ENGINE_INTERACTION_DMI_HPP
 
+#include <engine/Index_Container.hpp>
 #include <engine/Indexing.hpp>
 #include <engine/Neighbours.hpp>
 #include <engine/Span.hpp>
@@ -67,14 +68,11 @@ struct DMI
         return !cache.pairs.empty();
     }
 
-    struct IndexType
+    struct Index
     {
         int ispin, jspin, ipair;
         bool inverse;
     };
-
-    using Index        = Engine::Span<const IndexType>;
-    using IndexStorage = Backend::vector<IndexType>;
 
     using Energy   = Functor::Local::Energy_Functor<Functor::Local::DataRef<DMI>>;
     using Gradient = Functor::Local::Gradient_Functor<Functor::Local::DataRef<DMI>>;
@@ -92,12 +90,12 @@ struct DMI
     // Interaction name as string
     static constexpr std::string_view name = "DMI";
 
-    template<typename IndexStorageVector>
     static void applyGeometry(
         const ::Data::Geometry & geometry, const intfield & boundary_conditions, const Data & data, Cache & cache,
-        IndexStorageVector & indices )
+        IndexContainer<DMI> & container )
     {
         using Indexing::idx_from_pair;
+        auto indices = std::vector( geometry.nos, field<Index>{} );
 
         // redundant neighbours are captured when expanding pairs below
         static constexpr bool use_redundant_neighbours = false;
@@ -136,13 +134,13 @@ struct DMI
                     cache.pairs[i_pair] );
                 if( jspin >= 0 )
                 {
-                    Backend::get<IndexStorage>( indices[ispin] )
-                        .push_back( IndexType{ ispin, jspin, (int)i_pair, false } );
-                    Backend::get<IndexStorage>( indices[jspin] )
-                        .push_back( IndexType{ jspin, ispin, (int)i_pair, true } );
+                    indices[ispin].push_back( Index{ ispin, jspin, (int)i_pair, false } );
+                    indices[jspin].push_back( Index{ jspin, ispin, (int)i_pair, true } );
                 }
             };
         }
+
+        container = make_index_container<DMI>( std::move( indices ) );
     }
 };
 
@@ -168,12 +166,12 @@ protected:
 };
 
 template<>
-inline scalar DMI::Energy::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline scalar DMI::Energy::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
     // don't need to check for `is_contributing` here, because `transform_reduce` will short circuit properly
     return Backend::transform_reduce(
         index.begin(), index.end(), scalar( 0.0 ), Backend::plus<scalar>{},
-        [this, state] SPIRIT_LAMBDA( const DMI::IndexType & idx ) -> scalar
+        [this, state] SPIRIT_LAMBDA( const Index & idx ) -> scalar
         {
             const auto & [ispin, jspin, i_pair, inverse] = idx;
             return ( inverse ? 0.5 : -0.5 ) * magnitudes[i_pair]
@@ -182,12 +180,12 @@ inline scalar DMI::Energy::operator()( const Index & index, quantity<const Vecto
 }
 
 template<>
-inline Vector3 DMI::Gradient::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline Vector3 DMI::Gradient::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
     // don't need to check for `is_contributing` here, because `transform_reduce` will short circuit properly
     return Backend::transform_reduce(
         index.begin(), index.end(), Vector3{ 0.0, 0.0, 0.0 }, Backend::plus<Vector3>{},
-        [this, state] SPIRIT_LAMBDA( const DMI::IndexType & idx ) -> Vector3
+        [this, state] SPIRIT_LAMBDA( const Index & idx ) -> Vector3
         {
             const auto & [ispin, jspin, i_pair, inverse] = idx;
             return ( inverse ? 1.0 : -1.0 ) * magnitudes[i_pair] * state.spin[jspin].cross( normals[i_pair] );
@@ -196,12 +194,12 @@ inline Vector3 DMI::Gradient::operator()( const Index & index, quantity<const Ve
 
 template<>
 template<typename Callable>
-void DMI::Hessian::operator()( const Index & index, const StateType &, Callable & hessian ) const
+void DMI::Hessian::operator()( Span<const Index> index, const StateType &, Callable & hessian ) const
 {
     // don't need to check for `is_contributing` here, because `for_each` will short circuit properly
     Backend::cpu::for_each(
         index.begin(), index.end(),
-        [this, &index, &hessian]( const DMI::IndexType & idx )
+        [this, &hessian]( const Index & idx )
         {
             const int i       = 3 * idx.ispin;
             const int j       = 3 * idx.jspin;

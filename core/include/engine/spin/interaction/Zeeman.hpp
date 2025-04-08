@@ -2,6 +2,7 @@
 #ifndef SPIRIT_CORE_ENGINE_INTERACTION_ZEEMANN_HPP
 #define SPIRIT_CORE_ENGINE_INTERACTION_ZEEMANN_HPP
 
+#include <engine/Index_Container.hpp>
 #include <engine/Indexing.hpp>
 #include <engine/spin/StateType.hpp>
 #include <engine/spin/interaction/Functor_Prototypes.hpp>
@@ -30,13 +31,10 @@ struct Zeeman
                   external_field_normal( std::move( external_field_normal ) ) {};
     };
 
-    struct IndexType
+    struct Index
     {
         int ispin;
     };
-
-    using Index        = const IndexType *;
-    using IndexStorage = Backend::optional<IndexType>;
 
     struct Cache
     {
@@ -64,11 +62,12 @@ struct Zeeman
     // Interaction name as string
     static constexpr std::string_view name = "Zeeman";
 
-    template<typename IndexStorageVector>
     static void applyGeometry(
-        const ::Data::Geometry & geometry, const intfield &, const Data &, Cache & cache, IndexStorageVector & indices )
+        const ::Data::Geometry & geometry, const intfield &, const Data &, Cache & cache,
+        IndexContainer<Zeeman> & container )
     {
         using Indexing::check_atom_type;
+        auto indices = std::vector( geometry.nos, field<Index>{} );
 
         const auto N = geometry.n_cell_atoms;
 
@@ -79,11 +78,12 @@ struct Zeeman
                 const int ispin = icell * N + ibasis;
                 if( check_atom_type( geometry.atom_types[ispin] ) )
                 {
-                    Backend::get<IndexStorage>( indices[ispin] ) = IndexType{ ispin };
+                    indices[ispin].push_back( Index{ ispin } );
                 }
             };
         }
 
+        container      = make_index_container<Zeeman>( std::move( indices ) );
         cache.geometry = &geometry;
     }
 };
@@ -112,31 +112,33 @@ protected:
 };
 
 template<>
-inline scalar Zeeman::Energy::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline scalar Zeeman::Energy::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
-    if( is_contributing && index != nullptr && index->ispin >= 0 )
-    {
-        const auto ispin = index->ispin;
-        return -mu_s[ispin] * external_field_magnitude * external_field_normal.dot( state.spin[ispin] );
-    }
+    if( !is_contributing )
+        return 0.0;
     else
-        return 0;
+        return Backend::transform_reduce(
+            index.begin(), index.end(), scalar( 0.0 ), Backend::plus<scalar>{},
+            [this, state] SPIRIT_LAMBDA( const Index & idx ) -> scalar {
+                return -mu_s[idx.ispin] * external_field_magnitude * external_field_normal.dot( state.spin[idx.ispin] );
+            } );
 }
 
 template<>
-inline Vector3 Zeeman::Gradient::operator()( const Index & index, quantity<const Vector3 *> ) const
+inline Vector3 Zeeman::Gradient::operator()( Span<const Index> index, quantity<const Vector3 *> ) const
 {
-    if( is_contributing && index != nullptr && index->ispin >= 0 )
-    {
-        return -mu_s[index->ispin] * external_field_magnitude * external_field_normal;
-    }
-    else
+    if( !is_contributing )
         return Vector3::Zero();
+    else
+        return Backend::transform_reduce(
+            index.begin(), index.end(), Vector3{ Vector3::Zero() }, Backend::plus<Vector3>{},
+            [this] SPIRIT_LAMBDA( const Index & idx ) -> Vector3
+            { return -mu_s[idx.ispin] * external_field_magnitude * external_field_normal; } );
 }
 
 template<>
 template<typename Callable>
-void Zeeman::Hessian::operator()( const Index &, const StateType &, Callable & ) const {};
+void Zeeman::Hessian::operator()( Span<const Index>, const StateType &, Callable & ) const {};
 
 } // namespace Interaction
 

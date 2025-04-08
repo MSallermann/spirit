@@ -8,10 +8,9 @@ set(HEADER_SPIRIT_ENGINE_COMMON_INTERACTION
 set(HEADER_SPIRIT_ENGINE_COMMON
     ${HEADER_SPIRIT_ENGINE_COMMON}
     ${CMAKE_CURRENT_SOURCE_DIR}/Functor_Dispatch.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/Hamiltonian.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/Interaction_Standalone_Adaptor.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Interaction_Traits.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Interaction_Wrapper.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Hamiltonian.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/StateType.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Method_MC.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Method_LLG.hpp

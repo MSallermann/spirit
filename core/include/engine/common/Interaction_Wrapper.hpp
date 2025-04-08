@@ -1,11 +1,13 @@
 #pragma once
 
 #include <data/Geometry.hpp>
+#include <engine/Index_Container.hpp>
+#include <engine/StateType.hpp>
 #include <engine/Vectormath_Defines.hpp>
 #include <engine/common/Interaction_Traits.hpp>
 #include <engine/common/interaction/Functor_Prototypes.hpp>
+#include <utility/Exception.hpp>
 
-#include <memory>
 #include <optional>
 
 namespace Engine
@@ -17,49 +19,29 @@ namespace Common
 namespace Interaction
 {
 
-template<typename InteractionType>
-struct InteractionWrapper;
-
-template<typename InteractionType>
-class StandaloneFactory;
-
-template<typename InteractionType>
-struct InteractionWrapper
+template<typename state_type>
+struct IWrapper
 {
-    using Interaction = InteractionType;
-    using Data        = typename Interaction::Data;
-    using Cache       = typename Interaction::Cache;
+    virtual ~IWrapper() = default;
 
-    static_assert(
-        std::is_default_constructible<Cache>::value, "InteractionType::Cache has to be default constructible" );
+    using state_t = state_type;
 
-    template<typename AdaptorType>
-    friend class StandaloneFactory;
+    virtual scalar Energy( const state_t & state )                                       = 0;
+    virtual void Energy_per_Spin( const state_t & state, scalarfield & energy_per_spin ) = 0;
+    virtual scalar Energy_Single_Spin( int ispin, const state_t & state )                = 0;
+    virtual std::string_view Name() const                                                = 0;
+    virtual bool is_contributing() const                                                 = 0;
 
-    constexpr InteractionWrapper() = default;
-    explicit InteractionWrapper( typename InteractionType::Data && init_data ) : data( init_data ), cache() {};
-    explicit InteractionWrapper( const typename InteractionType::Data & init_data ) : data( init_data ), cache() {};
+protected:
+    constexpr IWrapper() = default;
+};
 
-    // applyGeometry
-    void applyGeometry( const ::Data::Geometry & geometry, const intfield & boundary_conditions )
-    {
-        static_assert( !is_local<InteractionType>::value );
-        Interaction::applyGeometry( geometry, boundary_conditions, data, cache );
-    }
+template<typename InteractionType, typename Adaptor>
+struct Wrapper;
 
-    template<typename IndexVector>
-    void applyGeometry( const ::Data::Geometry & geometry, const intfield & boundary_conditions, IndexVector & indices )
-    {
-        static_assert( is_local<InteractionType>::value );
-        Interaction::applyGeometry( geometry, boundary_conditions, data, cache, indices );
-    }
-
-    // is_contributing
-    bool is_contributing() const
-    {
-        return Interaction::is_contributing( data, cache );
-    }
-
+template<typename InteractionType, typename Adaptor>
+struct Wrapper : public Adaptor
+{
 private:
     template<typename T>
     struct has_valid_check
@@ -76,6 +58,44 @@ private:
     };
 
 public:
+    using Interaction    = InteractionType;
+    using Data           = typename Interaction::Data;
+    using Cache          = typename Interaction::Cache;
+    using IndexContainer = Engine::IndexContainer<Interaction>;
+
+    using state_t = typename Adaptor::state_t;
+
+    static_assert(
+        std::is_default_constructible<Cache>::value, "InteractionType::Cache has to be default constructible" );
+    static_assert(
+        std::is_default_constructible<Data>::value, "InteractionType::Data has to be default constructible" );
+
+    constexpr Wrapper() = default;
+    explicit Wrapper( typename InteractionType::Data && init_data )
+            : Adaptor(), data( std::move( init_data ) ), cache() {};
+    explicit Wrapper( const typename InteractionType::Data & init_data ) : Adaptor(), data( init_data ), cache() {};
+
+    // applyGeometry
+    void applyGeometry( const ::Data::Geometry & geometry, const intfield & boundary_conditions )
+    {
+        if constexpr( is_local<Interaction>::value )
+        {
+            Interaction::applyGeometry( geometry, boundary_conditions, data, cache, indices );
+            if( !Engine::verify_index_container( indices ) )
+                spirit_throw(
+                    Utility::Exception_Classifier::Standard_Exception, Utility::Log_Level::Error,
+                    fmt::format( "Invalid indices set on interaction: '{}'", this->Name() ) );
+        }
+        else
+            Interaction::applyGeometry( geometry, boundary_conditions, data, cache );
+    }
+
+    // is_contributing
+    bool is_contributing() const final
+    {
+        return Interaction::is_contributing( data, cache );
+    }
+
     // set_data
     auto set_data( typename Interaction::Data && new_data ) -> std::optional<std::string>
     {
@@ -87,68 +107,114 @@ public:
         return std::nullopt;
     };
 
-    // Sparse_Hessian_Size_per_Cell
-    std::size_t Sparse_Hessian_Size_per_Cell() const
+    auto get_data() const -> const Data &
     {
-        return Interaction::Sparse_Hessian_Size_per_Cell( data, cache );
+        return data;
     }
 
-    Data data{};
-    Cache cache = Cache();
-};
+    auto get_cache() const -> const Cache &
+    {
+        return cache;
+    }
 
-template<template<typename> typename FunctorAccessor, typename InteractionType>
-FunctorAccessor<InteractionType> make_functor( InteractionWrapper<InteractionType> & interaction ) noexcept(
-    std::is_nothrow_constructible<
-        FunctorAccessor<InteractionType>, typename InteractionType::Data, typename InteractionType::Cache>::value )
-{
-    return FunctorAccessor<InteractionType>( interaction.data, interaction.cache );
-}
+    void set_ptr_address( ::Data::Geometry * geometry, intfield * boundary_conditions )
+    {
+        if constexpr( Common::Interaction::has_geometry_member<Cache>::value )
+            cache.geometry = geometry;
 
-template<typename StandaloneFactoryType, typename... WrappedInteractionType, typename Iterator>
-constexpr Iterator
-generate_active_nonlocal( Backend::tuple<WrappedInteractionType...> & interactions, Iterator iterator )
-{
-    static_assert(
-        std::conjunction<std::negation<is_local<typename WrappedInteractionType::Interaction>>...>::value,
-        "all interaction types in tuple must be non-local" );
+        if constexpr( Common::Interaction::has_bc_member<Cache>::value )
+            cache.boundary_conditions = boundary_conditions;
+    }
 
-    return Backend::apply(
-        [&iterator]( WrappedInteractionType &... elements )
+    scalar Energy( const state_t & state ) final
+    {
+        if constexpr( is_local<Interaction>::value )
         {
-            ( ...,
-              [&iterator]( WrappedInteractionType & interaction )
-              {
-                  if( interaction.is_contributing() )
-                      *( iterator++ ) = StandaloneFactoryType::make_standalone( interaction );
-              }( elements ) );
+            if( this->indices.offsets.size() <= 1 )
+                return 0;
 
-            return iterator;
-        },
-        interactions );
-};
+            const int n_spans = this->indices.offsets.size() - 1;
 
-template<typename StandaloneFactoryType, typename... WrappedInteractionType, typename IndexVector, typename Iterator>
-constexpr Iterator generate_active_local(
-    Backend::tuple<WrappedInteractionType...> & interactions, const IndexVector & indices, Iterator iterator )
-{
-    static_assert(
-        std::conjunction<is_local<typename WrappedInteractionType::Interaction>...>::value,
-        "all interaction types in tuple must be local" );
+            auto state_ptr          = static_cast<typename state_traits<state_t>::const_pointer>( state.data() );
+            auto functor            = typename Interaction::Energy( data, cache );
+            const auto * idx_offset = indices.offsets.data();
+            const auto * idx_data   = indices.data.data();
 
-    return Backend::apply(
-        [&indices, &iterator]( WrappedInteractionType &... elements )
+            return Backend::transform_reduce(
+                SPIRIT_PAR Backend::make_counting_iterator<int>( 0 ), Backend::make_counting_iterator<int>( n_spans ),
+                scalar( 0.0 ), Backend::plus<scalar>{},
+                [state_ptr, functor, idx_offset, idx_data] SPIRIT_LAMBDA( const int idx ) {
+                    return functor(
+                        Span( idx_data + idx_offset[idx], idx_offset[idx + 1] - idx_offset[idx] ), state_ptr );
+                } );
+        }
+        else
         {
-            ( ...,
-              [&indices, &iterator]( WrappedInteractionType & interaction )
-              {
-                  if( interaction.is_contributing() )
-                      *( iterator++ ) = StandaloneFactoryType::make_standalone( interaction, indices );
-              }( elements ) );
+            return std::invoke( typename Interaction::Energy_Total( data, cache ), state );
+        }
+    }
+    void Energy_per_Spin( const state_t & state, scalarfield & energy_per_spin ) final
+    {
+        if constexpr( is_local<Interaction>::value )
+        {
+            if( this->indices.offsets.size() <= 1 )
+                return;
 
-            return iterator;
-        },
-        interactions );
+            const int n_spans = this->indices.offsets.size() - 1;
+
+            if( energy_per_spin.size() != n_spans )
+                spirit_throw(
+                    Utility::Exception_Classifier::Standard_Exception, Utility::Log_Level::Error,
+                    fmt::format(
+                        "Mismatched size for indices in Energy caclulation (Interaction: '{}')", this->Name() ) );
+
+            auto state_ptr          = static_cast<typename state_traits<state_t>::const_pointer>( state.data() );
+            auto functor            = typename Interaction::Energy( data, cache );
+            const auto * idx_offset = indices.offsets.data();
+            const auto * idx_data   = indices.data.data();
+            auto * energy           = energy_per_spin.data();
+
+            Backend::for_each_n(
+                SPIRIT_PAR Backend::make_counting_iterator<int>( 0 ), n_spans,
+                [state_ptr, functor, idx_offset, idx_data, energy] SPIRIT_LAMBDA( const int idx ) {
+                    energy[idx] += functor(
+                        Span( idx_data + idx_offset[idx], idx_offset[idx + 1] - idx_offset[idx] ), state_ptr );
+                } );
+        }
+        else
+        {
+            std::invoke( typename Interaction::Energy( data, cache ), state, energy_per_spin );
+        }
+    }
+
+    scalar Energy_Single_Spin( const int ispin, const state_t & state ) final
+    {
+        if constexpr( is_local<Interaction>::value )
+        {
+            if( this->indices.offsets.size() <= 1 )
+                return 0.0;
+
+            return std::invoke(
+                typename Interaction::Energy_Single_Spin( data, cache ),
+                Span<const typename Interaction::Index>(
+                    indices.data.data() + indices.offsets[ispin], indices.offsets[ispin + 1] - indices.offsets[ispin] ),
+                state.data() );
+        }
+        else
+        {
+            return std::invoke( typename Interaction::Energy_Single_Spin( data, cache ), ispin, state );
+        }
+    }
+
+    std::string_view Name() const final
+    {
+        return Interaction::name;
+    }
+
+protected:
+    Data data              = Data();
+    Cache cache            = Cache();
+    IndexContainer indices = IndexContainer();
 };
 
 } // namespace Interaction

@@ -4,7 +4,7 @@
 
 #include <engine/Vectormath_Defines.hpp>
 #include <engine/common/Hamiltonian.hpp>
-#include <engine/spin/Interaction_Standalone_Adaptor.hpp>
+#include <engine/spin/Interaction_Wrapper.hpp>
 #include <engine/spin/interaction/Anisotropy.hpp>
 #include <engine/spin/interaction/Biaxial_Anisotropy.hpp>
 #include <engine/spin/interaction/Cubic_Anisotropy.hpp>
@@ -21,14 +21,13 @@ namespace Engine
 
 namespace Spin
 {
-// TODO: look into mixins and decide if they are more suitable to compose the `Hamiltonian` and `StandaloneAdaptor` types
-
-namespace Accessor = Common::Accessor;
-namespace Functor  = Common::Functor;
 
 // clang-format off
 using HamiltonianBase = Common::Hamiltonian<
-    StateType, Spin::Interaction::StandaloneAdaptor<StateType>,
+    // interaction wrapping
+    Interaction::IWrapper<StateType>,
+    Interaction::Wrapper,
+    // list of interactions
     Interaction::Zeeman,
     Interaction::Anisotropy,
     Interaction::Biaxial_Anisotropy,
@@ -51,22 +50,26 @@ public:
     void Hessian( const state_t & state, MatrixX & hessian )
     {
         hessian.setZero();
-        Hessian_Impl( state, Interaction::Functor::dense_hessian_wrapper( hessian ) );
+        Backend::apply(
+            [&state, hessian = Interaction::Functor::dense_hessian_wrapper( hessian )]( auto &... interaction )
+            { ( ..., interaction.Hessian_Impl( state, hessian ) ); }, interactions );
     };
 
     void Sparse_Hessian( const state_t & state, SpMatrixX & hessian )
     {
         std::vector<Common::Interaction::triplet> tripletList;
         tripletList.reserve( get_geometry().n_cells_total * Sparse_Hessian_Size_per_Cell() );
-        Hessian_Impl( state, Interaction::Functor::sparse_hessian_wrapper( tripletList ) );
+        Backend::apply(
+            [&state, hessian = Interaction::Functor::sparse_hessian_wrapper( tripletList )]( auto &... interaction )
+            { ( ..., interaction.Hessian_Impl( state, hessian ) ); }, interactions );
         hessian.setFromTriplets( tripletList.begin(), tripletList.end() );
     };
 
     std::size_t Sparse_Hessian_Size_per_Cell() const
     {
-        auto func = []( const auto &... interaction ) -> std::size_t
-        { return ( std::size_t( 0 ) + ... + interaction.Sparse_Hessian_Size_per_Cell() ); };
-        return Backend::apply( func, local ) + Backend::apply( func, nonlocal );
+        return Backend::apply(
+            []( const auto &... interaction ) -> std::size_t
+            { return ( std::size_t( 0 ) + ... + interaction.Sparse_Hessian_Size_per_Cell() ); }, interactions );
     };
 
     void Gradient( const state_t & state, vectorfield & gradient )
@@ -78,12 +81,9 @@ public:
         else
             Vectormath::fill( gradient, Vector3::Zero() );
 
-        Backend::transform(
-            SPIRIT_PAR indices.begin(), indices.end(), gradient.begin(),
-            Functor::transform_op(
-                Functor::tuple_dispatch<Accessor::Gradient>( local ), Vector3{ 0.0, 0.0, 0.0 }, state ) );
-
-        Functor::apply( Functor::tuple_dispatch<Accessor::Gradient>( nonlocal ), state, gradient );
+        Backend::apply(
+            [&state, &gradient]( auto &... interaction ) { ( ..., interaction.Gradient( state, gradient ) ); },
+            interactions );
     };
 
     // provided for backwards compatibility, this function no longer serves a purpose
@@ -107,21 +107,10 @@ public:
                      || !interaction.is_contributing() ) );
         };
 
-        if( Backend::apply( gaussian_func, local ) && Backend::apply( gaussian_func, nonlocal ) )
+        if( Backend::apply( gaussian_func, interactions ) )
             return "Gaussian";
 
         return "Unknown";
-    };
-
-private:
-    template<typename Callable>
-    void Hessian_Impl( const state_t & state, Callable hessian )
-    {
-        Backend::cpu::for_each(
-            indices.begin(), indices.end(),
-            Functor::for_each_op( Functor::tuple_dispatch<Accessor::Hessian>( local ), state, hessian ) );
-
-        Functor::apply( Functor::tuple_dispatch<Accessor::Hessian>( nonlocal ), state, hessian );
     };
 };
 

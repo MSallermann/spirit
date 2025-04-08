@@ -2,6 +2,7 @@
 #ifndef SPIRIT_CORE_ENGINE_INTERACTION_ANISOTROPY_HPP
 #define SPIRIT_CORE_ENGINE_INTERACTION_ANISOTROPY_HPP
 
+#include <engine/Index_Container.hpp>
 #include <engine/Indexing.hpp>
 #include <engine/spin/StateType.hpp>
 #include <engine/spin/interaction/Functor_Prototypes.hpp>
@@ -55,13 +56,10 @@ struct Anisotropy
         return !data.indices.empty();
     };
 
-    struct IndexType
+    struct Index
     {
         int ispin, iani;
     };
-
-    using Index        = Engine::Span<const IndexType>;
-    using IndexStorage = Backend::vector<IndexType>;
 
     using Energy   = Functor::Local::Energy_Functor<Functor::Local::DataRef<Anisotropy>>;
     using Gradient = Functor::Local::Gradient_Functor<Functor::Local::DataRef<Anisotropy>>;
@@ -79,11 +77,12 @@ struct Anisotropy
     // Interaction name as string
     static constexpr std::string_view name = "Anisotropy";
 
-    template<typename IndexStorageVector>
     static void applyGeometry(
-        const ::Data::Geometry & geometry, const intfield &, const Data & data, Cache &, IndexStorageVector & indices )
+        const ::Data::Geometry & geometry, const intfield &, const Data & data, Cache &,
+        IndexContainer<Anisotropy> & container )
     {
         using Indexing::check_atom_type;
+        auto indices = std::vector( geometry.nos, field<Index>{} );
 
         for( int icell = 0; icell < geometry.n_cells_total; ++icell )
         {
@@ -91,9 +90,11 @@ struct Anisotropy
             {
                 int ispin = icell * geometry.n_cell_atoms + data.indices[iani];
                 if( check_atom_type( geometry.atom_types[ispin] ) )
-                    Backend::get<IndexStorage>( indices[ispin] ).push_back( IndexType{ ispin, iani } );
+                    indices[ispin].push_back( Index{ ispin, iani } );
             }
         }
+
+        container = make_index_container<Anisotropy>( std::move( indices ) );
     };
 };
 
@@ -117,12 +118,12 @@ protected:
 };
 
 template<>
-inline scalar Anisotropy::Energy::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline scalar Anisotropy::Energy::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
     return -1.0
            * Backend::transform_reduce(
                index.begin(), index.end(), scalar( 0 ), Backend::plus<scalar>{},
-               [this, state] SPIRIT_LAMBDA( const Interaction::IndexType & idx ) -> scalar
+               [this, state] SPIRIT_LAMBDA( const Index & idx ) -> scalar
                {
                    const auto d = normals[idx.iani].dot( state.spin[idx.ispin] );
                    return magnitudes[idx.iani] * d * d;
@@ -130,22 +131,22 @@ inline scalar Anisotropy::Energy::operator()( const Index & index, quantity<cons
 }
 
 template<>
-inline Vector3 Anisotropy::Gradient::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline Vector3 Anisotropy::Gradient::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
     return -2.0
            * Backend::transform_reduce(
                index.begin(), index.end(), Vector3( Vector3::Zero() ), Backend::plus<Vector3>{},
-               [this, state] SPIRIT_LAMBDA( const Interaction::IndexType & idx ) -> Vector3
+               [this, state] SPIRIT_LAMBDA( const Index & idx ) -> Vector3
                { return magnitudes[idx.iani] * normals[idx.iani].dot( state.spin[idx.ispin] ) * normals[idx.iani]; } );
 }
 
 template<>
 template<typename Callable>
-void Anisotropy::Hessian::operator()( const Index & index, const StateType &, Callable & hessian ) const
+void Anisotropy::Hessian::operator()( Span<const Index> index, const StateType &, Callable & hessian ) const
 {
     Backend::cpu::for_each(
         index.begin(), index.end(),
-        [this, &index, &hessian]( const Interaction::IndexType & idx )
+        [this, &index, &hessian]( const Index & idx )
         {
             for( int alpha = 0; alpha < 3; ++alpha )
             {

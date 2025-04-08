@@ -2,6 +2,7 @@
 #ifndef SPIRIT_CORE_ENGINE_INTERACTION_BIAXIAL_ANISOTROPY_HPP
 #define SPIRIT_CORE_ENGINE_INTERACTION_BIAXIAL_ANISOTROPY_HPP
 
+#include <engine/Index_Container.hpp>
 #include <engine/Indexing.hpp>
 #include <engine/spin/StateType.hpp>
 #include <engine/spin/interaction/Functor_Prototypes.hpp>
@@ -63,13 +64,10 @@ struct Biaxial_Anisotropy
         return !data.indices.empty();
     };
 
-    struct IndexType
+    struct Index
     {
         int ispin, iani;
     };
-
-    using Index        = const IndexType *;
-    using IndexStorage = Backend::optional<IndexType>;
 
     using Energy   = Functor::Local::Energy_Functor<Functor::Local::DataRef<Biaxial_Anisotropy>>;
     using Gradient = Functor::Local::Gradient_Functor<Functor::Local::DataRef<Biaxial_Anisotropy>>;
@@ -87,11 +85,12 @@ struct Biaxial_Anisotropy
     // Interaction name as string
     static constexpr std::string_view name = "Biaxial Anisotropy";
 
-    template<typename IndexStorageVector>
     static void applyGeometry(
-        const ::Data::Geometry & geometry, const intfield &, const Data & data, Cache &, IndexStorageVector & indices )
+        const ::Data::Geometry & geometry, const intfield &, const Data & data, Cache &,
+        IndexContainer<Biaxial_Anisotropy> & container )
     {
         using Indexing::check_atom_type;
+        auto indices = std::vector( geometry.nos, field<Index>{} );
         const auto N = geometry.n_cell_atoms;
 
         for( int icell = 0; icell < geometry.n_cells_total; ++icell )
@@ -100,9 +99,11 @@ struct Biaxial_Anisotropy
             {
                 int ispin = icell * N + data.indices[iani];
                 if( check_atom_type( geometry.atom_types[ispin] ) )
-                    Backend::get<IndexStorage>( indices[ispin] ) = IndexType{ ispin, iani };
+                    indices[ispin].push_back( Index{ ispin, iani } );
             }
         }
+
+        container = make_index_container<Biaxial_Anisotropy>( std::move( indices ) );
     };
 };
 
@@ -128,116 +129,133 @@ protected:
 };
 
 template<>
-inline scalar Biaxial_Anisotropy::Energy::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline scalar Biaxial_Anisotropy::Energy::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
     using Utility::fastpow;
-    scalar result = 0;
-    if( !is_contributing || index == nullptr )
-        return result;
+    if( !is_contributing )
+        return 0;
+    else
+        return Backend::transform_reduce(
+            index.begin(), index.end(), scalar( 0 ), Backend::plus<scalar>{},
+            [this, state] SPIRIT_LAMBDA( const Index & idx ) -> scalar
+            {
+                scalar result              = 0;
+                const auto & [ispin, iani] = idx;
+                const scalar s1            = bases[iani].k1.dot( state.spin[ispin] );
+                const scalar s2            = bases[iani].k2.dot( state.spin[ispin] );
+                const scalar s3            = bases[iani].k3.dot( state.spin[ispin] );
 
-    const auto & [ispin, iani] = *index;
-    const scalar s1            = bases[iani].k1.dot( state.spin[ispin] );
-    const scalar s2            = bases[iani].k2.dot( state.spin[ispin] );
-    const scalar s3            = bases[iani].k3.dot( state.spin[ispin] );
+                const scalar sin_theta_2 = 1 - s1 * s1;
 
-    const scalar sin_theta_2 = 1 - s1 * s1;
+                for( auto iterm = site_p[iani]; iterm < site_p[iani + 1]; ++iterm )
+                {
+                    const auto & [coeff, n1, n2, n3] = terms[iterm];
+                    result += coeff * fastpow( sin_theta_2, n1 ) * fastpow( s2, n2 ) * fastpow( s3, n3 );
+                }
 
-    for( auto iterm = site_p[iani]; iterm < site_p[iani + 1]; ++iterm )
-    {
-        const auto & [coeff, n1, n2, n3] = terms[iterm];
-        result += coeff * fastpow( sin_theta_2, n1 ) * fastpow( s2, n2 ) * fastpow( s3, n3 );
-    }
-
-    return result;
+                return result;
+            } );
 }
 
 template<>
-inline Vector3 Biaxial_Anisotropy::Gradient::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline Vector3
+Biaxial_Anisotropy::Gradient::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
     using Utility::fastpow;
-    Vector3 result = Vector3::Zero();
-    if( !is_contributing || index == nullptr )
-        return result;
+    if( !is_contributing )
+        return Vector3::Zero();
+    else
+        return Backend::transform_reduce(
+            index.begin(), index.end(), Vector3( Vector3::Zero() ), Backend::plus<Vector3>{},
+            [this, state] SPIRIT_LAMBDA( const Index & idx ) -> Vector3
+            {
+                Vector3 result = Vector3::Zero();
 
-    const auto & [ispin, iani] = *index;
-    const auto & [k1, k2, k3]  = bases[iani];
+                const auto & [ispin, iani] = idx;
+                const auto & [k1, k2, k3]  = bases[iani];
 
-    const scalar s1 = k1.dot( state.spin[ispin] );
-    const scalar s2 = k2.dot( state.spin[ispin] );
-    const scalar s3 = k3.dot( state.spin[ispin] );
+                const scalar s1 = k1.dot( state.spin[ispin] );
+                const scalar s2 = k2.dot( state.spin[ispin] );
+                const scalar s3 = k3.dot( state.spin[ispin] );
 
-    const scalar sin_theta_2 = 1 - s1 * s1;
+                const scalar sin_theta_2 = 1 - s1 * s1;
 
-    for( auto iterm = site_p[iani]; iterm < site_p[iani + 1]; ++iterm )
-    {
-        const auto & [coeff, n1, n2, n3] = terms[iterm];
+                for( auto iterm = site_p[iani]; iterm < site_p[iani + 1]; ++iterm )
+                {
+                    const auto & [coeff, n1, n2, n3] = terms[iterm];
 
-        const scalar a = fastpow( s2, n2 );
-        const scalar b = fastpow( s3, n3 );
-        const scalar c = fastpow( sin_theta_2, n1 );
+                    const scalar a = fastpow( s2, n2 );
+                    const scalar b = fastpow( s3, n3 );
+                    const scalar c = fastpow( sin_theta_2, n1 );
 
-        if( n1 > 0 )
-            result += k1 * ( coeff * a * b * n1 * ( -2.0 * s1 * fastpow( sin_theta_2, n1 - 1 ) ) );
-        if( n2 > 0 )
-            result += k2 * ( coeff * b * c * n2 * fastpow( s2, n2 - 1 ) );
-        if( n3 > 0 )
-            result += k3 * ( coeff * a * c * n3 * fastpow( s3, n3 - 1 ) );
-    }
-
-    return result;
+                    if( n1 > 0 )
+                        result += k1 * ( coeff * a * b * n1 * ( -2.0 * s1 * fastpow( sin_theta_2, n1 - 1 ) ) );
+                    if( n2 > 0 )
+                        result += k2 * ( coeff * b * c * n2 * fastpow( s2, n2 - 1 ) );
+                    if( n3 > 0 )
+                        result += k3 * ( coeff * a * c * n3 * fastpow( s3, n3 - 1 ) );
+                }
+                return result;
+            } );
 }
 
 template<>
 template<typename Callable>
-void Biaxial_Anisotropy::Hessian::operator()( const Index & index, const StateType & state, Callable & hessian ) const
+void Biaxial_Anisotropy::Hessian::operator()(
+    Span<const Index> index, const StateType & state, Callable & hessian ) const
 {
     using Utility::fastpow;
-    if( !is_contributing || index == nullptr )
+    if( !is_contributing )
         return;
 
-    const auto & [ispin, iani] = *index;
-    const auto & [k1, k2, k3]  = bases[iani];
-
-    const scalar s1 = k1.dot( state.spin[ispin] );
-    const scalar s2 = k2.dot( state.spin[ispin] );
-    const scalar s3 = k3.dot( state.spin[ispin] );
-
-    const scalar st2 = 1 - s1 * s1;
-
-    for( auto iterm = site_p[iani]; iterm < site_p[iani + 1]; ++iterm )
-    {
-        const auto & [coeff, n1, n2, n3] = terms[iterm];
-
-        const scalar a = fastpow( s2, n2 );
-        const scalar b = fastpow( s3, n3 );
-        const scalar c = fastpow( st2, n1 );
-        // clang-format off
-        const scalar p_11 = n1 <= 1 ? 0
-            : 2 * n1 * ( 2 * n1 * s1 * s1 - 1 ) * ( coeff * a * b * fastpow( st2, n1 - 2 ) );
-        const scalar p_22 = n2 <= 1 ? 0
-            : n2 * ( n2 - 1 ) * ( coeff * b * c * fastpow( s2, n2 - 2 ) );
-        const scalar p_33 = n3 <= 1 ? 0
-            : n3 * ( n3 - 1 ) * ( coeff * a * c * fastpow( s3, n3 - 2 ) );
-        const scalar p_12 = n2 == 0 || n1 == 0 ? 0
-            : b * coeff * n2 * fastpow( s2, n2 - 1 ) * ( -2.0 * n1 * s1 ) * fastpow( s1, n1 - 1 );
-        const scalar p_13 = n3 == 0 || n1 == 0 ? 0
-            : a * coeff * n3 * fastpow( s3, n3 - 1 ) * ( -2.0 * n1 * s1 ) * fastpow( s1, n1 - 1 );
-        const scalar p_23 = n2 == 0 || n3 == 0 ? 0
-            : c * coeff * n2 * fastpow( s2, n2 - 1 ) * n3 * fastpow( s3, n3 - 1 );
-        // clang-format on
-
-        for( int alpha = 0; alpha < 3; ++alpha )
+    Backend::cpu::for_each(
+        index.begin(), index.end(),
+        [this, state, &hessian]( const Index & idx )
         {
-            for( int beta = 0; beta < 3; ++beta )
+            const auto & [ispin, iani] = idx;
+            const auto & [k1, k2, k3]  = bases[iani];
+
+            const scalar s1 = k1.dot( state.spin[ispin] );
+            const scalar s2 = k2.dot( state.spin[ispin] );
+            const scalar s3 = k3.dot( state.spin[ispin] );
+
+            const scalar st2 = 1 - s1 * s1;
+
+            for( auto iterm = site_p[iani]; iterm < site_p[iani + 1]; ++iterm )
             {
-                hessian(
-                    3 * ispin + alpha, 3 * ispin + beta,
-                    k1[alpha] * ( p_11 * k1[beta] + p_12 * k2[beta] + p_13 * k3[beta] )
-                        + k2[alpha] * ( p_12 * k1[beta] + p_22 * k2[beta] + p_23 * k3[beta] )
-                        + k3[alpha] * ( p_13 * k1[beta] + p_23 * k2[beta] + p_33 * k3[beta] ) );
+                const auto & [coeff, n1, n2, n3] = terms[iterm];
+
+                const scalar a = fastpow( s2, n2 );
+                const scalar b = fastpow( s3, n3 );
+                const scalar c = fastpow( st2, n1 );
+                // clang-format off
+                const scalar p_11 = n1 <= 1 ? 0
+                    : 2 * n1 * ( 2 * n1 * s1 * s1 - 1 ) * ( coeff * a * b * fastpow( st2, n1 - 2 ) );
+                const scalar p_22 = n2 <= 1 ? 0
+                    : n2 * ( n2 - 1 ) * ( coeff * b * c * fastpow( s2, n2 - 2 ) );
+                const scalar p_33 = n3 <= 1 ? 0
+                    : n3 * ( n3 - 1 ) * ( coeff * a * c * fastpow( s3, n3 - 2 ) );
+                const scalar p_12 = n2 == 0 || n1 == 0 ? 0
+                    : b * coeff * n2 * fastpow( s2, n2 - 1 ) * ( -2.0 * n1 * s1 ) * fastpow( s1, n1 - 1 );
+                const scalar p_13 = n3 == 0 || n1 == 0 ? 0
+                    : a * coeff * n3 * fastpow( s3, n3 - 1 ) * ( -2.0 * n1 * s1 ) * fastpow( s1, n1 - 1 );
+                const scalar p_23 = n2 == 0 || n3 == 0 ? 0
+                    : c * coeff * n2 * fastpow( s2, n2 - 1 ) * n3 * fastpow( s3, n3 - 1 );
+                // clang-format on
+
+                for( int alpha = 0; alpha < 3; ++alpha )
+                {
+                    for( int beta = 0; beta < 3; ++beta )
+                    {
+                        hessian(
+                            3 * ispin + alpha, 3 * ispin + beta,
+                            k1[alpha] * ( p_11 * k1[beta] + p_12 * k2[beta] + p_13 * k3[beta] )
+                                + k2[alpha] * ( p_12 * k1[beta] + p_22 * k2[beta] + p_23 * k3[beta] )
+                                + k3[alpha] * ( p_13 * k1[beta] + p_23 * k2[beta] + p_33 * k3[beta] ) );
+                    }
+                }
             }
-        }
-    }
+        } );
 }
 
 } // namespace Interaction

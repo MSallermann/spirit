@@ -151,7 +151,7 @@ struct Energy_Functor : public DataRef
     using Cache       = typename Interaction::Cache;
     using Index       = typename Interaction::Index;
 
-    SPIRIT_HOSTDEVICE scalar operator()( const Index & index, quantity<const Vector3 *> state ) const;
+    SPIRIT_HOSTDEVICE scalar operator()( Span<const Index> index, quantity<const Vector3 *> state ) const;
 
     using DataRef::DataRef;
 };
@@ -164,7 +164,7 @@ struct Gradient_Functor : public DataRef
     using Cache       = typename Interaction::Cache;
     using Index       = typename Interaction::Index;
 
-    SPIRIT_HOSTDEVICE Vector3 operator()( const Index & index, quantity<const Vector3 *> state ) const;
+    SPIRIT_HOSTDEVICE Vector3 operator()( Span<const Index> index, quantity<const Vector3 *> state ) const;
 
     using DataRef::DataRef;
 };
@@ -178,7 +178,7 @@ struct Hessian_Functor : public DataRef
     using Index       = typename Interaction::Index;
 
     template<typename Callable>
-    void operator()( const Index & index, const StateType & state, Callable & hessian ) const;
+    void operator()( Span<const Index> index, const StateType & state, Callable & hessian ) const;
 
     using DataRef::DataRef;
 };

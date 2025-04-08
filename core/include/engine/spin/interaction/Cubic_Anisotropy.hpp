@@ -2,6 +2,7 @@
 #ifndef SPIRIT_CORE_ENGINE_INTERACTION_CUBIC_ANISOTROPY_HPP
 #define SPIRIT_CORE_ENGINE_INTERACTION_CUBIC_ANISOTROPY_HPP
 
+#include <engine/Index_Container.hpp>
 #include <engine/Indexing.hpp>
 #include <engine/spin/StateType.hpp>
 #include <engine/spin/interaction/Functor_Prototypes.hpp>
@@ -46,13 +47,10 @@ struct Cubic_Anisotropy
         return !data.indices.empty();
     }
 
-    struct IndexType
+    struct Index
     {
         int ispin, iani;
     };
-
-    using Index        = const IndexType *;
-    using IndexStorage = Backend::optional<IndexType>;
 
     using Energy   = Functor::Local::Energy_Functor<Functor::Local::DataRef<Cubic_Anisotropy>>;
     using Gradient = Functor::Local::Gradient_Functor<Functor::Local::DataRef<Cubic_Anisotropy>>;
@@ -70,11 +68,12 @@ struct Cubic_Anisotropy
     // Interaction name as string
     static constexpr std::string_view name = "Cubic Anisotropy";
 
-    template<typename IndexStorageVector>
     static void applyGeometry(
-        const ::Data::Geometry & geometry, const intfield &, const Data & data, Cache &, IndexStorageVector & indices )
+        const ::Data::Geometry & geometry, const intfield &, const Data & data, Cache &,
+        IndexContainer<Cubic_Anisotropy> & container )
     {
         using Indexing::check_atom_type;
+        auto indices = std::vector( geometry.nos, field<Index>{} );
 
         for( int icell = 0; icell < geometry.n_cells_total; ++icell )
         {
@@ -82,9 +81,11 @@ struct Cubic_Anisotropy
             {
                 int ispin = icell * geometry.n_cell_atoms + data.indices[iani];
                 if( check_atom_type( geometry.atom_types[ispin] ) )
-                    Backend::get<IndexStorage>( indices[ispin] ) = IndexType{ ispin, iani };
+                    indices[ispin].push_back( Index{ ispin, iani } );
             }
         }
+
+        container = make_index_container<Cubic_Anisotropy>( std::move( indices ) );
     };
 };
 
@@ -107,39 +108,45 @@ protected:
 };
 
 template<>
-inline scalar Cubic_Anisotropy::Energy::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline scalar Cubic_Anisotropy::Energy::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
     using Utility::fastpow;
-    scalar result = 0;
-    if( !is_contributing || index == nullptr )
-        return result;
-
-    const auto & [ispin, iani] = *index;
-    return -0.5 * magnitudes[iani]
-           * ( fastpow( state.spin[ispin][0], 4u ) + fastpow( state.spin[ispin][1], 4u )
-               + fastpow( state.spin[ispin][2], 4u ) );
+    if( !is_contributing )
+        return 0;
+    else
+        return Backend::transform_reduce(
+            index.begin(), index.end(), scalar( 0.0 ), Backend::plus<scalar>{},
+            [this, state] SPIRIT_LAMBDA( const Index & idx ) -> scalar
+            {
+                return -0.5 * magnitudes[idx.iani]
+                       * ( fastpow( state.spin[idx.ispin][0], 4u ) + fastpow( state.spin[idx.ispin][1], 4u )
+                           + fastpow( state.spin[idx.ispin][2], 4u ) );
+            } );
 }
 
 template<>
-inline Vector3 Cubic_Anisotropy::Gradient::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline Vector3 Cubic_Anisotropy::Gradient::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
     using Utility::fastpow;
-    Vector3 result = Vector3::Zero();
-    if( !is_contributing || index == nullptr )
-        return result;
-
-    const auto & [ispin, iani] = *index;
-
-    for( int icomp = 0; icomp < 3; ++icomp )
-    {
-        result[icomp] = -2.0 * magnitudes[iani] * fastpow( state.spin[ispin][icomp], 3u );
-    }
-    return result;
+    if( !is_contributing )
+        return Vector3::Zero();
+    else
+        return Backend::transform_reduce(
+            index.begin(), index.end(), Vector3{ Vector3::Zero() }, Backend::plus<Vector3>{},
+            [this, state] SPIRIT_LAMBDA( const Index & idx ) -> Vector3
+            {
+                Vector3 result = Vector3::Zero();
+                for( int icomp = 0; icomp < 3; ++icomp )
+                {
+                    result[icomp] = -2.0 * magnitudes[idx.iani] * fastpow( state.spin[idx.ispin][icomp], 3u );
+                }
+                return result;
+            } );
 }
 
 template<>
 template<typename Callable>
-void Cubic_Anisotropy::Hessian::operator()( const Index & index, const StateType & spins, Callable & hessian ) const
+void Cubic_Anisotropy::Hessian::operator()( Span<const Index> index, const StateType & spins, Callable & hessian ) const
 {
     // TODO: Not yet implemented
 }

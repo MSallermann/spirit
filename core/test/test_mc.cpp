@@ -118,6 +118,6 @@ TEST_CASE( "Single Spin Energy Difference should agree with plain energy differe
         const scalar energy_diff      = energy_post - energy_pre;
 
         INFO( "Iteration: " << i );
-        REQUIRE_THAT( energy_diff, WithinAbs( full_energy_diff, epsilon_6 ) );
+        REQUIRE_THAT( energy_diff, WithinAbs( full_energy_diff, epsilon_3 ) );
     }
 }

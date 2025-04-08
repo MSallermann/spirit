@@ -8,10 +8,10 @@
 #include <data/Misc.hpp>
 #include <engine/Backend.hpp>
 #include <engine/FFT.hpp>
+#include <engine/Index_Container.hpp>
 #include <engine/Span.hpp>
 #include <engine/Vectormath.hpp>
 #include <engine/Vectormath_Defines.hpp>
-#include <engine/common/Functor_Dispatch.hpp>
 #include <engine/common/Interaction_Wrapper.hpp>
 #include <utility/Variadic_Traits.hpp>
 
@@ -21,140 +21,34 @@ namespace Engine
 namespace Common
 {
 
-namespace Trait
-{
-
-template<typename T>
-struct Index
-{
-    using type = typename T::Index;
-};
-
-template<typename T>
-struct IndexStorage
-{
-    using type = typename T::IndexStorage;
-};
-
-} // namespace Trait
-
-namespace Interaction
-{
-
-template<typename... InteractionTypes>
-void setPtrAddress(
-    Backend::tuple<InteractionWrapper<InteractionTypes>...> & interactions, const ::Data::Geometry * geometry,
-    const intfield * boundary_conditions ) noexcept
-{
-    Backend::apply(
-        [geometry, boundary_conditions]( InteractionWrapper<InteractionTypes> &... interaction )
-        {
-            ( ...,
-              [geometry, boundary_conditions]( typename InteractionTypes::Cache & entry )
-              {
-                  using cache_t = typename InteractionTypes::Cache;
-                  if constexpr( has_geometry_member<cache_t>::value )
-                      entry.geometry = geometry;
-
-                  if constexpr( has_bc_member<cache_t>::value )
-                      entry.boundary_conditions = boundary_conditions;
-              }( interaction.cache ) );
-        },
-        interactions );
-}
-
-template<typename T>
-SPIRIT_HOSTDEVICE void clearIndexStorage( Backend::optional<T> & index )
-{
-    index.reset();
-}
-
-template<typename T>
-SPIRIT_HOSTDEVICE void clearIndexStorage( T & index )
-{
-    index.clear();
-}
-
-} // namespace Interaction
-
 // Hamiltonian for (pure) spin systems
-template<typename state_type, typename InteractionAdaptorType, typename... InteractionTypes>
+template<
+    typename InteractionInterfaceType, template<typename, typename> typename InteractionWrapperTemplate,
+    typename... InteractionTypes>
 struct Hamiltonian
 {
-    static_assert( std::conjunction<std::is_same<state_type, typename InteractionTypes::state_t>...>::value );
-
-private:
-    template<typename... Ts>
-    using WrappedInteractions = Backend::tuple<Interaction::InteractionWrapper<Ts>...>;
-
-    template<template<class> class Pred, template<class...> class Variadic>
-    using filtered = typename Utility::variadic_filter<Pred, Variadic, InteractionTypes...>::type;
-
-    template<template<class> class Pred>
-    using indexed = typename Utility::variadic_filter_index_sequence<Pred, InteractionTypes...>::type;
-
-    using LocalInteractions = filtered<Interaction::is_local, Backend::tuple>;
-
-    using StandaloneFactory = Interaction::StandaloneFactory<InteractionAdaptorType>;
-
-    template<class Tuple, std::size_t... I_local, std::size_t... I_nonlocal>
-    Hamiltonian(
-        Data::Geometry geometry, intfield boundary_conditions, std::index_sequence<I_local...>,
-        std::index_sequence<I_nonlocal...>, Tuple && data )
-            : geometry( std::make_shared<::Data::Geometry>( std::move( geometry ) ) ),
-              boundary_conditions( std::move( boundary_conditions ) ),
-              indices( 0 ),
-              index_storage( 0 ),
-              local( Backend::make_tuple( std::get<I_local>( std::forward<Tuple>( data ) )... ) ),
-              nonlocal( Backend::make_tuple( std::get<I_nonlocal>( std::forward<Tuple>( data ) )... ) )
-    {
-        static_assert(
-            Utility::are_disjoint<std::index_sequence<I_local...>, std::index_sequence<I_nonlocal...>>::value );
-
-        static_assert( sizeof...( InteractionTypes ) == std::tuple_size<Tuple>::value );
-        static_assert( sizeof...( I_local ) + sizeof...( I_nonlocal ) == std::tuple_size<Tuple>::value );
-
-        applyGeometry();
-    };
-
-    template<typename T>
-    using is_local = Interaction::is_local<T>;
-
-    template<typename T>
-    using is_nonlocal = std::negation<Interaction::is_local<T>>;
-
 public:
-    using state_t     = state_type;
-    using AdaptorType = InteractionAdaptorType;
+    using state_t              = typename InteractionInterfaceType::state_t;
+    using InteractionInterface = InteractionInterfaceType;
+    template<typename Interaction>
+    using InteractionWrapper = InteractionWrapperTemplate<Interaction, InteractionInterface>;
 
-    using local_indices    = indexed<is_local>;
-    using nonlocal_indices = indexed<is_nonlocal>;
-
-    using InteractionTuple = WrappedInteractions<InteractionTypes...>;
-
-    using NonLocalInteractionTuple = filtered<is_nonlocal, WrappedInteractions>;
-
-    using LocalInteractionTuple = filtered<is_local, WrappedInteractions>;
-    using IndexTuple            = typename Utility::variadic_map<Trait::Index, Backend::tuple, LocalInteractions>::type;
-    using IndexVector           = field<IndexTuple>;
-    using IndexStorageTuple =
-        typename Utility::variadic_map<Trait::IndexStorage, Backend::tuple, LocalInteractions>::type;
-    using IndexStorageVector = field<IndexStorageTuple>;
+    static_assert( std::conjunction<std::is_same<state_t, typename InteractionTypes::state_t>...>::value );
+    using InteractionTuple = Backend::tuple<InteractionWrapper<InteractionTypes>...>;
 
     template<typename... DataTypes>
     Hamiltonian( Data::Geometry geometry, intfield boundary_conditions, DataTypes &&... data )
-            : Hamiltonian(
-                  geometry, boundary_conditions, local_indices{}, nonlocal_indices{},
-                  std::make_tuple(
-                      Interaction::InteractionWrapper<InteractionTypes>( std::forward<DataTypes>( data ) )... ) ){};
+            : geometry( std::make_shared<::Data::Geometry>( std::move( geometry ) ) ),
+              boundary_conditions( std::move( boundary_conditions ) ),
+              interactions( InteractionWrapper<InteractionTypes>( data )... )
+    {
+        applyGeometry();
+    };
 
     Hamiltonian( Data::Geometry geometry, intfield boundary_conditions )
             : geometry( std::make_shared<::Data::Geometry>( std::move( geometry ) ) ),
               boundary_conditions( std::move( boundary_conditions ) ),
-              indices{},
-              index_storage{},
-              local{},
-              nonlocal{}
+              interactions( InteractionWrapper<InteractionTypes>()... )
     {
         applyGeometry();
     };
@@ -166,13 +60,9 @@ public:
     Hamiltonian( const Hamiltonian & other )
             : geometry( other.geometry ),
               boundary_conditions( other.boundary_conditions ),
-              index_storage( other.index_storage ),
-              indices( other.indices ),
-              local( other.local ),
-              nonlocal( other.nonlocal )
+              interactions( other.interactions )
     {
         setPtrAddress();
-        updateIndexVector();
     };
     Hamiltonian & operator=( const Hamiltonian & other )
     {
@@ -180,25 +70,17 @@ public:
         {
             geometry            = other.geometry;
             boundary_conditions = other.boundary_conditions;
-            index_storage       = other.index_storage;
-            indices             = other.indices;
-            local               = other.local;
-            nonlocal            = other.nonlocal;
+            interactions        = other.interactions;
             setPtrAddress();
-            updateIndexVector();
         };
         return *this;
     };
     Hamiltonian( Hamiltonian && other ) noexcept
             : geometry( std::move( other.geometry ) ),
               boundary_conditions( std::move( other.boundary_conditions ) ),
-              index_storage( std::move( other.index_storage ) ),
-              indices( std::move( other.indices ) ),
-              local( std::move( other.local ) ),
-              nonlocal( std::move( other.nonlocal ) )
+              interactions( std::move( other.interactions ) )
     {
         setPtrAddress();
-        updateIndexVector();
     };
     Hamiltonian & operator=( Hamiltonian && other ) noexcept
     {
@@ -206,21 +88,11 @@ public:
         {
             geometry            = std::move( other.geometry );
             boundary_conditions = std::move( other.boundary_conditions );
-            index_storage       = std::move( other.index_storage );
-            indices             = std::move( other.indices );
-            local               = std::move( other.local );
-            nonlocal            = std::move( other.nonlocal );
+            interactions        = std::move( other.interactions );
             setPtrAddress();
-            updateIndexVector();
         };
         return *this;
     };
-
-    void setPtrAddress() noexcept
-    {
-        Interaction::setPtrAddress( local, geometry.get(), &boundary_conditions );
-        Interaction::setPtrAddress( nonlocal, geometry.get(), &boundary_conditions );
-    }
 
     void Energy_per_Spin( const state_t & state, scalarfield & energy_per_spin )
     {
@@ -229,11 +101,9 @@ public:
         else
             Vectormath::fill( energy_per_spin, 0.0 );
 
-        Backend::transform(
-            SPIRIT_PAR indices.begin(), indices.end(), energy_per_spin.begin(),
-            Functor::transform_op( Functor::tuple_dispatch<Accessor::Energy>( local ), scalar( 0.0 ), state ) );
-
-        Functor::apply( Functor::tuple_dispatch<Accessor::Energy>( nonlocal ), state, energy_per_spin );
+        Backend::apply(
+            [&state, &energy_per_spin]( auto &... interaction )
+            { ( ..., interaction.Energy_per_Spin( state, energy_per_spin ) ); }, interactions );
     };
 
     void Energy_Contributions_per_Spin( const state_t & state, Data::vectorlabeled<scalarfield> & contributions )
@@ -248,7 +118,7 @@ public:
 
         Backend::cpu::transform(
             active.begin(), active.end(), contributions.begin(),
-            [&state, nos = geometry->nos]( const std::unique_ptr<InteractionAdaptorType> & interaction )
+            [&state, nos = geometry->nos]( InteractionInterface * interaction )
             {
                 scalarfield energy_per_spin( nos, 0.0 );
                 interaction->Energy_per_Spin( state, energy_per_spin );
@@ -263,8 +133,7 @@ public:
         Data::vectorlabeled<scalar> contributions( n_active, { "", 0.0 } );
 
         Backend::cpu::transform(
-            active.begin(), active.end(), contributions.begin(),
-            [&state]( const std::unique_ptr<InteractionAdaptorType> & interaction )
+            active.begin(), active.end(), contributions.begin(), [&state]( InteractionInterface * interaction )
             { return std::make_pair( interaction->Name(), interaction->Energy( state ) ); } );
 
         return contributions;
@@ -274,68 +143,76 @@ public:
     //      Note: therefore the energy of pairs is weighted x2 and of quadruplets x4.
     [[nodiscard]] scalar Energy_Single_Spin( const int ispin, const state_t & state )
     {
-        return std::invoke(
-                   Functor::transform_op(
-                       Functor::tuple_dispatch<Accessor::Energy_Single_Spin>( local ), scalar( 0.0 ), state ),
-                   indices[ispin] )
-               + Functor::apply_reduce(
-                   Functor::tuple_dispatch<Accessor::Energy_Single_Spin>( nonlocal ), scalar( 0.0 ), ispin, state );
+        return Backend::apply(
+            [ispin, &state]( auto &... interaction )
+            { return ( scalar( 0 ) + ... + interaction.Energy_Single_Spin( ispin, state ) ); }, interactions );
     };
 
     [[nodiscard]] scalar Energy( const state_t & state )
     {
-        return Backend::transform_reduce(
-                   SPIRIT_PAR indices.begin(), indices.end(), scalar( 0.0 ), Backend::plus<scalar>{},
-                   Functor::transform_op( Functor::tuple_dispatch<Accessor::Energy>( local ), scalar( 0.0 ), state ) )
-               + Functor::apply_reduce(
-                   Functor::tuple_dispatch<Accessor::Energy_Total>( nonlocal ), scalar( 0.0 ), state );
+        return Backend::apply(
+            [&state]( auto &... interaction ) { return ( scalar( 0 ) + ... + interaction.Energy( state ) ); },
+            interactions );
     };
 
     [[nodiscard]] std::size_t active_count() const
     {
-        auto f = []( const auto &... interaction )
-        { return ( std::size_t( 0 ) + ... + ( interaction.is_contributing() ? 1 : 0 ) ); };
-        return Backend::apply( f, local ) + Backend::apply( f, nonlocal );
+        return Backend::apply(
+            []( const auto &... interaction )
+            { return ( std::size_t( 0 ) + ... + ( interaction.is_contributing() ? 1 : 0 ) ); }, interactions );
     }
 
-    [[nodiscard]] auto active_interactions() -> std::vector<std::unique_ptr<InteractionAdaptorType>>
+    [[nodiscard]] auto active_interactions() -> std::vector<InteractionInterface *>
     {
-        auto interactions = std::vector<std::unique_ptr<InteractionAdaptorType>>( active_count() );
-        auto it = Interaction::generate_active_local<StandaloneFactory>( local, indices, interactions.begin() );
-        Interaction::generate_active_nonlocal<StandaloneFactory>( nonlocal, it );
-        return interactions;
+
+        return Backend::apply(
+            []( auto &... interaction )
+            {
+                auto active_interactions = std::vector<InteractionInterface *>( 0 );
+                ( ...,
+                  [&interaction, &active_interactions]
+                  {
+                      if( interaction.is_contributing() )
+                          active_interactions.push_back( &interaction );
+                  }() );
+                return active_interactions;
+            },
+            interactions );
     };
 
-    [[nodiscard]] auto active_interactions() const -> std::vector<std::unique_ptr<const InteractionAdaptorType>>
+    [[nodiscard]] auto active_interactions() const -> std::vector<const InteractionInterface *>
     {
-        auto interactions = std::vector<std::unique_ptr<InteractionAdaptorType>>( active_count() );
-        auto it = Interaction::generate_active_local<StandaloneFactory>( local, indices, interactions.begin() );
-        Interaction::generate_active_nonlocal<StandaloneFactory>( nonlocal, it );
-        return interactions;
+        return Backend::apply(
+            []( const auto &... interaction )
+            {
+                auto active_interactions = std::vector<const InteractionInterface *>( 0 );
+                ( ...,
+                  [&interaction, &active_interactions]
+                  {
+                      if( interaction.is_contributing() )
+                          active_interactions.push_back( &interaction );
+                  }() );
+                return active_interactions;
+            },
+            interactions );
     };
 
     // compile time getter
     template<class T>
-    [[nodiscard]] constexpr auto getInteraction() -> std::unique_ptr<InteractionAdaptorType>
+    [[nodiscard]] constexpr auto getInteraction() -> InteractionInterface *
     {
-        if constexpr( hasInteraction_Local<T>() )
-            return StandaloneFactory::make_standalone(
-                Backend::get<Interaction::InteractionWrapper<T>>( local ), indices );
-        else if constexpr( hasInteraction_NonLocal<T>() )
-            return StandaloneFactory::make_standalone( Backend::get<Interaction::InteractionWrapper<T>>( nonlocal ) );
+        if constexpr( hasInteraction<T>() )
+            return &Backend::get<InteractionWrapper<T>>( interactions );
         else
             return nullptr;
     };
 
     // compile time getter
     template<class T>
-    [[nodiscard]] constexpr auto getInteraction() const -> std::unique_ptr<const InteractionAdaptorType>
+    [[nodiscard]] constexpr auto getInteraction() const -> const InteractionInterface *
     {
-        if constexpr( hasInteraction_Local<T>() )
-            return StandaloneFactory::make_standalone(
-                Backend::get<Interaction::InteractionWrapper<T>>( local ), indices );
-        else if constexpr( hasInteraction_NonLocal<T>() )
-            return StandaloneFactory::make_standalone( Backend::get<Interaction::InteractionWrapper<T>>( nonlocal ) );
+        if constexpr( Utility::contains<InteractionWrapper<T>, InteractionTuple>::value )
+            return &Backend::get<InteractionWrapper<T>>( interactions );
         else
             return nullptr;
     };
@@ -343,9 +220,17 @@ public:
     template<class T>
     [[nodiscard]] static constexpr bool hasInteraction()
     {
-        return Utility::contains<Interaction::InteractionWrapper<T>, LocalInteractionTuple>::value
-               || Utility::contains<Interaction::InteractionWrapper<T>, NonLocalInteractionTuple>::value;
+        return Utility::contains<InteractionWrapper<T>, InteractionTuple>::value;
     };
+
+    void setPtrAddress() noexcept
+    {
+        Backend::apply(
+            [geometry            = geometry.get(),
+             boundary_conditions = &boundary_conditions]( InteractionWrapper<InteractionTypes> &... interaction )
+            { ( ..., interaction.set_ptr_address( geometry, boundary_conditions ) ); },
+            interactions );
+    }
 
     void applyGeometry()
     {
@@ -355,38 +240,16 @@ public:
             return;
         }
 
-        if( index_storage.size() != static_cast<std::size_t>( geometry->nos ) )
-        {
-            index_storage = IndexStorageVector( geometry->nos, IndexStorageTuple{} );
-        }
-        else
-        {
-            Backend::cpu::for_each(
-                index_storage.begin(), index_storage.end(),
-                []( IndexStorageTuple & storage_tuple ) {
-                    Backend::apply(
-                        []( auto &... item ) { ( ..., Interaction::clearIndexStorage( item ) ); }, storage_tuple );
-                } );
-        }
-
         Backend::apply(
-            [this]( auto &... interaction ) -> void
-            { ( ..., interaction.applyGeometry( *geometry, boundary_conditions, index_storage ) ); }, local );
-
-        Backend::apply(
-            [this]( auto &... interaction ) -> void
-            { ( ..., interaction.applyGeometry( *geometry, boundary_conditions ) ); }, nonlocal );
-
-        updateIndexVector();
+            [this]( auto &... interaction ) { ( ..., interaction.applyGeometry( *geometry, boundary_conditions ) ); },
+            interactions );
     }
 
     template<typename T>
     [[nodiscard]] auto data() const -> const typename T::Data *
     {
-        if constexpr( hasInteraction_Local<T>() )
-            return &Backend::get<Interaction::InteractionWrapper<T>>( local ).data;
-        else if constexpr( hasInteraction_NonLocal<T>() )
-            return &Backend::get<Interaction::InteractionWrapper<T>>( nonlocal ).data;
+        if constexpr( hasInteraction<T>() )
+            return &Backend::get<InteractionWrapper<T>>( interactions ).get_data();
         else
             return nullptr;
     };
@@ -396,14 +259,9 @@ public:
     {
         std::optional<std::string> error{};
 
-        if constexpr( hasInteraction_Local<T>() )
+        if constexpr( hasInteraction<T>() )
         {
-            error = Backend::get<Interaction::InteractionWrapper<T>>( local ).set_data( std::move( data ) );
-            applyGeometry<T>();
-        }
-        else if constexpr( hasInteraction_NonLocal<T>() )
-        {
-            error = Backend::get<Interaction::InteractionWrapper<T>>( nonlocal ).set_data( std::move( data ) );
+            error = Backend::get<InteractionWrapper<T>>( interactions ).set_data( std::move( data ) );
             applyGeometry<T>();
         }
         else
@@ -421,10 +279,8 @@ public:
     template<typename T>
     [[nodiscard]] auto cache() const -> const typename T::Cache *
     {
-        if constexpr( hasInteraction_Local<T>() )
-            return &Backend::get<Interaction::InteractionWrapper<T>>( local ).cache;
-        else if constexpr( hasInteraction_NonLocal<T>() )
-            return &Backend::get<Interaction::InteractionWrapper<T>>( nonlocal ).cache;
+        if constexpr( hasInteraction<T>() )
+            return &Backend::get<InteractionWrapper<T>>( interactions ).get_cache();
         else
             return nullptr;
     };
@@ -433,7 +289,7 @@ public:
     [[nodiscard]] bool is_contributing() const
     {
         if constexpr( hasInteraction<T>() )
-            return T::is_contributing( *data<T>(), *cache<T>() );
+            return getInteraction<T>()->is_contributing();
         else
             return false;
     }
@@ -476,29 +332,8 @@ private:
             return;
         }
 
-        // TODO(feature-template_hamiltonian): turn this into an error
-        if( geometry->nos != index_storage.size() )
-            return;
-
-        if constexpr( is_local<InteractionType>::value )
-        {
-            Backend::cpu::for_each(
-                index_storage.begin(), index_storage.end(),
-                []( IndexStorageTuple & index_tuple ) {
-                    Interaction::clearIndexStorage(
-                        Backend::get<typename InteractionType::IndexStorage>( index_tuple ) );
-                } );
-
-            Backend::get<Interaction::InteractionWrapper<InteractionType>>( local ).applyGeometry(
-                *geometry, boundary_conditions, index_storage );
-
-            updateIndexVector<InteractionType>();
-        }
-        else
-        {
-            Backend::get<Interaction::InteractionWrapper<InteractionType>>( nonlocal )
-                .applyGeometry( *geometry, boundary_conditions );
-        };
+        Backend::get<InteractionWrapper<InteractionType>>( interactions )
+            .applyGeometry( *geometry, boundary_conditions );
     };
 
     template<typename Geometry>
@@ -520,59 +355,12 @@ private:
         applyGeometry();
     }
 
-    template<typename InteractionType = void>
-    void updateIndexVector()
-    {
-        static_assert( std::is_void<InteractionType>::value || hasInteraction<InteractionType>() );
-
-        if constexpr( !std::is_void<InteractionType>::value )
-        {
-            for( int i = 0; i < indices.size(); ++i )
-            {
-                Backend::get<typename InteractionType::Index>( indices[i] ) = Interaction::make_index(
-                    Backend::get<typename InteractionType::IndexStorage>( index_storage[i] ) );
-            }
-        }
-        else
-        {
-            if( indices.size() != index_storage.size() )
-                indices.resize( index_storage.size() );
-
-            Backend::cpu::transform(
-                index_storage.begin(), index_storage.end(), indices.begin(),
-                []( const IndexStorageTuple & storage ) -> IndexTuple
-                {
-                    return Backend::apply(
-                        []( const auto &... item )
-                        { return Backend::make_tuple( Interaction::make_index( item )... ); }, storage );
-                } );
-        }
-    };
-
-    template<class T>
-    [[nodiscard]] static constexpr bool hasInteraction_Local()
-    {
-        return is_local<T>::value
-               && Utility::contains<Interaction::InteractionWrapper<T>, LocalInteractionTuple>::value;
-    };
-
-    template<class T>
-    [[nodiscard]] static constexpr bool hasInteraction_NonLocal()
-    {
-        return !is_local<T>::value
-               && Utility::contains<Interaction::InteractionWrapper<T>, NonLocalInteractionTuple>::value;
-    };
-
 protected:
-    IndexVector indices;
-    LocalInteractionTuple local;
-    NonLocalInteractionTuple nonlocal;
+    InteractionTuple interactions;
 
 private:
     std::shared_ptr<Data::Geometry> geometry;
     intfield boundary_conditions;
-
-    IndexStorageVector index_storage;
 };
 
 } // namespace Common

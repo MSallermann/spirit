@@ -187,6 +187,9 @@ if( SPIRIT_USE_CUDA )
         set( CMAKE_CUDA_STANDARD_REQUIRED ON )
     endif()
 
+    # work around an unknown error in the -O3 build of the nvcc compiler that produces a nullpointer on the call stack
+    add_compile_options("$<$<CONFIG:Release>:$<$<COMPILE_LANGUAGE:CUDA>:-O2;-Xcompiler=-O3>>")
+
     message( STATUS ">> Using CUDA. Flags: ${CMAKE_CUDA_FLAGS}" )
     message( STATUS ">> CUDA toolkit path: ${CUDA_TOOLKIT_ROOT_DIR}" )
     message( STATUS ">> CUDA libraries: ${SPIRIT_CUDA_LIBS}" )

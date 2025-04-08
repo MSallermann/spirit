@@ -69,7 +69,9 @@ Method_MC<algorithm>::Method_MC( std::shared_ptr<system_t> system, int idx_img, 
             constrained_orthogonal_projector << 1, 0, 0, 0, 1, 0, 0, 0, 0;
         }
 
-        assert( ( this->constrained_orthogonal_projector * this->constrained_direction ).norm() < 1e-12 );
+        assert(
+            ( this->constrained_orthogonal_projector * this->constrained_direction ).norm()
+            < ( std::is_same_v<scalar, double> ? 1e-12 : 1e-6 ) );
     }
 }
 

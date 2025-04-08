@@ -2,6 +2,7 @@
 #ifndef SPIRIT_CORE_ENGINE_INTERACTION_QUADRUPLET_HPP
 #define SPIRIT_CORE_ENGINE_INTERACTION_QUADRUPLET_HPP
 
+#include <engine/Index_Container.hpp>
 #include <engine/Indexing.hpp>
 #include <engine/Span.hpp>
 #include <engine/spin/StateType.hpp>
@@ -46,13 +47,10 @@ struct Quadruplet
         return !data.quadruplets.empty();
     }
 
-    struct IndexType
+    struct Index
     {
         int ispin, jspin, kspin, lspin, iquad;
     };
-
-    using Index        = Engine::Span<const IndexType>;
-    using IndexStorage = Backend::vector<IndexType>;
 
     using Energy   = Functor::Local::Energy_Functor<Functor::Local::DataRef<Quadruplet>>;
     using Gradient = Functor::Local::Gradient_Functor<Functor::Local::DataRef<Quadruplet>>;
@@ -72,12 +70,12 @@ struct Quadruplet
 
     static constexpr bool local = true;
 
-    template<typename IndexStorageVector>
     static void applyGeometry(
         const ::Data::Geometry & geometry, const intfield & boundary_conditions, const Data & data, Cache & cache,
-        IndexStorageVector & indices )
+        IndexContainer<Quadruplet> & container )
     {
         using Indexing::idx_from_pair;
+        auto indices = std::vector( geometry.nos, field<Index>{} );
 
         for( int iquad = 0; iquad < data.quadruplets.size(); ++iquad )
         {
@@ -108,17 +106,14 @@ struct Quadruplet
                 if( jspin < 0 || kspin < 0 || lspin < 0 )
                     continue;
 
-                Backend::get<IndexStorage>( indices[ispin] )
-                    .push_back( IndexType{ ispin, jspin, kspin, lspin, (int)iquad } );
-                Backend::get<IndexStorage>( indices[jspin] )
-                    .push_back( IndexType{ jspin, ispin, kspin, lspin, (int)iquad } );
-                Backend::get<IndexStorage>( indices[kspin] )
-                    .push_back( IndexType{ kspin, lspin, ispin, jspin, (int)iquad } );
-                Backend::get<IndexStorage>( indices[lspin] )
-                    .push_back( IndexType{ lspin, kspin, ispin, jspin, (int)iquad } );
+                indices[ispin].push_back( Index{ ispin, jspin, kspin, lspin, (int)iquad } );
+                indices[jspin].push_back( Index{ jspin, ispin, kspin, lspin, (int)iquad } );
+                indices[kspin].push_back( Index{ kspin, lspin, ispin, jspin, (int)iquad } );
+                indices[lspin].push_back( Index{ lspin, kspin, ispin, jspin, (int)iquad } );
             }
         }
 
+        container                 = make_index_container<Quadruplet>( std::move( indices ) );
         cache.geometry            = &geometry;
         cache.boundary_conditions = &boundary_conditions;
     };
@@ -143,12 +138,12 @@ protected:
 };
 
 template<>
-inline scalar Quadruplet::Energy::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline scalar Quadruplet::Energy::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
     // don't need to check for `is_contributing` here, because the `transform_reduce` will short circuit correctly
     return Backend::transform_reduce(
         index.begin(), index.end(), scalar( 0.0 ), Backend::plus<scalar>{},
-        [this, state] SPIRIT_LAMBDA( const Quadruplet::IndexType & idx ) -> scalar
+        [this, state] SPIRIT_LAMBDA( const Index & idx ) -> scalar
         {
             const auto & [ispin, jspin, kspin, lspin, iquad] = idx;
             return -0.25 * magnitudes[iquad] * ( state.spin[ispin].dot( state.spin[jspin] ) )
@@ -157,12 +152,12 @@ inline scalar Quadruplet::Energy::operator()( const Index & index, quantity<cons
 }
 
 template<>
-inline Vector3 Quadruplet::Gradient::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline Vector3 Quadruplet::Gradient::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
     // don't need to check for `is_contributing` here, because the `transform_reduce` will short circuit correctly
     return Backend::transform_reduce(
         index.begin(), index.end(), Vector3{ 0.0, 0.0, 0.0 }, Backend::plus<Vector3>{},
-        [this, state] SPIRIT_LAMBDA( const Quadruplet::IndexType & idx ) -> Vector3
+        [this, state] SPIRIT_LAMBDA( const Index & idx ) -> Vector3
         {
             const auto & [ispin, jspin, kspin, lspin, iquad] = idx;
             return state.spin[jspin] * ( -magnitudes[iquad] * ( state.spin[kspin].dot( state.spin[lspin] ) ) );
@@ -171,11 +166,11 @@ inline Vector3 Quadruplet::Gradient::operator()( const Index & index, quantity<c
 
 template<>
 template<typename Callable>
-void Quadruplet::Hessian::operator()( const Index & index, const StateType & state, Callable & hessian ) const
+void Quadruplet::Hessian::operator()( Span<const Index> index, const StateType & state, Callable & hessian ) const
 {
     Backend::cpu::for_each(
         index.begin(), index.end(),
-        [this, &index, &state, &hessian]( const Quadruplet::IndexType & idx )
+        [this, &index, &state, &hessian]( const Index & idx )
         {
             const auto & [ispin, jspin, kspin, lspin, iquad] = idx;
 

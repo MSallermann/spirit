@@ -2,6 +2,7 @@
 #ifndef SPIRIT_CORE_ENGINE_INTERACTION_GAUSSIAN_HPP
 #define SPIRIT_CORE_ENGINE_INTERACTION_GAUSSIAN_HPP
 
+#include <engine/Index_Container.hpp>
 #include <engine/spin/StateType.hpp>
 #include <engine/spin/interaction/Functor_Prototypes.hpp>
 
@@ -53,13 +54,10 @@ struct Gaussian
         return !data.amplitude.empty();
     };
 
-    struct IndexType
+    struct Index
     {
         int ispin;
     };
-
-    using Index        = const IndexType *;
-    using IndexStorage = Backend::optional<IndexType>;
 
     using Energy   = Functor::Local::Energy_Functor<Functor::Local::DataRef<Gaussian>>;
     using Gradient = Functor::Local::Gradient_Functor<Functor::Local::DataRef<Gaussian>>;
@@ -76,18 +74,16 @@ struct Gaussian
     // Interaction name as string
     static constexpr std::string_view name = "Gaussian";
 
-    template<typename IndexStorageVector>
     static void applyGeometry(
-        const ::Data::Geometry & geometry, const intfield &, const Data &, Cache &, IndexStorageVector & indices )
+        const ::Data::Geometry & geometry, const intfield &, const Data &, Cache &,
+        IndexContainer<Gaussian> & container )
     {
-        for( int icell = 0; icell < geometry.n_cells_total; ++icell )
-        {
-            for( int ibasis = 0; ibasis < geometry.n_cell_atoms; ++ibasis )
-            {
-                const int ispin                              = icell * geometry.n_cell_atoms + ibasis;
-                Backend::get<IndexStorage>( indices[ispin] ) = IndexType{ ispin };
-            };
-        }
+        auto indices = std::vector( geometry.nos, field<Index>{} );
+
+        for( int ispin = 0; ispin < geometry.nos; ++ispin )
+            indices[ispin].push_back( Index{ ispin } );
+
+        container = make_index_container<Gaussian>( std::move( indices ) );
     }
 };
 
@@ -117,74 +113,85 @@ protected:
 };
 
 template<>
-inline scalar Gaussian::Energy::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline scalar Gaussian::Energy::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
-    scalar result = 0;
 
-    if( !is_contributing || index == nullptr )
-        return result;
-
-    const int ispin = index->ispin;
-
-    for( unsigned int igauss = 0; igauss < n_gaussians; ++igauss )
-    {
-        // Distance between spin and gaussian center
-        scalar l = 1 - center[igauss].dot( state.spin[ispin] );
-        result += amplitude[igauss] * std::exp( -l * l / ( 2.0 * width[igauss] * width[igauss] ) );
-    };
-    return result;
+    if( !is_contributing )
+        return 0;
+    else
+        return Backend::transform_reduce(
+            index.begin(), index.end(), scalar( 0.0 ), Backend::plus<scalar>{},
+            [this, state] SPIRIT_LAMBDA( const Index & idx ) -> scalar
+            {
+                scalar result = 0;
+                for( unsigned int igauss = 0; igauss < n_gaussians; ++igauss )
+                {
+                    // Distance between spin and gaussian center
+                    scalar l = 1 - center[igauss].dot( state.spin[idx.ispin] );
+                    result += amplitude[igauss] * std::exp( -l * l / ( 2.0 * width[igauss] * width[igauss] ) );
+                };
+                return result;
+            } );
 }
 
 template<>
-inline Vector3 Gaussian::Gradient::operator()( const Index & index, quantity<const Vector3 *> state ) const
+inline Vector3 Gaussian::Gradient::operator()( Span<const Index> index, quantity<const Vector3 *> state ) const
 {
-    Vector3 result = Vector3::Zero();
-
-    if( !is_contributing || index == nullptr )
-        return result;
-
-    const int ispin = index->ispin;
-    // Calculate gradient
-    for( unsigned int i = 0; i < n_gaussians; ++i )
-    {
-        // Scalar product of spin and gaussian center
-        scalar l = 1 - center[i].dot( state.spin[ispin] );
-        // Prefactor
-        scalar prefactor
-            = amplitude[i] * std::exp( -l * l / ( 2.0 * width[i] * width[i] ) ) * l / ( width[i] * width[i] );
-        // Gradient contribution
-        result += prefactor * center[i];
-    }
-    return result;
+    if( !is_contributing )
+        return Vector3::Zero();
+    else
+        return Backend::transform_reduce(
+            index.begin(), index.end(), Vector3{ 0.0, 0.0, 0.0 }, Backend::plus<Vector3>{},
+            [this, state] SPIRIT_LAMBDA( const Index & idx ) -> Vector3
+            {
+                Vector3 result = Vector3::Zero();
+                // Calculate gradient
+                for( unsigned int i = 0; i < n_gaussians; ++i )
+                {
+                    // Scalar product of spin and gaussian center
+                    scalar l = 1 - center[i].dot( state.spin[idx.ispin] );
+                    // Prefactor
+                    scalar prefactor = amplitude[i] * std::exp( -l * l / ( 2.0 * width[i] * width[i] ) ) * l
+                                       / ( width[i] * width[i] );
+                    // Gradient contribution
+                    result += prefactor * center[i];
+                }
+                return result;
+            } );
 }
 
 template<>
 template<typename Callable>
-void Gaussian::Hessian::operator()( const Index & index, const StateType & state, Callable & hessian ) const
+void Gaussian::Hessian::operator()( Span<const Index> index, const StateType & state, Callable & hessian ) const
 {
-    if( !is_contributing || index == nullptr )
+    if( !is_contributing )
         return;
 
-    const int ispin = index->ispin;
-    // Calculate Hessian
-    for( unsigned int igauss = 0; igauss < n_gaussians; ++igauss )
-    {
-        // Distance between spin and gaussian center
-        scalar l = 1 - center[igauss].dot( state.spin[ispin] );
-        // Prefactor for all alpha, beta
-        scalar prefactor = amplitude[igauss] * std::exp( -std::pow( l, 2 ) / ( 2.0 * std::pow( width[igauss], 2 ) ) )
-                           / std::pow( width[igauss], 2 ) * ( std::pow( l, 2 ) / std::pow( width[igauss], 2 ) - 1 );
-        // Effective Field contribution
-        for( std::uint8_t alpha = 0; alpha < 3; ++alpha )
+    Backend::cpu::for_each(
+        index.begin(), index.end(),
+        [this, state, &hessian]( const Index & idx )
         {
-            for( std::uint8_t beta = 0; beta < 3; ++beta )
+            // Calculate Hessian
+            for( unsigned int igauss = 0; igauss < n_gaussians; ++igauss )
             {
-                std::size_t i = 3 * ispin + alpha;
-                std::size_t j = 3 * ispin + beta;
-                hessian( i, j, prefactor * center[igauss][alpha] * center[igauss][beta] );
+                // Distance between spin and gaussian center
+                scalar l = 1 - center[igauss].dot( state.spin[idx.ispin] );
+                // Prefactor for all alpha, beta
+                scalar prefactor
+                    = amplitude[igauss] * std::exp( -std::pow( l, 2 ) / ( 2.0 * std::pow( width[igauss], 2 ) ) )
+                      / std::pow( width[igauss], 2 ) * ( std::pow( l, 2 ) / std::pow( width[igauss], 2 ) - 1 );
+                // Effective Field contribution
+                for( std::uint8_t alpha = 0; alpha < 3; ++alpha )
+                {
+                    for( std::uint8_t beta = 0; beta < 3; ++beta )
+                    {
+                        std::size_t i = 3 * idx.ispin + alpha;
+                        std::size_t j = 3 * idx.ispin + beta;
+                        hessian( i, j, prefactor * center[igauss][alpha] * center[igauss][beta] );
+                    }
+                }
             }
-        }
-    }
+        } );
 }
 
 } // namespace Interaction
