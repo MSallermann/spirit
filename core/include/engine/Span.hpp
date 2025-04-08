@@ -34,11 +34,13 @@ public:
     constexpr Span( T * data, size_type size ) noexcept : data_( data ), size_( size ) {};
 
     template<typename Iterator>
-    constexpr Span( Iterator begin, size_type size ) noexcept : data_( std::addressof( *begin ) ), size_( size ){};
+    constexpr Span( Iterator begin, size_type size ) noexcept
+            : data_( begin == nullptr ? nullptr : std::addressof( *begin ) ), size_( size ){};
 
     template<typename Iterator>
     constexpr Span( Iterator begin, Iterator end ) noexcept
-            : data_( std::addressof( *begin ) ), size_( static_cast<size_type>( std::distance( begin, end ) ) ){};
+            : data_( begin == nullptr ? nullptr : std::addressof( *begin ) ),
+              size_( begin == nullptr ? 0 : static_cast<size_type>( std::distance( begin, end ) ) ){};
 
     SPIRIT_HOSTDEVICE constexpr pointer data()
     {
@@ -71,9 +73,14 @@ public:
         return size_;
     }
 
+    SPIRIT_HOSTDEVICE constexpr bool empty() const
+    {
+        return data_ == nullptr || size_ == 0;
+    }
+
     SPIRIT_HOSTDEVICE constexpr reference at( std::size_t index )
     {
-        if( ( std::is_signed<decltype( index )>::value && index < 0 ) || index >= size_ )
+        if( ( std::is_signed<decltype( index )>::value && index < 0 ) || index >= size_ || data_ == nullptr )
             spirit_throw(
                 Utility::Exception_Classifier::Unknown_Exception, Utility::Log_Level::Error,
                 "Span: index out of bounds" );
@@ -81,7 +88,7 @@ public:
     }
     SPIRIT_HOSTDEVICE constexpr const_reference at( std::size_t index ) const
     {
-        if( ( std::is_signed<decltype( index )>::value && index < 0 ) || index >= size_ )
+        if( ( std::is_signed<decltype( index )>::value && index < 0 ) || index >= size_ || data_ == nullptr )
             spirit_throw(
                 Utility::Exception_Classifier::Unknown_Exception, Utility::Log_Level::Error,
                 "Span: index out of bounds" );
