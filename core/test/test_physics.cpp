@@ -259,7 +259,11 @@ TEST_CASE( "Finite difference and regular Hamiltonian should match", "[physics]"
 
             Engine::Vectormath::Hessian(
                 system_state, hessian_fd,
-                [&interaction]( const auto & state, auto & gradient ) { interaction->Gradient( state, gradient ); } );
+                [&interaction]( const auto & state, auto & gradient )
+                {
+                    std::fill( gradient.begin(), gradient.end(), Vector3::Zero() );
+                    interaction->Gradient( state, gradient );
+                } );
             interaction->Hessian( system_state, hessian );
             INFO( "Interaction: " << interaction->Name() << "\n" );
             INFO( "epsilon = " << epsilon_3 << "\n" );
