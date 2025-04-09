@@ -101,23 +101,25 @@ TEST_CASE( "Single Spin Energy Difference should agree with plain energy differe
     auto distribution     = std::uniform_real_distribution<scalar>( 0, 1 );
     auto distribution_idx = std::uniform_int_distribution<int>( 0, system_state.spin.size() - 1 );
 
-    // TODO: do this test for each individual interaction to ease debugging.
     for( int i = 0; i < n_samples; ++i )
     {
         const int ispin = distribution_idx( prng );
 
-        const auto full_energy_pre = hamiltonian.Energy( system_state );
-        const auto energy_pre      = hamiltonian.Energy_Single_Spin( ispin, system_state );
+        for( auto interaction : hamiltonian.active_interactions() )
+        {
+            const auto full_energy_pre = interaction->Energy( system_state );
+            const auto energy_pre      = interaction->Energy_Single_Spin( ispin, system_state );
 
-        Engine::Vectormath::get_random_vector_unitsphere( distribution, prng, system_state.spin[ispin] );
+            Engine::Vectormath::get_random_vector_unitsphere( distribution, prng, system_state.spin[ispin] );
 
-        const auto full_energy_post = hamiltonian.Energy( system_state );
-        const auto energy_post      = hamiltonian.Energy_Single_Spin( ispin, system_state );
+            const auto full_energy_post = interaction->Energy( system_state );
+            const auto energy_post      = interaction->Energy_Single_Spin( ispin, system_state );
 
-        const scalar full_energy_diff = full_energy_post - full_energy_pre;
-        const scalar energy_diff      = energy_post - energy_pre;
+            const scalar full_energy_diff = full_energy_post - full_energy_pre;
+            const scalar energy_diff      = energy_post - energy_pre;
 
-        INFO( "Iteration: " << i );
-        REQUIRE_THAT( energy_diff, WithinAbs( full_energy_diff, epsilon_3 ) );
+            INFO( "Interaction: '" << interaction->Name() << "', Iteration: " << i );
+            REQUIRE_THAT( energy_diff, WithinAbs( full_energy_diff, epsilon_3 ) );
+        }
     }
 }
