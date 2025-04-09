@@ -59,6 +59,8 @@ struct Gaussian
         int ispin;
     };
 
+    using IndexContainer = Engine::IndexContainer<Gaussian>;
+
     using Energy   = Functor::Local::Energy_Functor<Functor::Local::DataRef<Gaussian>>;
     using Gradient = Functor::Local::Gradient_Functor<Functor::Local::DataRef<Gaussian>>;
     using Hessian  = Functor::Local::Hessian_Functor<Functor::Local::DataRef<Gaussian>>;
@@ -75,8 +77,7 @@ struct Gaussian
     static constexpr std::string_view name = "Gaussian";
 
     static void applyGeometry(
-        const ::Data::Geometry & geometry, const intfield &, const Data &, Cache &,
-        IndexContainer<Gaussian> & container )
+        const ::Data::Geometry & geometry, const intfield &, const Data &, Cache &, IndexContainer & container )
     {
         auto indices = std::vector( geometry.nos, field<Index>{} );
 

@@ -69,6 +69,8 @@ struct Biaxial_Anisotropy
         int ispin, iani;
     };
 
+    using IndexContainer = Engine::IndexContainer<Biaxial_Anisotropy>;
+
     using Energy   = Functor::Local::Energy_Functor<Functor::Local::DataRef<Biaxial_Anisotropy>>;
     using Gradient = Functor::Local::Gradient_Functor<Functor::Local::DataRef<Biaxial_Anisotropy>>;
     using Hessian  = Functor::Local::Hessian_Functor<Functor::Local::DataRef<Biaxial_Anisotropy>>;
@@ -86,8 +88,7 @@ struct Biaxial_Anisotropy
     static constexpr std::string_view name = "Biaxial Anisotropy";
 
     static void applyGeometry(
-        const ::Data::Geometry & geometry, const intfield &, const Data & data, Cache &,
-        IndexContainer<Biaxial_Anisotropy> & container )
+        const ::Data::Geometry & geometry, const intfield &, const Data & data, Cache &, IndexContainer & container )
     {
         using Indexing::check_atom_type;
         auto indices = std::vector( geometry.nos, field<Index>{} );

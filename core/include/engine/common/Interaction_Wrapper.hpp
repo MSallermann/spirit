@@ -61,7 +61,7 @@ public:
     using Interaction    = InteractionType;
     using Data           = typename Interaction::Data;
     using Cache          = typename Interaction::Cache;
-    using IndexContainer = Engine::IndexContainer<Interaction>;
+    using IndexContainer = typename Interaction::IndexContainer;
 
     using state_t = typename Adaptor::state_t;
 

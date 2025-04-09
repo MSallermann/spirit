@@ -3,6 +3,7 @@
 #define SPIRIT_CORE_ENGINE_INTERACTION_DDI_HPP
 
 #include <engine/FFT.hpp>
+#include <engine/Index_Container.hpp>
 #include <engine/spin/StateType.hpp>
 #include <engine/spin/interaction/Functor_Prototypes.hpp>
 #include <utility/Constants.hpp>
@@ -80,6 +81,8 @@ struct DDI
         field<int> it_bounds_write_spins{};
         field<int> it_bounds_write_dipole{};
     };
+
+    using IndexContainer = Engine::IndexContainer<DDI>;
 
     static bool is_contributing( const Data & data, const Cache & )
     {

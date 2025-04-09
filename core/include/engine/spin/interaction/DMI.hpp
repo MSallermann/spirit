@@ -74,6 +74,8 @@ struct DMI
         bool inverse;
     };
 
+    using IndexContainer = Engine::IndexContainer<DMI>;
+
     using Energy   = Functor::Local::Energy_Functor<Functor::Local::DataRef<DMI>>;
     using Gradient = Functor::Local::Gradient_Functor<Functor::Local::DataRef<DMI>>;
     using Hessian  = Functor::Local::Hessian_Functor<Functor::Local::DataRef<DMI>>;
@@ -92,7 +94,7 @@ struct DMI
 
     static void applyGeometry(
         const ::Data::Geometry & geometry, const intfield & boundary_conditions, const Data & data, Cache & cache,
-        IndexContainer<DMI> & container )
+        IndexContainer & container )
     {
         using Indexing::idx_from_pair;
         auto indices = std::vector( geometry.nos, field<Index>{} );

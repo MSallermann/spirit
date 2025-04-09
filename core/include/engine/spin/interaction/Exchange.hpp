@@ -62,6 +62,8 @@ struct Exchange
         int ispin, jspin, ipair;
     };
 
+    using IndexContainer = Engine::IndexContainer<Exchange>;
+
     using Energy   = Functor::Local::Energy_Functor<Functor::Local::DataRef<Exchange>>;
     using Gradient = Functor::Local::Gradient_Functor<Functor::Local::DataRef<Exchange>>;
     using Hessian  = Functor::Local::Hessian_Functor<Functor::Local::DataRef<Exchange>>;
@@ -80,7 +82,7 @@ struct Exchange
 
     static void applyGeometry(
         const ::Data::Geometry & geometry, const intfield & boundary_conditions, const Data & data, Cache & cache,
-        IndexContainer<Exchange> & container )
+        IndexContainer & container )
     {
         using Indexing::idx_from_pair;
         auto indices = std::vector( geometry.nos, field<Index>{} );

@@ -36,6 +36,8 @@ struct Zeeman
         int ispin;
     };
 
+    using IndexContainer = Engine::IndexContainer<Zeeman>;
+
     struct Cache
     {
         const ::Data::Geometry * geometry;
@@ -63,8 +65,7 @@ struct Zeeman
     static constexpr std::string_view name = "Zeeman";
 
     static void applyGeometry(
-        const ::Data::Geometry & geometry, const intfield &, const Data &, Cache & cache,
-        IndexContainer<Zeeman> & container )
+        const ::Data::Geometry & geometry, const intfield &, const Data &, Cache & cache, IndexContainer & container )
     {
         using Indexing::check_atom_type;
         auto indices = std::vector( geometry.nos, field<Index>{} );
