@@ -52,7 +52,7 @@ template<typename Distribution, typename RandomFunc>
 auto step_sphere( Distribution && distribution, RandomFunc && prng ) -> Vector3
 {
     // Rotation angle between 0 and 180 degrees
-    const scalar costheta = distribution( prng );
+    const scalar costheta = 1 - 2 * distribution( prng );
 
     const scalar sintheta = std::sqrt( 1 - costheta * costheta );
 
