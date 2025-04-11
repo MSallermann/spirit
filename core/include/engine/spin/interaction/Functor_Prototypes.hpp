@@ -121,6 +121,18 @@ struct Hessian_Functor : public DataRef
     using DataRef::DataRef;
 };
 
+template<typename DataRef>
+struct Gradient_Local_Functor : public DataRef
+{
+    using Interaction = typename DataRef::Interaction;
+    using Data        = typename Interaction::Data;
+    using Cache       = typename Interaction::Cache;
+
+    Vector3 operator()( int ispin, const StateType & state ) const;
+
+    using DataRef::DataRef;
+};
+
 } // namespace NonLocal
 
 namespace Local

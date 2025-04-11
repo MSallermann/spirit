@@ -122,6 +122,20 @@ class GNEB_set_get(TestParameters):
         self.assertTrue(E_inter > 0)
 
 
+class MC_set_get(TestParameters):
+    def test_MC_metropolis_params(self):
+        params = parameters.mc.metropolis_parameters()
+        parameters.mc.set_metropolis_parameters(self.p_state, params)
+        params_get = parameters.mc.get_metropolis_parameters(self.p_state)
+        self.assertEqual(params.step, params_get.step)
+        self.assertEqual(params.use_adaptive_cone, params_get.use_adaptive_cone)
+        self.assertEqual(params.cone_angle, params_get.cone_angle)
+        self.assertAlmostEqual(
+            params.target_acceptance_ratio,
+            params_get.target_acceptance_ratio,
+        )
+
+
 #########
 
 
@@ -130,6 +144,7 @@ def make_suite():
     loader = unittest.TestLoader()
     suite.addTest(loader.loadTestsFromTestCase(LLG_set_get))
     suite.addTest(loader.loadTestsFromTestCase(GNEB_set_get))
+    suite.addTest(loader.loadTestsFromTestCase(MC_set_get))
     return suite
 
 

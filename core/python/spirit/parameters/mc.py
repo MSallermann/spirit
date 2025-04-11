@@ -10,6 +10,41 @@ import ctypes
 ### Load Library
 from spirit.spiritlib import _spirit
 
+# Metropolis step: shere sampling
+METROPOLIS_STEP_SPIN_SPHERE = 0
+
+# Metropolis step: cone sampling
+METROPOLIS_STEP_SPIN_CONE = 1
+
+# Metropolis step: semi-classical sampling
+METROPOLIS_STEP_SPIN_SEMI_CLASSICAL = 2
+
+
+class metropolis_parameters(ctypes.Structure):
+    """Contains information about the metropolis_step."""
+
+    _fields_ = [
+        ("step", ctypes.c_int),
+        ("use_adaptive_cone", ctypes.c_bool),
+        ("target_acceptance_ratio", scalar),
+        ("cone_angle", scalar),
+    ]
+
+    def __init__(
+        self,
+        step=METROPOLIS_STEP_SPIN_CONE,
+        use_adaptive_cone=True,
+        target_acceptance_ratio=0.5,
+        cone_angle=40,
+    ):
+        super(metropolis_parameters, self).__init__(
+            step,
+            use_adaptive_cone,
+            target_acceptance_ratio,
+            cone_angle,
+        )
+
+
 ## ---------------------------------- Set ----------------------------------
 
 _MC_Set_Output_Tag = _spirit.Parameters_MC_Set_Output_Tag
@@ -246,6 +281,43 @@ def set_metropolis_cone(
     )
 
 
+_MC_Set_Metropolis_Parameters = _spirit.Parameters_MC_Set_Metropolis_Parameters
+_MC_Set_Metropolis_Parameters.argtypes = [
+    ctypes.c_void_p,
+    ctypes.POINTER(metropolis_parameters),
+    ctypes.c_int,
+    ctypes.c_int,
+]
+_MC_Set_Metropolis_Parameters.restype = None
+
+
+def set_metropolis_parameters(
+    p_state,
+    params=None,
+    idx_image=-1,
+    idx_chain=-1,
+):
+    """Configure the Metropolis parameters.
+
+    - `step`: which trial step to use in the Metropolis algorithm: cone, full sphere, semi-classical, ...
+    - `use_adaptive_cone`: automatically adapt the cone angle to achieve the set acceptance ratio
+    - `target_acceptance_ratio`: target acceptance ratio for the adaptive cone algorithm
+    - `cone_angle`: the opening angle within which the spin is placed
+    """
+
+    if params is None:
+        params = metropolis_parameters()
+    elif not isinstance(params, metropolis_parameters):
+        params = metropolis_parameters(**params)
+
+    _MC_Set_Metropolis_Parameters(
+        p_state,
+        ctypes.pointer(params),
+        ctypes.c_int(idx_image),
+        ctypes.c_int(idx_chain),
+    )
+
+
 ## ---------------------------------- Get ----------------------------------
 
 _MC_Get_N_Iterations = _spirit.Parameters_MC_Get_N_Iterations
@@ -327,3 +399,36 @@ def get_metropolis_cone(p_state, idx_image=-1, idx_chain=-1):
         bool(use_adaptive_cone),
         float(target_acceptance_ratio),
     )
+
+
+_MC_Get_Metropolis_Parameters = _spirit.Parameters_MC_Get_Metropolis_Parameters
+_MC_Get_Metropolis_Parameters.argtypes = [
+    ctypes.c_void_p,
+    ctypes.POINTER(metropolis_parameters),
+    ctypes.c_int,
+    ctypes.c_int,
+]
+_MC_Get_Metropolis_Parameters.restype = None
+
+
+def get_metropolis_parameters(
+    p_state,
+    idx_image=-1,
+    idx_chain=-1,
+):
+    """Returns the Metropolis algorithm configuration.
+
+    - which trial step to use in the Metropolis algorithm: cone, full sphere, semi-classical, ...
+    - whether the cone angle is automatically adapted to achieve the set acceptance ratio
+    - target acceptance ratio for the adaptive cone algorithm
+    - the opening angle within which the spin is placed
+    """
+
+    params = metropolis_parameters()
+    _MC_Get_Metropolis_Parameters(
+        p_state,
+        ctypes.pointer(params),
+        ctypes.c_int(idx_image),
+        ctypes.c_int(idx_chain),
+    )
+    return params

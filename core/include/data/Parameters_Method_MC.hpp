@@ -2,13 +2,31 @@
 #ifndef SPIRIT_CORE_DATA_PARAMETERS_METHOD_MC_HPP
 #define SPIRIT_CORE_DATA_PARAMETERS_METHOD_MC_HPP
 
+#include <Spirit/Parameters_MC.h>
 #include <data/Parameters_Method.hpp>
 
 #include <random>
-#include <vector>
 
 namespace Data
 {
+
+enum struct Metropolis_Step
+{
+    SPHERE         = MC_Metropolis_Step_Spin_Sphere,
+    CONE           = MC_Metropolis_Step_Spin_Cone,
+    SEMI_CLASSICAL = MC_Metropolis_Step_Spin_Semi_Classical,
+};
+
+constexpr auto name( Metropolis_Step step ) -> std::string_view
+{
+    switch( step )
+    {
+        case Metropolis_Step::SPHERE: return "sphere";
+        case Metropolis_Step::CONE: return "cone";
+        case Metropolis_Step::SEMI_CLASSICAL: return "semi-classical";
+        default: return "unknown";
+    }
+}
 
 // LLG_Parameters contains all LLG information about the spin system
 struct Parameters_Method_MC : public Parameters_Method
@@ -23,8 +41,8 @@ struct Parameters_Method_MC : public Parameters_Method
 
     // Whether to sample spins randomly or in sequence in Metropolis algorithm
     bool metropolis_random_sample = true;
-    // Whether to use the adaptive cone radius (otherwise just uses full sphere sampling)
-    bool metropolis_step_cone = true;
+    // Which trial step to use for the Metropolis algorithm: sphere, cone, ...
+    Metropolis_Step metropolis_step = Metropolis_Step::CONE;
     // Whether to adapt the metropolis cone angle throughout a MC run to try to hit a target acceptance ratio
     bool metropolis_cone_adaptive = true;
     // The metropolis cone angle

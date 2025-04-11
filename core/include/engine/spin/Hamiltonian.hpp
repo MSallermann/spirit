@@ -72,6 +72,13 @@ public:
             { return ( std::size_t( 0 ) + ... + interaction.Sparse_Hessian_Size_per_Cell() ); }, interactions );
     };
 
+    [[nodiscard]] Vector3 Spin_Gradient_Local( const int ispin, const state_t & state )
+    {
+        return Backend::apply(
+            [ispin, &state]( auto &... interaction ) -> Vector3
+            { return ( Vector3::Zero() + ... + interaction.Spin_Gradient_Local( ispin, state ) ); }, interactions );
+    };
+
     void Gradient( const state_t & state, vectorfield & gradient )
     {
         const auto nos = state.spin.size();

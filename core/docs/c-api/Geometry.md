@@ -81,6 +81,16 @@ Set the magnetic moments of basis cell atoms.
 
 
 
+### Geometry_Set_spin_qn
+
+```C
+void Geometry_Set_spin_qn(State * state, int spin_qn, int idx_image=-1, int idx_chain=-1)
+```
+
+Set the spin quantum number of basis cell atoms. The value is to be specified as a half integer (i.e. spin_qn=5 means s=5/2)
+
+
+
 ### Geometry_Set_Cell_Atom_Types
 
 ```C
@@ -203,6 +213,16 @@ void Geometry_Get_mu_s(State *state, float * mu_s, int idx_image=-1, int idx_cha
 ```
 
 Get the magnetic moments of basis cell atoms.
+
+
+
+### Geometry_Get_spin_qn
+
+```C
+void Geometry_Get_spin_qn(State * state, int * spin_qn, int idx_image=-1, int idx_chain=-1)
+```
+
+Get the spin quantum number of basis cell atoms. The values are to be read as half integers (i.e. spin_qn=5 means s=5/2)
 
 
 

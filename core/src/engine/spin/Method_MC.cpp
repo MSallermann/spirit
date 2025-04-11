@@ -89,7 +89,8 @@ void Method_MC<algorithm>::Iteration()
     this->acceptance_ratio_current = 1 - (scalar)this->n_rejected / (scalar)this->nos_nonvacant;
 
     // Cone angle feedback algorithm
-    if( this->parameters_mc->metropolis_step_cone && this->parameters_mc->metropolis_cone_adaptive )
+    if( this->parameters_mc->metropolis_step == Data::Metropolis_Step::CONE
+        && this->parameters_mc->metropolis_cone_adaptive )
     {
         if( ( this->acceptance_ratio_current < this->parameters_mc->acceptance_ratio_target )
             && ( this->cone_angle > diff ) )
@@ -242,7 +243,7 @@ void Method_MC<algorithm>::Message_Start()
     block.emplace_back( fmt::format( "------------  Started  {} Calculation  ------------", this->Name() ) );
     block.emplace_back( fmt::format( "    Going to iterate {} step(s)", this->n_log ) );
     block.emplace_back( fmt::format( "                with {} iterations per step", this->n_iterations_log ) );
-    if( this->parameters_mc->metropolis_step_cone )
+    if( this->parameters_mc->metropolis_step == Data::Metropolis_Step::CONE )
     {
         if( this->parameters_mc->metropolis_cone_adaptive )
         {
@@ -294,7 +295,7 @@ void Method_MC<algorithm>::Message_Step()
     block.emplace_back( fmt::format(
         "    Iterations / sec:         {}",
         this->n_iterations_log / Timing::SecondsPassed( t_current - this->t_last ) ) );
-    if( this->parameters_mc->metropolis_step_cone )
+    if( this->parameters_mc->metropolis_step == Data::Metropolis_Step::CONE )
     {
         if( this->parameters_mc->metropolis_cone_adaptive )
         {
@@ -345,7 +346,7 @@ void Method_MC<algorithm>::Message_End()
     block.emplace_back( fmt::format( "    Iteration         {} / {}", this->iteration, this->n_iterations ) );
     block.emplace_back(
         fmt::format( "    Iterations / sec: {}", this->iteration / Timing::SecondsPassed( t_end - this->t_start ) ) );
-    if( this->parameters_mc->metropolis_step_cone )
+    if( this->parameters_mc->metropolis_step == Data::Metropolis_Step::CONE )
     {
         if( this->parameters_mc->metropolis_cone_adaptive )
         {

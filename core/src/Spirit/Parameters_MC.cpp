@@ -155,6 +155,42 @@ catch( ... )
     spirit_handle_exception_api( idx_image, idx_chain );
 }
 
+void Parameters_MC_Set_Metropolis_Parameters(
+    State * state, const Parameters_MC_Metropolis_Parameters * params, int idx_image, int idx_chain ) noexcept
+try
+{
+    // Fetch correct indices and pointers
+    auto [image, chain] = from_indices( state, idx_image, idx_chain );
+    throw_if_nullptr( params, "params" );
+
+    {
+        std::scoped_lock _{ *image };
+
+        switch( const auto step = params->step )
+        {
+            case MC_Metropolis_Step_Spin_Cone:
+            case MC_Metropolis_Step_Spin_Sphere:
+            case MC_Metropolis_Step_Spin_Semi_Classical: //
+                image->mc_parameters->metropolis_step = static_cast<Data::Metropolis_Step>( step );
+                break;
+            default:
+                Log( Utility::Log_Level::Error, Utility::Log_Sender::API,
+                     fmt::format(
+                         "Got unknown Metropolis step '{}'! Current Metropolis step is '{}'", step,
+                         name( image->mc_parameters->metropolis_step ) ),
+                     idx_image, idx_chain );
+        }
+
+        image->mc_parameters->metropolis_cone_angle    = params->cone_angle;
+        image->mc_parameters->metropolis_cone_adaptive = params->use_adaptive_cone;
+        image->mc_parameters->acceptance_ratio_target  = params->target_acceptance_ratio;
+    }
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
+}
+
 void Parameters_MC_Set_Metropolis_Cone(
     State * state, bool cone, scalar cone_angle, bool adaptive_cone, scalar target_acceptance_ratio, int idx_image,
     int idx_chain ) noexcept
@@ -166,10 +202,9 @@ try
 
     image->lock();
 
-    image->mc_parameters->metropolis_step_cone = cone;
-
     if( cone )
     {
+        image->mc_parameters->metropolis_step          = Data::Metropolis_Step::CONE;
         image->mc_parameters->metropolis_cone_angle    = cone_angle;
         image->mc_parameters->metropolis_cone_adaptive = adaptive_cone;
         if( adaptive_cone )
@@ -189,8 +224,11 @@ try
         }
     }
     else
+    {
+        image->mc_parameters->metropolis_step = Data::Metropolis_Step::SPHERE;
         Log( Utility::Log_Level::Parameter, Utility::Log_Sender::API,
              "Deactivated MC conical random number generation.", idx_image, idx_chain );
+    }
 
     image->unlock();
 }
@@ -345,10 +383,28 @@ try
     // Fetch correct indices and pointers
     auto [image, chain] = from_indices( state, idx_image, idx_chain );
 
-    *cone                    = image->mc_parameters->metropolis_step_cone;
+    *cone                    = ( image->mc_parameters->metropolis_step == Data::Metropolis_Step::CONE );
     *cone_angle              = image->mc_parameters->metropolis_cone_angle;
     *adaptive_cone           = image->mc_parameters->metropolis_cone_adaptive;
     *target_acceptance_ratio = image->mc_parameters->acceptance_ratio_target;
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
+}
+
+void Parameters_MC_Get_Metropolis_Parameters(
+    State * state, Parameters_MC_Metropolis_Parameters * params, int idx_image, int idx_chain ) noexcept
+try
+{
+    // Fetch correct indices and pointers
+    auto [image, chain] = from_indices( state, idx_image, idx_chain );
+    throw_if_nullptr( params, "params" );
+
+    params->step                    = static_cast<int>( image->mc_parameters->metropolis_step );
+    params->use_adaptive_cone       = image->mc_parameters->metropolis_cone_adaptive;
+    params->target_acceptance_ratio = image->mc_parameters->acceptance_ratio_target;
+    params->cone_angle              = image->mc_parameters->metropolis_cone_angle;
 }
 catch( ... )
 {

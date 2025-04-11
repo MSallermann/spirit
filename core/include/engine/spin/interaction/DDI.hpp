@@ -94,6 +94,7 @@ struct DDI
 
     using Energy             = Functor::NonLocal::Energy_Functor<Functor::NonLocal::DataRef<DDI>>;
     using Gradient           = Functor::NonLocal::Gradient_Functor<Functor::NonLocal::DataRef<DDI>>;
+    using Gradient_Local     = Functor::NonLocal::Gradient_Local_Functor<Functor::NonLocal::DataRef<DDI>>;
     using Hessian            = Functor::NonLocal::Hessian_Functor<Functor::NonLocal::DataRef<DDI>>;
     using Energy_Single_Spin = Functor::NonLocal::Energy_Single_Spin_Functor<Functor::NonLocal::DataRef<DDI>>;
     using Energy_Total       = Functor::NonLocal::Reduce_Functor<Energy>;

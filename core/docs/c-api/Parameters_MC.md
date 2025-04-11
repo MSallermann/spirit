@@ -8,6 +8,57 @@ MC Parameters
 ```
 
 
+Defintion of Metropolis steps
+--------------------------------------------------------------------
+
+### Sphere
+
+```C
+MC_Metropolis_Step_Spin_Sphere           0
+```
+
+`Spin_Sphere`: Sample trial moves from the full unit sphere
+
+
+
+### Cone
+
+```C
+MC_Metropolis_Step_Spin_Cone             1
+```
+
+`Spin_Cone`: Sample trial moves from a cone around the current orientation of the spin.
+
+
+
+### Semi-Classical
+
+```C
+MC_Metropolis_Step_Spin_Semi_Classical   2
+```
+
+`Spin_Semi_Classical`: Use semi-classical sampling for the trial moves:
+If the local effective field is Zeeman-like the component along the direction of that field is sampled
+from level sets that are determined by the spin quantum number of the local spin (see `spin_qn`).
+
+
+
+Defintion of Metropolis parameters
+--------------------------------------------------------------------
+
+Parameter `struct` to encapsulate the values defining the Metropolis trial move.
+
+```C
+struct Parameters_MC_Metropolis_Parameters
+{
+    int step                      = MC_Metropolis_Step_Spin_Cone;
+    bool use_adaptive_cone        = true;
+    float target_acceptance_ratio = 0.5;
+    float cone_angle              = 40;
+};
+```
+
+
 
 Set
 --------------------------------------------------------------------
@@ -119,6 +170,21 @@ Configure the Metropolis parameters.
 
 
 
+### Parameters_MC_Set_Metropolis_Parameters
+
+```C
+void Parameters_MC_Set_Metropolis_Parameters(State * state, const Parameters_MC_Metropolis_Parameters * params, int idx_image=-1, int idx_chain=-1)
+```
+
+Configure the Metropolis parameters.
+
+- step: the sampling method used in the Metropolis trial step
+- use_adaptive_cone: automatically adapt the cone angle to achieve the set acceptance ratio
+- target_acceptance_ratio: target acceptance ratio for the adaptive cone algorithm
+- cone_angle: the opening angle within which the spin is placed
+
+
+
 ### Parameters_MC_Set_Random_Sample
 
 ```C
@@ -222,6 +288,19 @@ Returns the Metropolis algorithm configuration.
 - whether the cone angle is automatically adapted to achieve the set acceptance ratio
 - target acceptance ratio for the adaptive cone algorithm
 
+
+### Parameters_MC_Get_Metropolis_Parameters
+
+```C
+void Parameters_MC_Get_Metropolis_Parameters(State * state, Parameters_MC_Metropolis_Parameters * params, int idx_image=-1, int idx_chain=-1)
+```
+
+Returns the Metropolis algorithm configuration.
+
+- the sampling method used in the Metropolis trial step
+- whether the cone angle is automatically adapted to achieve the set acceptance ratio
+- target acceptance ratio for the adaptive cone algorithm
+- the opening angle within which the spin is placed
 
 
 ### Parameters_MC_Get_Random_Sample

@@ -17,6 +17,24 @@ MC Parameters
 ```
 */
 
+// Metropolis step: shere sampling
+#define MC_Metropolis_Step_Spin_Sphere 0
+
+// Metropolis step: cone sampling
+#define MC_Metropolis_Step_Spin_Cone 1
+
+// Metropolis step: semi-classical sampling
+#define MC_Metropolis_Step_Spin_Semi_Classical 2
+
+// Parameter struct to encapsulate the values defining the Metropolis trial move
+struct Parameters_MC_Metropolis_Parameters
+{
+    int step                       = MC_Metropolis_Step_Spin_Cone;
+    bool use_adaptive_cone         = true;
+    scalar target_acceptance_ratio = 0.5;
+    scalar cone_angle              = 40;
+};
+
 /*
 Set
 --------------------------------------------------------------------
@@ -78,6 +96,10 @@ Set Parameters
 
 // Set the (homogeneous) base temperature [K].
 PREFIX void Parameters_MC_Set_Temperature( State * state, scalar T, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
+
+// Set the Metropolis algorithm parameters
+PREFIX void Parameters_MC_Set_Metropolis_Parameters(
+    State * state, const Parameters_MC_Metropolis_Parameters * params, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
 
 /*
 Configure the Metropolis parameters.
@@ -143,6 +165,10 @@ Returns the Metropolis algorithm configuration.
 PREFIX void Parameters_MC_Get_Metropolis_Cone(
     State * state, bool * cone, scalar * cone_angle, bool * adaptive_cone, scalar * target_acceptance_ratio,
     int idx_image = -1, int idx_chain = -1 ) SUFFIX;
+
+// Get the Metropolis algoritm parameters.
+PREFIX void Parameters_MC_Get_Metropolis_Parameters(
+    State * state, Parameters_MC_Metropolis_Parameters * params, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
 
 // Returns whether spins should be sampled randomly or in sequence.
 PREFIX bool Parameters_MC_Get_Random_Sample( State * state, int idx_image = -1, int idx_chain = -1 ) SUFFIX;

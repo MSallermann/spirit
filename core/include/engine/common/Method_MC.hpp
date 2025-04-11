@@ -4,6 +4,7 @@
 
 #include <Spirit/Simulation.h>
 #include <Spirit/Spirit_Defines.h>
+#include <data/Parameters_Method_MC.hpp>
 #include <data/Spin_System.hpp>
 #include <utility/Exception.hpp>
 
@@ -63,6 +64,28 @@ auto step_sphere( Distribution && distribution, RandomFunc && prng ) -> Vector3
     return { sintheta * std::cos( phi ), sintheta * std::sin( phi ), costheta };
 };
 
+// semi-classical trial step choosing from level sets along a quantization axis
+// NOTE: The implementation assumes that the quantization axis does not depend on the orientation of the spin that is
+// changed here. That means it only works if the energy depends linearly on the spin orientation (Zeeman-like).
+template<typename Distribution, typename RandomFunc, typename IntDistribution>
+auto step_semi_classical_zeeman(
+    Distribution && distribution, RandomFunc && prng, IntDistribution && distribution_int,
+    const Vector3 & axis ) -> Vector3
+{
+    // maps the integer range [a, b] produced by the int distribution to equidistant values in [-1, 1]
+    const scalar costheta
+        = static_cast<scalar>( 2 * distribution_int( prng ) - ( distribution_int.a() + distribution_int.b() ) )
+          / ( distribution_int.b() - distribution_int.a() );
+
+    const scalar sintheta = std::sqrt( 1 - costheta * costheta );
+
+    // Random distribution of phi between 0 and 360 degrees
+    const scalar phi = 2 * Utility::Constants::Pi * distribution( prng );
+
+    // New spin orientation in regular basis
+    return Vectormath::dreibein( axis ) * Vector3{ sintheta * std::cos( phi ), sintheta * std::sin( phi ), costheta };
+};
+
 // Simple metropolis trial step
 template<typename Hamiltonian, typename StateType, typename SharedData>
 void trial_spin( const int idx, StateType & state, Hamiltonian & hamiltonian, SharedData & shared )
@@ -81,18 +104,25 @@ void trial_spin( const int idx, StateType & state, Hamiltonian & hamiltonian, Sh
         return;
 
     const Vector3 spin_pre  = state.spin[ispin];
-    const Vector3 spin_post = [&shared, &spin_pre]
+    const Vector3 spin_post = [&shared, &spin_pre, &geometry, ispin, &state, &hamiltonian]
     {
-        // Sample a cone
-        if( shared.parameters_mc.metropolis_step_cone )
+        switch( shared.parameters_mc.metropolis_step )
         {
-            return Metropolis::step_cone( shared.distribution, shared.parameters_mc.prng, spin_pre, shared.cone_angle );
-        }
-        // Sample the entire unit sphere
-        else
-        {
-            return Metropolis::step_sphere( shared.distribution, shared.parameters_mc.prng );
-        }
+            case Data::Metropolis_Step::CONE: // Sample a cone
+                return Metropolis::step_cone(
+                    shared.distribution, shared.parameters_mc.prng, spin_pre, shared.cone_angle );
+            case Data::Metropolis_Step::SPHERE: // Sample the entire unit sphere
+                return Metropolis::step_sphere( shared.distribution, shared.parameters_mc.prng );
+            case Data::Metropolis_Step::SEMI_CLASSICAL: // Sample semi-classically from quantized level sets
+                return Metropolis::step_semi_classical_zeeman(
+                    shared.distribution, shared.parameters_mc.prng,
+                    /*distribution_int=*/std::uniform_int_distribution<int>( 0, geometry.spin_qn[ispin] ),
+                    /*axis=*/hamiltonian.Spin_Gradient_Local( ispin, state ).normalized() );
+            default:
+                spirit_throw(
+                    Utility::Exception_Classifier::Unknown_Solver, Utility::Log_Level::Error,
+                    fmt::format( "Unsupported metropolis step '{}'!", name( shared.parameters_mc.metropolis_step ) ) );
+        };
     }();
 
     // Energy difference of configurations with and without displacement
@@ -200,17 +230,18 @@ void trial_spin_magnetization_constrained(
     const auto spin_j_pre   = state.spin[jspin];
     const auto spin_i_post  = [&shared, &spin_i_pre]
     {
-        // Sample a cone
-        if( shared.parameters_mc.metropolis_step_cone )
+        switch( shared.parameters_mc.metropolis_step )
         {
-            return Metropolis::step_cone(
-                shared.distribution, shared.parameters_mc.prng, spin_i_pre, shared.cone_angle );
-        }
-        // Sample the entire unit sphere
-        else
-        {
-            return Metropolis::step_sphere( shared.distribution, shared.parameters_mc.prng );
-        }
+            case Data::Metropolis_Step::CONE: // Sample a cone
+                return Metropolis::step_cone(
+                    shared.distribution, shared.parameters_mc.prng, spin_i_pre, shared.cone_angle );
+            case Data::Metropolis_Step::SPHERE: // Sample the entire unit sphere
+                return Metropolis::step_sphere( shared.distribution, shared.parameters_mc.prng );
+            default:
+                spirit_throw(
+                    Utility::Exception_Classifier::Unknown_Solver, Utility::Log_Level::Error,
+                    fmt::format( "Unsupported metropolis step '{}'!", name( shared.parameters_mc.metropolis_step ) ) );
+        };
     }();
 
     // calculate compensation spin

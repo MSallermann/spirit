@@ -289,7 +289,7 @@ Data::Geometry Geometry_from_Config( const std::string & config_file_name )
     std::vector<Vector3> cell_atoms = { Vector3{ 0, 0, 0 } };
     std::size_t n_cell_atoms        = cell_atoms.size();
     // Basis cell composition information (atom types, magnetic moments, ...)
-    Data::Basis_Cell_Composition cell_composition{ false, { 0 }, { 0 }, { 1 }, {} };
+    Data::Basis_Cell_Composition cell_composition{ false, { 0 }, { 0 }, { 1 }, { 1 }, {} };
     // Lattice Constant [Angstrom]
     scalar lattice_constant = 1;
     // Number of translations nT for each basis direction
@@ -369,6 +369,26 @@ Data::Geometry Geometry_from_Config( const std::string & config_file_name )
                     else
                         Log( Log_Level::Warning, Log_Sender::IO,
                              fmt::format( "Keyword 'mu_s' not found. Using Default: {}", cell_composition.mu_s[0] ) );
+
+                    if( config_file_handle.Find( "spin_qn" ) )
+                    {
+                        for( std::size_t iatom = 0; iatom < n_cell_atoms; ++iatom )
+                        {
+                            if( !( config_file_handle >> cell_composition.spin_qn[iatom] ) )
+                            {
+                                Log( Log_Level::Warning, Log_Sender::IO,
+                                     fmt::format(
+                                         "Not enough values specified after 'spin_qn'. Expected {}. Using "
+                                         "spin_qn[{}]=spin_qn[0]={}",
+                                         n_cell_atoms, iatom, cell_composition.spin_qn[0] ) );
+                                cell_composition.spin_qn[iatom] = cell_composition.spin_qn[0];
+                            }
+                        }
+                    }
+                    else
+                        Log( Log_Level::Warning, Log_Sender::IO,
+                             fmt::format(
+                                 "Keyword 'spin_qn' not found. Using Default: {}", cell_composition.spin_qn[0] ) );
                 }
                 // else
                 // {
@@ -422,6 +442,7 @@ Data::Geometry Geometry_from_Config( const std::string & config_file_name )
                     cell_composition.iatom.resize( n_atom_types );
                     cell_composition.atom_type.resize( n_atom_types );
                     cell_composition.mu_s.resize( n_atom_types );
+                    cell_composition.spin_qn.resize( n_atom_types );
                     cell_composition.concentration.resize( n_atom_types );
                     for( int itype = 0; itype < n_atom_types; ++itype )
                     {
@@ -429,6 +450,7 @@ Data::Geometry Geometry_from_Config( const std::string & config_file_name )
                         config_file_handle >> cell_composition.iatom[itype];
                         config_file_handle >> cell_composition.atom_type[itype];
                         config_file_handle >> cell_composition.mu_s[itype];
+                        config_file_handle >> cell_composition.spin_qn[itype];
                         config_file_handle >> cell_composition.concentration[itype];
                         // if ( !(config_file_handle >> mu_s[itype]) )
                         // {
@@ -482,8 +504,8 @@ Data::Geometry Geometry_from_Config( const std::string & config_file_name )
         parameter_log.emplace_back( "    relative positions (first 10):" );
         for( std::size_t iatom = 0; iatom < n_cell_atoms && iatom < 10; ++iatom )
             parameter_log.emplace_back( fmt::format(
-                "        atom {} at ({}), mu_s={}", iatom, cell_atoms[iatom].transpose(),
-                cell_composition.mu_s[iatom] ) );
+                "        atom {} at ({}), mu_s={}, spin_qn={}", iatom, cell_atoms[iatom].transpose(),
+                cell_composition.mu_s[iatom], cell_composition.spin_qn[iatom] ) );
 
         parameter_log.emplace_back( "    absolute atom positions (first 10):" );
         for( std::size_t iatom = 0; iatom < n_cell_atoms && iatom < 10; ++iatom )
@@ -998,7 +1020,33 @@ std::unique_ptr<Data::Parameters_Method_MC> Parameters_Method_MC_from_Config( co
             config_file_handle.Read_Single( parameters->n_iterations_log, "mc_n_iterations_log" );
             config_file_handle.Read_Single( parameters->n_iterations_amortize, "mc_n_iterations_amortize" );
             config_file_handle.Read_Single( parameters->temperature, "mc_temperature" );
+            // Metropolis method parameters
+            {
+                // Metropolis Step variable
+                std::string metropolis_step = "cone";
+                parameters->metropolis_step = Data::Metropolis_Step::CONE;
+
+                if( config_file_handle.Find( "mc_metropolis_step" ) )
+                {
+                    config_file_handle >> metropolis_step;
+                    std::transform(
+                        metropolis_step.begin(), metropolis_step.end(), metropolis_step.begin(), ::tolower );
+
+                    if( metropolis_step == "sphere" )
+                        parameters->metropolis_step = Data::Metropolis_Step::SPHERE;
+                    else if( metropolis_step == "cone" )
+                        parameters->metropolis_step = Data::Metropolis_Step::CONE;
+                    else if( metropolis_step == "semi_classical" )
+                        parameters->metropolis_step = Data::Metropolis_Step::SEMI_CLASSICAL;
+                    else
+                        Log( Log_Level::Warning, Log_Sender::IO,
+                             fmt::format( "Metropolis step \"{}\" unknown. Using \"cone\"...", metropolis_step ) );
+                }
+            }
+            config_file_handle.Read_Single( parameters->metropolis_cone_adaptive, "mc_metropolis_use_adaptive_cone" );
             config_file_handle.Read_Single( parameters->acceptance_ratio_target, "mc_acceptance_ratio" );
+            config_file_handle.Read_Single( parameters->metropolis_cone_angle, "mc_metropolis_cone_angle" );
+            config_file_handle.Read_Single( parameters->metropolis_random_sample, "mc_metropolis_random_sample" );
         }
         catch( ... )
         {
@@ -1015,12 +1063,21 @@ std::unique_ptr<Data::Parameters_Method_MC> Parameters_Method_MC_from_Config( co
     parameter_log.emplace_back( fmt::format( "    {:<17} = {}", "seed", parameters->rng_seed ) );
     parameter_log.emplace_back( fmt::format( "    {:<17} = {}", "temperature", parameters->temperature ) );
     parameter_log.emplace_back(
-        fmt::format( "    {:<17} = {}", "acceptance_ratio", parameters->acceptance_ratio_target ) );
+        fmt::format( "    {:<17} = {}", "metropolis_step", name( parameters->metropolis_step ) ) );
+    parameter_log.emplace_back(
+        fmt::format( "    {:<17} = {}", "target_acceptance_ratio", parameters->acceptance_ratio_target ) );
+    parameter_log.emplace_back(
+        fmt::format( "    {:<17} = {}", "metropolis_use_adaptive_cone", parameters->metropolis_cone_adaptive ) );
+    parameter_log.emplace_back(
+        fmt::format( "    {:<17} = {}", "metropolis_cone_angle", parameters->metropolis_cone_angle ) );
+    parameter_log.emplace_back(
+        fmt::format( "    {:<17} = {}", "metropolis_cone_angle", parameters->metropolis_random_sample ) );
     parameter_log.emplace_back( fmt::format( "    {:<17} = {}", "maximum walltime", str_max_walltime ) );
     parameter_log.emplace_back( fmt::format( "    {:<17} = {}", "n_iterations", parameters->n_iterations ) );
     parameter_log.emplace_back( fmt::format( "    {:<17} = {}", "n_iterations_log", parameters->n_iterations_log ) );
     parameter_log.emplace_back(
         fmt::format( "    {:<17} = {}", "n_iterations_amortize", parameters->n_iterations_amortize ) );
+    // output parameters
     parameter_log.emplace_back( fmt::format( "    {:<17} = \"{}\"", "output_folder", parameters->output_folder ) );
     parameter_log.emplace_back( fmt::format( "    {:<17} = {}", "output_any", parameters->output_any ) );
     parameter_log.emplace_back( fmt::format( "    {:<17} = {}", "output_initial", parameters->output_initial ) );

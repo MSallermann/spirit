@@ -20,9 +20,10 @@ struct IWrapper : public Common::Interaction::IWrapper<state_type>
 {
     using state_t = state_type;
 
-    virtual std::size_t Sparse_Hessian_Size_per_Cell() const               = 0;
-    virtual void Gradient( const state_t & state, vectorfield & gradient ) = 0;
-    virtual void Hessian( const state_t & state, MatrixX & hessian )       = 0;
+    virtual std::size_t Sparse_Hessian_Size_per_Cell() const                = 0;
+    virtual void Gradient( const state_t & state, vectorfield & gradient )  = 0;
+    virtual Vector3 Spin_Gradient_Local( int ispin, const state_t & state ) = 0;
+    virtual void Hessian( const state_t & state, MatrixX & hessian )        = 0;
 
 protected:
     constexpr IWrapper() = default;
@@ -79,6 +80,26 @@ struct Wrapper : public Common::Interaction::Wrapper<InteractionType, Interface>
         else
         {
             std::invoke( typename Interaction::Gradient( this->data, this->cache ), state, gradient );
+        }
+    }
+
+    [[nodiscard]] Vector3 Spin_Gradient_Local( const int ispin, const state_t & state ) final
+    {
+        if constexpr( is_local<Interaction>::value )
+        {
+            if( this->indices.offsets.size() <= 1 )
+                return Vector3::Zero();
+
+            return std::invoke(
+                typename Interaction::Gradient( this->data, this->cache ),
+                Span<const typename Interaction::Index>(
+                    this->indices.data.data() + this->indices.offsets[ispin],
+                    this->indices.offsets[ispin + 1] - this->indices.offsets[ispin] ),
+                state.data() );
+        }
+        else
+        {
+            return std::invoke( typename Interaction::Gradient_Local( this->data, this->cache ), ispin, state );
         }
     }
 

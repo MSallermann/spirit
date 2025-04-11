@@ -49,9 +49,10 @@ Geometry::Geometry(
     // Calculate center of the System
     this->center = 0.5 * ( this->bounds_min + this->bounds_max );
 
-    // Generate default atom_types, mu_s and pinning masks
+    // Generate default atom_types, mu_s, spin_qn and pinning masks
     this->atom_types        = intfield( this->nos, 0 );
     this->mu_s              = scalarfield( this->nos, 1 );
+    this->spin_qn           = intfield( this->nos, 1 );
     this->mask_unpinned     = intfield( this->nos, 1 );
     this->mask_pinned_cells = vectorfield( this->nos, { 0, 0, 0 } );
 
@@ -81,6 +82,7 @@ Geometry::Geometry(
                                 { defect.translations[0], defect.translations[1], defect.translations[2] } );
         this->atom_types[ispin] = defects.types[i];
         this->mu_s[ispin]       = 0.0;
+        this->spin_qn[ispin]    = 0;
     }
 
     // Calculate the type of geometry
@@ -536,6 +538,7 @@ void Geometry::applyCellComposition()
                             {
                                 this->atom_types[ispin] = this->cell_composition.atom_type[icomposition];
                                 this->mu_s[ispin]       = this->cell_composition.mu_s[icomposition];
+                                this->spin_qn[ispin]    = this->cell_composition.spin_qn[icomposition];
                                 visited[iatom]          = true;
                                 if( this->atom_types[ispin] < 0 )
                                     --this->nos_nonvacant;
@@ -546,6 +549,7 @@ void Geometry::applyCellComposition()
                         {
                             this->atom_types[ispin] = this->cell_composition.atom_type[icomposition];
                             this->mu_s[ispin]       = this->cell_composition.mu_s[icomposition];
+                            this->spin_qn[ispin]    = this->cell_composition.spin_qn[icomposition];
                             visited[iatom]          = true;
                             if( this->atom_types[ispin] < 0 )
                                 --this->nos_nonvacant;

@@ -71,6 +71,9 @@ struct Basis_Cell_Composition
     // Magnetic moment of an atom in mu_B
     std::vector<scalar> mu_s;
 
+    // Spin Quantum number of an atom
+    std::vector<int> spin_qn;
+
     // Chemical concentration of an atom on a specific lattice site (if disorder is activated)
     std::vector<scalar> concentration;
 };
@@ -146,6 +149,8 @@ public:
     vectorfield positions;
     // Spin magnetic moments of the atoms
     scalarfield mu_s;
+    // Spin quantum numner of the atoms
+    intfield spin_qn;
     // Atom types of all the atoms: type index 0..n or or vacancy (type < 0)
     intfield atom_types;
     // Pinning

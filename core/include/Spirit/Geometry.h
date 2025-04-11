@@ -67,6 +67,11 @@ Set the magnetic moments of basis cell atoms.
 PREFIX void Geometry_Set_mu_s( State * state, scalar mu_s, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
 
 /*
+Set the spin quantum number of basis cell atoms. The value is to be specified as a half integer (i.e. spin_qn=5 means s=5/2)
+*/
+PREFIX void Geometry_Set_spin_qn( State * state, int spin_qn, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
+
+/*
 Set the types of the atoms in a basis cell.
 */
 PREFIX void Geometry_Set_Cell_Atom_Types( State * state, int n_atoms, int * atom_types ) SUFFIX;
@@ -133,6 +138,11 @@ PREFIX int Geometry_Get_Dimensionality( State * state, int idx_image = -1, int i
 Get the magnetic moments of basis cell atoms.
 */
 PREFIX void Geometry_Get_mu_s( State * state, scalar * mu_s, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
+
+/*
+Get the spin quantum number of basis cell atoms. The values are to be read as half integers (i.e. spin_qn=5 means s=5/2)
+*/
+PREFIX void Geometry_Get_spin_qn( State * state, int * spin_qn, int idx_image = -1, int idx_chain = -1 ) SUFFIX;
 
 /*
 Get number of basis cells in the three translation directions.

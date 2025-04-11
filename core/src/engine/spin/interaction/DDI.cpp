@@ -151,6 +151,32 @@ void DDI::Gradient::operator()( const StateType & state, vectorfield & gradient 
     }
 };
 
+// TODO: replace this by an optimized implementation
+template<>
+Vector3 DDI::Gradient_Local::operator()( const int ispin, const StateType & state ) const
+{
+    if( !is_contributing )
+        return Vector3::Zero();
+
+    if( cache.geometry == nullptr || cache.boundary_conditions == nullptr )
+        // TODO: turn this into an error
+        return Vector3::Zero();
+
+    // NOTE: this calculates the full gradient and then takes the local contribution (very slow!)
+    vectorfield gradient( cache.geometry->nos, Vector3::Zero() );
+    if( data.method == DDI_Method::FFT )
+        Gradient_FFT( *cache.geometry, *cache.boundary_conditions, cache, state.spin, gradient );
+    else if( data.method == DDI_Method::Cutoff )
+    {
+        // TODO: Merge these implementations in the future
+        if( data.cutoff_radius >= 0 )
+            Gradient_Cutoff( *cache.geometry, *cache.boundary_conditions, cache, state.spin, gradient );
+        else
+            Gradient_Direct( *cache.geometry, *cache.boundary_conditions, data, state.spin, gradient );
+    }
+    return gradient[ispin];
+};
+
 // Calculate the total energy for a single spin to be used in Monte Carlo.
 //      Note: therefore the energy of pairs is weighted x2 and of quadruplets x4.
 template<>

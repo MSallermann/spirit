@@ -244,6 +244,7 @@ try
     std::vector<int> iatom( 0 );
     std::vector<int> atom_type( 0 );
     std::vector<scalar> mu_s( 0 );
+    std::vector<int> spin_qn( 0 );
     std::vector<scalar> concentration( 0 );
 
     // Basis cell atoms
@@ -269,11 +270,13 @@ try
             {
                 atom_type.push_back( old_geometry.cell_composition.atom_type[i] );
                 mu_s.push_back( old_geometry.cell_composition.mu_s[i] );
+                spin_qn.push_back( old_geometry.cell_composition.spin_qn[i] );
             }
             else
             {
                 atom_type.push_back( old_geometry.cell_composition.atom_type[0] );
                 mu_s.push_back( old_geometry.cell_composition.mu_s[0] );
+                spin_qn.push_back( old_geometry.cell_composition.spin_qn[0] );
             }
         }
     }
@@ -288,13 +291,15 @@ try
             {
                 atom_type.push_back( old_geometry.cell_composition.atom_type[i] );
                 mu_s.push_back( old_geometry.cell_composition.mu_s[i] );
+                spin_qn.push_back( old_geometry.cell_composition.spin_qn[i] );
                 concentration.push_back( old_geometry.cell_composition.concentration[i] );
             }
         }
     }
 
-    Data::Basis_Cell_Composition new_composition{ old_geometry.cell_composition.disordered, iatom, atom_type, mu_s,
-                                                  concentration };
+    Data::Basis_Cell_Composition new_composition{
+        old_geometry.cell_composition.disordered, iatom, atom_type, mu_s, spin_qn, concentration
+    };
 
     // The new geometry
     auto new_geometry = Data::Geometry(
@@ -309,8 +314,8 @@ try
     if( new_geometry.n_cell_atoms > old_geometry.n_cell_atoms )
         Log( Utility::Log_Level::Warning, Utility::Log_Sender::API,
              fmt::format(
-                 "The basis cell size increased. Set {} additional values of mu_s to {}",
-                 new_geometry.n_cell_atoms - old_geometry.n_cell_atoms, mu_s[0] ),
+                 "The basis cell size increased. Set {} additional values to mu_s={}, spin_qn={}",
+                 new_geometry.n_cell_atoms - old_geometry.n_cell_atoms, mu_s[0], spin_qn[0] ),
              -1, -1 );
 }
 catch( ... )
@@ -342,6 +347,42 @@ try
         Helper_State_Set_Geometry( *state, old_geometry, new_geometry );
 
         Log( Utility::Log_Level::Info, Utility::Log_Sender::API, fmt::format( "Set mu_s to {}", mu_s ), idx_image,
+             idx_chain );
+    }
+    catch( ... )
+    {
+        spirit_handle_exception_api( idx_image, idx_chain );
+    }
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
+}
+
+void Geometry_Set_spin_qn( State * state, int spin_qn, int idx_image, int idx_chain ) noexcept
+try
+{
+    check_state( state );
+
+    auto [image, chain] = from_indices( state, idx_image, idx_chain );
+
+    try
+    {
+        const auto & old_geometry = state->active_image->hamiltonian->get_geometry();
+
+        auto new_composition = old_geometry.cell_composition;
+        for( auto & m : new_composition.spin_qn )
+            m = spin_qn;
+
+        // The new geometry
+        auto new_geometry = Data::Geometry(
+            old_geometry.bravais_vectors, old_geometry.n_cells, old_geometry.cell_atoms, new_composition,
+            old_geometry.lattice_constant, old_geometry.pinning, old_geometry.defects );
+
+        // Update the State
+        Helper_State_Set_Geometry( *state, old_geometry, new_geometry );
+
+        Log( Utility::Log_Level::Info, Utility::Log_Sender::API, fmt::format( "Set spin_qn to {}", spin_qn ), idx_image,
              idx_chain );
     }
     catch( ... )
@@ -657,6 +698,22 @@ try
 
     const auto & g = image->hamiltonian->get_geometry();
     std::copy_n( g.mu_s.begin(), g.n_cell_atoms, mu_s );
+}
+catch( ... )
+{
+    spirit_handle_exception_api( idx_image, idx_chain );
+}
+
+void Geometry_Get_spin_qn( State * state, int * spin_qn, int idx_image, int idx_chain ) noexcept
+try
+{
+
+    // Fetch correct indices and pointers
+    auto [image, chain] = from_indices( state, idx_image, idx_chain );
+    throw_if_nullptr( spin_qn, "mu_s" );
+
+    const auto & g = image->hamiltonian->get_geometry();
+    std::copy_n( g.mu_s.begin(), g.n_cell_atoms, spin_qn );
 }
 catch( ... )
 {
