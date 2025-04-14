@@ -155,6 +155,25 @@ public:
             interactions );
     };
 
+    [[nodiscard]] static std::size_t total_count()
+    {
+        return std::tuple_size_v<InteractionTuple>;
+    }
+
+    [[nodiscard]] auto total_interactions() -> std::vector<InteractionInterface *>
+    {
+        return Backend::apply(
+            []( auto &... interaction ) -> std::vector<InteractionInterface *>
+            { return { std::addressof( interaction )... }; }, interactions );
+    }
+
+    [[nodiscard]] auto total_interactions() const -> std::vector<const InteractionInterface *>
+    {
+        return Backend::apply(
+            []( const auto &... interaction ) -> std::vector<const InteractionInterface *>
+            { return { std::addressof( interaction )... }; }, interactions );
+    }
+
     [[nodiscard]] std::size_t active_count() const
     {
         return Backend::apply(
