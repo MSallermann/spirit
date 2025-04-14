@@ -12,6 +12,7 @@
 #include <engine/Vectormath_Defines.hpp>
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace Engine
@@ -39,7 +40,8 @@ public:
         scalarfield cubic_anisotropy_magnitudes, pairfield exchange_pairs, scalarfield exchange_magnitudes,
         pairfield dmi_pairs, scalarfield dmi_magnitudes, vectorfield dmi_normals, DDI_Method ddi_method,
         intfield ddi_n_periodic_images, bool ddi_pb_zero_padding, scalar ddi_radius, quadrupletfield quadruplets,
-        scalarfield quadruplet_magnitudes, std::shared_ptr<Data::Geometry> geometry, intfield boundary_conditions );
+        scalarfield quadruplet_magnitudes, std::shared_ptr<Data::Geometry> geometry, intfield boundary_conditions,
+        std::optional<std::string> path_to_dipole_matrices );
 
     Hamiltonian_Heisenberg(
         scalar external_field_magnitude, Vector3 external_field_normal, intfield anisotropy_indices,
@@ -47,7 +49,8 @@ public:
         scalarfield cubic_anisotropy_magnitudes, scalarfield exchange_shell_magnitudes,
         scalarfield dmi_shell_magnitudes, int dm_chirality, DDI_Method ddi_method, intfield ddi_n_periodic_images,
         bool ddi_pb_zero_padding, scalar ddi_radius, quadrupletfield quadruplets, scalarfield quadruplet_magnitudes,
-        std::shared_ptr<Data::Geometry> geometry, intfield boundary_conditions );
+        std::shared_ptr<Data::Geometry> geometry, intfield boundary_conditions,
+        std::optional<std::string> path_to_dipole_matrices );
 
     void Update_Interactions();
 
@@ -57,7 +60,9 @@ public:
     void Sparse_Hessian( const vectorfield & spins, SpMatrixX & hessian ) override;
 
     void Gradient( const vectorfield & spins, vectorfield & gradient ) override;
-    void Gradient_and_Energy( const vectorfield & spins, vectorfield & gradient, scalar & energy, std::optional< const std::reference_wrapper<scalarfield>> reference_energy_density = std::nullopt ) override;
+    void Gradient_and_Energy(
+        const vectorfield & spins, vectorfield & gradient, scalar & energy,
+        std::optional<const std::reference_wrapper<scalarfield>> reference_energy_density = std::nullopt ) override;
 
     void Energy_Contributions_per_Spin(
         const vectorfield & spins, std::vector<std::pair<std::string, scalarfield>> & contributions ) override;
@@ -215,7 +220,10 @@ private:
     FFT::StrideContainer spin_stride;
     FFT::StrideContainer dipole_stride;
 
+    std::optional<std::string> path_to_dipole_matrices = std::nullopt;
+
     // Calculate the FT of the padded D-matrics
+    void Compute_Dipole_Matrices( FFT::FFT_Plan & fft_plan_dipole, int img_a, int img_b, int img_c );
     void FFT_Dipole_Matrices( FFT::FFT_Plan & fft_plan_dipole, int img_a, int img_b, int img_c );
     // Calculate the FT of the padded spins
     void FFT_Spins( const vectorfield & spins );

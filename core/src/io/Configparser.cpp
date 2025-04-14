@@ -2,6 +2,7 @@
 #include <engine/Vectormath.hpp>
 #include <io/Filter_File_Handle.hpp>
 #include <io/IO.hpp>
+#include <optional>
 #include <utility/Constants.hpp>
 #include <utility/Exception.hpp>
 #include <utility/Logging.hpp>
@@ -1304,11 +1305,34 @@ std::unique_ptr<Engine::Hamiltonian_Heisenberg> Hamiltonian_Heisenberg_from_Conf
     quadrupletfield quadruplets( 0 );
     scalarfield quadruplet_magnitudes( 0 );
 
+    std::optional<std::string> path_to_dipole_matrices = std::nullopt;
+
     //------------------------------- Parser --------------------------------
     Log( Log_Level::Debug, Log_Sender::IO, "Hamiltonian_Heisenberg: building" );
     // Iteration variables
     if( !config_file_name.empty() )
     {
+
+        try
+        {
+            IO::Filter_File_Handle config_file_handle( config_file_name );
+
+            std::string path_to_dipole_matrices_i = "";
+            // Boundary conditions
+            config_file_handle.Read_String( path_to_dipole_matrices_i, "path_to_dipole_matrices" );
+            if( !path_to_dipole_matrices_i.empty() )
+            {
+                path_to_dipole_matrices = path_to_dipole_matrices_i;
+            }
+            Log( Log_Level::Info, Log_Sender::IO,
+                 fmt::format( "Path to dipole matrices {}", path_to_dipole_matrices_i ) );
+        }
+        catch( ... )
+        {
+            spirit_handle_exception_core(
+                fmt::format( "Unable to read boundary conditions from config file \"{}\"", config_file_name ) );
+        }
+
         try
         {
             IO::Filter_File_Handle config_file_handle( config_file_name );
@@ -1617,7 +1641,7 @@ std::unique_ptr<Engine::Hamiltonian_Heisenberg> Hamiltonian_Heisenberg_from_Conf
             B, B_normal, anisotropy_index, anisotropy_magnitude, anisotropy_normal, cubic_anisotropy_index,
             cubic_anisotropy_magnitude, exchange_magnitudes, dmi_magnitudes, dm_chirality, ddi_method,
             ddi_n_periodic_images, ddi_pb_zero_padding, ddi_radius, quadruplets, quadruplet_magnitudes, geometry,
-            boundary_conditions );
+            boundary_conditions, path_to_dipole_matrices );
     }
     else
     {
@@ -1625,8 +1649,9 @@ std::unique_ptr<Engine::Hamiltonian_Heisenberg> Hamiltonian_Heisenberg_from_Conf
             B, B_normal, anisotropy_index, anisotropy_magnitude, anisotropy_normal, cubic_anisotropy_index,
             cubic_anisotropy_magnitude, exchange_pairs, exchange_magnitudes, dmi_pairs, dmi_magnitudes, dmi_normals,
             ddi_method, ddi_n_periodic_images, ddi_pb_zero_padding, ddi_radius, quadruplets, quadruplet_magnitudes,
-            geometry, boundary_conditions );
+            geometry, boundary_conditions, path_to_dipole_matrices );
     }
+
     Log( Log_Level::Debug, Log_Sender::IO, "Hamiltonian_Heisenberg: built" );
     return hamiltonian;
 } // end Hamiltonian_Heisenberg_From_Config

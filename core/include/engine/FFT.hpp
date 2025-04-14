@@ -1,4 +1,5 @@
 #pragma once
+#include "io/FieldParsing.hpp"
 #ifndef SPIRIT_CORE_ENGINE_FFT_HPP
 #define SPIRIT_CORE_ENGINE_FFT_HPP
 
@@ -28,15 +29,18 @@
 #include <cufft.h>
 #endif
 
+
 namespace Engine
 {
 namespace FFT
 {
 
+
 #ifdef SPIRIT_USE_KISSFFT
 using FFT_real_type = kiss_fft_scalar;
 using FFT_cpx_type  = kiss_fft_cpx;
 using FFT_cfg       = kiss_fftndr_cfg;
+
 
 // scalar product of two complex vectors
 inline FFT_cpx_type mult3D(
@@ -266,5 +270,6 @@ void batch_iFour_3D( FFT_Plan & plan );
 
 } // namespace FFT
 } // namespace Engine
+
 
 #endif

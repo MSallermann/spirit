@@ -1,17 +1,23 @@
+#include "engine/FFT.hpp"
+#include "fmt/core.h"
+#include <cstddef>
 #ifndef SPIRIT_USE_CUDA
 
 #include <algorithm>
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
-
 #include <data/Spin_System.hpp>
 #include <engine/Backend_par.hpp>
 #include <engine/Hamiltonian_Heisenberg.hpp>
 #include <engine/Indexing.hpp>
 #include <engine/Neighbours.hpp>
 #include <engine/Vectormath.hpp>
+#include <filesystem>
+#include <io/FieldParsing.hpp>
+#include <optional>
 #include <utility/Constants.hpp>
+#include <utility/Logging.hpp>
 
 using namespace Data;
 using namespace Utility;
@@ -31,7 +37,8 @@ Hamiltonian_Heisenberg::Hamiltonian_Heisenberg(
     scalarfield cubic_anisotropy_magnitudes, pairfield exchange_pairs, scalarfield exchange_magnitudes,
     pairfield dmi_pairs, scalarfield dmi_magnitudes, vectorfield dmi_normals, DDI_Method ddi_method,
     intfield ddi_n_periodic_images, bool ddi_pb_zero_padding, scalar ddi_radius, quadrupletfield quadruplets,
-    scalarfield quadruplet_magnitudes, std::shared_ptr<Data::Geometry> geometry, intfield boundary_conditions )
+    scalarfield quadruplet_magnitudes, std::shared_ptr<Data::Geometry> geometry, intfield boundary_conditions,
+    std::optional<std::string> path_to_dipole_matrices )
         : Hamiltonian( boundary_conditions ),
           geometry( geometry ),
           external_field_magnitude( external_field_magnitude * C::mu_B ),
@@ -56,7 +63,8 @@ Hamiltonian_Heisenberg::Hamiltonian_Heisenberg(
           ddi_pb_zero_padding( ddi_pb_zero_padding ),
           ddi_cutoff_radius( ddi_radius ),
           fft_plan_reverse( FFT::FFT_Plan() ),
-          fft_plan_spins( FFT::FFT_Plan() )
+          fft_plan_spins( FFT::FFT_Plan() ),
+          path_to_dipole_matrices( path_to_dipole_matrices )
 {
     // Generate interaction pairs, constants etc.
     this->Update_Interactions();
@@ -69,7 +77,8 @@ Hamiltonian_Heisenberg::Hamiltonian_Heisenberg(
     scalarfield cubic_anisotropy_magnitudes, scalarfield exchange_shell_magnitudes, scalarfield dmi_shell_magnitudes,
     int dm_chirality, DDI_Method ddi_method, intfield ddi_n_periodic_images, bool ddi_pb_zero_padding,
     scalar ddi_radius, quadrupletfield quadruplets, scalarfield quadruplet_magnitudes,
-    std::shared_ptr<Data::Geometry> geometry, intfield boundary_conditions )
+    std::shared_ptr<Data::Geometry> geometry, intfield boundary_conditions,
+    std::optional<std::string> path_to_dipole_matrices )
         : Hamiltonian( boundary_conditions ),
           geometry( geometry ),
           external_field_magnitude( external_field_magnitude * C::mu_B ),
@@ -94,7 +103,8 @@ Hamiltonian_Heisenberg::Hamiltonian_Heisenberg(
           ddi_pb_zero_padding( ddi_pb_zero_padding ),
           ddi_cutoff_radius( ddi_radius ),
           fft_plan_reverse( FFT::FFT_Plan() ),
-          fft_plan_spins( FFT::FFT_Plan() )
+          fft_plan_spins( FFT::FFT_Plan() ),
+          path_to_dipole_matrices( path_to_dipole_matrices )
 {
     // Generate interaction pairs, constants etc.
     this->Update_Interactions();
@@ -1408,98 +1418,153 @@ void Hamiltonian_Heisenberg::FFT_Spins( const vectorfield & spins )
     FFT::batch_Four_3D( fft_plan_spins );
 }
 
-void Hamiltonian_Heisenberg::FFT_Dipole_Matrices( FFT::FFT_Plan & fft_plan_dipole, int img_a, int img_b, int img_c )
+void Hamiltonian_Heisenberg::Compute_Dipole_Matrices( FFT::FFT_Plan & fft_plan_dipole, int img_a, int img_b, int img_c )
 {
-    // Prefactor of DDI
-    scalar mult = C::mu_0 * C::mu_B * C::mu_B / ( 4 * C::Pi * 1e-30 );
+    bool could_read = false;
 
-    // Size of original geometry
-    int Na = geometry->n_cells[0];
-    int Nb = geometry->n_cells[1];
-    int Nc = geometry->n_cells[2];
-
-    auto & fft_dipole_inputs = fft_plan_dipole.real_ptr;
-
-    int b_inter = -1;
-    for( int i_b1 = 0; i_b1 < geometry->n_cell_atoms; ++i_b1 )
+    if( path_to_dipole_matrices.has_value() )
     {
-        for( int i_b2 = 0; i_b2 < geometry->n_cell_atoms; ++i_b2 )
+        Log( Log_Level::Info, Log_Sender::All,
+             fmt::format( "Trying to read dipole matrices from {}", path_to_dipole_matrices.value() ) );
+        std::filesystem::path p = path_to_dipole_matrices.value();
+        if( std::filesystem::exists( p ) )
         {
-            if( i_b1 == i_b2 && i_b1 != 0 )
+            auto temp = IO::read_field_from_file<scalar>( p );
+            if( fft_plan_dipole.real_ptr.size() == temp.size() )
             {
-                inter_sublattice_lookup[i_b1 + i_b2 * geometry->n_cell_atoms] = 0;
-                continue;
+                fft_plan_dipole.real_ptr = temp;
+                could_read               = true;
             }
-            b_inter++;
-            inter_sublattice_lookup[i_b1 + i_b2 * geometry->n_cell_atoms] = b_inter;
-
-            // Iterate over the padded system
-            const int * c_n_cells_padded = n_cells_padded.data();
-
-            std::array<scalar, 3> cell_sizes = { geometry->lattice_constant * geometry->bravais_vectors[0].norm(),
-                                                 geometry->lattice_constant * geometry->bravais_vectors[1].norm(),
-                                                 geometry->lattice_constant * geometry->bravais_vectors[2].norm() };
-
-#pragma omp parallel for collapse( 3 )
-            for( int c = 0; c < c_n_cells_padded[2]; ++c )
+            else
             {
-                for( int b = 0; b < c_n_cells_padded[1]; ++b )
-                {
-                    for( int a = 0; a < c_n_cells_padded[0]; ++a )
-                    {
-                        int a_idx  = a < Na ? a : a - n_cells_padded[0];
-                        int b_idx  = b < Nb ? b : b - n_cells_padded[1];
-                        int c_idx  = c < Nc ? c : c - n_cells_padded[2];
-                        scalar Dxx = 0, Dxy = 0, Dxz = 0, Dyy = 0, Dyz = 0, Dzz = 0;
-                        Vector3 diff;
-                        // Iterate over periodic images
-                        for( int a_pb = -img_a; a_pb <= img_a; a_pb++ )
-                        {
-                            for( int b_pb = -img_b; b_pb <= img_b; b_pb++ )
-                            {
-                                for( int c_pb = -img_c; c_pb <= img_c; c_pb++ )
-                                {
-                                    diff = geometry->lattice_constant
-                                           * ( ( a_idx + a_pb * Na + geometry->cell_atoms[i_b1][0]
-                                                 - geometry->cell_atoms[i_b2][0] )
-                                                   * geometry->bravais_vectors[0]
-                                               + ( b_idx + b_pb * Nb + geometry->cell_atoms[i_b1][1]
-                                                   - geometry->cell_atoms[i_b2][1] )
-                                                     * geometry->bravais_vectors[1]
-                                               + ( c_idx + c_pb * Nc + geometry->cell_atoms[i_b1][2]
-                                                   - geometry->cell_atoms[i_b2][2] )
-                                                     * geometry->bravais_vectors[2] );
+                Log( Log_Level::Warning, Log_Sender::All, "Could not read dipole matrices from file. Wrong size." );
+            }
+        }
+        else
+        {
+            Log( Log_Level::Warning, Log_Sender::All,
+                 "Could not read dipole matrices from file. File does not exist." );
+        }
+    }
+    else
+    {
+        Log( Log_Level::Info, Log_Sender::All, "No file for dipole matrices specified." );
+    }
 
-                                    if( diff.norm() > 1e-10 )
+    if( could_read )
+    {
+        Log( Log_Level::Info, Log_Sender::All, "Read dipole matrices from file." );
+    }
+
+    if( !could_read )
+    {
+        // Prefactor of DDI
+        scalar mult = C::mu_0 * C::mu_B * C::mu_B / ( 4 * C::Pi * 1e-30 );
+
+        // Size of original geometry
+        int Na = geometry->n_cells[0];
+        int Nb = geometry->n_cells[1];
+        int Nc = geometry->n_cells[2];
+
+        auto & fft_dipole_inputs = fft_plan_dipole.real_ptr;
+
+        int b_inter = -1;
+        for( int i_b1 = 0; i_b1 < geometry->n_cell_atoms; ++i_b1 )
+        {
+            for( int i_b2 = 0; i_b2 < geometry->n_cell_atoms; ++i_b2 )
+            {
+                if( i_b1 == i_b2 && i_b1 != 0 )
+                {
+                    inter_sublattice_lookup[i_b1 + i_b2 * geometry->n_cell_atoms] = 0;
+                    continue;
+                }
+                b_inter++;
+                inter_sublattice_lookup[i_b1 + i_b2 * geometry->n_cell_atoms] = b_inter;
+
+                // Iterate over the padded system
+                const int * c_n_cells_padded = n_cells_padded.data();
+
+                const size_t total_number_of_cells
+                    = ( c_n_cells_padded[2] * c_n_cells_padded[1] * c_n_cells_padded[0] );
+
+                size_t completed{ 0 };
+
+#pragma omp parallel for collapse( 3 ) reduction( + : completed )
+                for( int c = 0; c < c_n_cells_padded[2]; ++c )
+                {
+                    for( int b = 0; b < c_n_cells_padded[1]; ++b )
+                    {
+                        for( int a = 0; a < c_n_cells_padded[0]; ++a )
+                        {
+                            int a_idx  = a < Na ? a : a - n_cells_padded[0];
+                            int b_idx  = b < Nb ? b : b - n_cells_padded[1];
+                            int c_idx  = c < Nc ? c : c - n_cells_padded[2];
+                            scalar Dxx = 0, Dxy = 0, Dxz = 0, Dyy = 0, Dyz = 0, Dzz = 0;
+                            Vector3 diff;
+
+                            // Iterate over periodic images
+                            for( int a_pb = -img_a; a_pb <= img_a; a_pb++ )
+                            {
+                                for( int b_pb = -img_b; b_pb <= img_b; b_pb++ )
+                                {
+                                    for( int c_pb = -img_c; c_pb <= img_c; c_pb++ )
                                     {
-                                        auto d  = diff.norm();
-                                        auto d3 = d * d * d;
-                                        auto d5 = d * d * d * d * d;
-                                        Dxx += mult * ( 3 * diff[0] * diff[0] / d5 - 1 / d3 );
-                                        Dxy += mult * 3 * diff[0] * diff[1] / d5; // same as Dyx
-                                        Dxz += mult * 3 * diff[0] * diff[2] / d5; // same as Dzx
-                                        Dyy += mult * ( 3 * diff[1] * diff[1] / d5 - 1 / d3 );
-                                        Dyz += mult * 3 * diff[1] * diff[2] / d5; // same as Dzy
-                                        Dzz += mult * ( 3 * diff[2] * diff[2] / d5 - 1 / d3 );
+                                        diff = geometry->lattice_constant
+                                               * ( ( a_idx + a_pb * Na + geometry->cell_atoms[i_b1][0]
+                                                     - geometry->cell_atoms[i_b2][0] )
+                                                       * geometry->bravais_vectors[0]
+                                                   + ( b_idx + b_pb * Nb + geometry->cell_atoms[i_b1][1]
+                                                       - geometry->cell_atoms[i_b2][1] )
+                                                         * geometry->bravais_vectors[1]
+                                                   + ( c_idx + c_pb * Nc + geometry->cell_atoms[i_b1][2]
+                                                       - geometry->cell_atoms[i_b2][2] )
+                                                         * geometry->bravais_vectors[2] );
+
+                                        if( diff.norm() > 1e-10 )
+                                        {
+                                            const auto d  = diff.norm();
+                                            const auto d3 = d * d * d;
+                                            const auto d5 = d * d * d * d * d;
+                                            Dxx += mult * ( 3 * diff[0] * diff[0] / d5 - 1 / d3 );
+                                            Dxy += mult * 3 * diff[0] * diff[1] / d5; // same as Dyx
+                                            Dxz += mult * 3 * diff[0] * diff[2] / d5; // same as Dzx
+                                            Dyy += mult * ( 3 * diff[1] * diff[1] / d5 - 1 / d3 );
+                                            Dyz += mult * 3 * diff[1] * diff[2] / d5; // same as Dzy
+                                            Dzz += mult * ( 3 * diff[2] * diff[2] / d5 - 1 / d3 );
+                                        }
                                     }
                                 }
                             }
+
+                            // const auto progress = static_cast<double>( completed ) / total_number_of_cells * 100.0;
+                            // std::cout << fmt::format(
+                            //     "Computing dipole matrices: Progress {:.1f} % [{} / {}] \n", progress, completed,
+                            //     total_number_of_cells );
+
+                            int idx = b_inter * dipole_stride.basis + a * dipole_stride.a + b * dipole_stride.b
+                                      + c * dipole_stride.c;
+
+                            fft_dipole_inputs[idx]                          = Dxx;
+                            fft_dipole_inputs[idx + 1 * dipole_stride.comp] = Dxy;
+                            fft_dipole_inputs[idx + 2 * dipole_stride.comp] = Dxz;
+                            fft_dipole_inputs[idx + 3 * dipole_stride.comp] = Dyy;
+                            fft_dipole_inputs[idx + 4 * dipole_stride.comp] = Dyz;
+                            fft_dipole_inputs[idx + 5 * dipole_stride.comp] = Dzz;
                         }
-
-                        int idx = b_inter * dipole_stride.basis + a * dipole_stride.a + b * dipole_stride.b
-                                  + c * dipole_stride.c;
-
-                        fft_dipole_inputs[idx]                          = Dxx;
-                        fft_dipole_inputs[idx + 1 * dipole_stride.comp] = Dxy;
-                        fft_dipole_inputs[idx + 2 * dipole_stride.comp] = Dxz;
-                        fft_dipole_inputs[idx + 3 * dipole_stride.comp] = Dyy;
-                        fft_dipole_inputs[idx + 4 * dipole_stride.comp] = Dyz;
-                        fft_dipole_inputs[idx + 5 * dipole_stride.comp] = Dzz;
                     }
                 }
             }
         }
     }
+
+    if( path_to_dipole_matrices.has_value() )
+    {
+        IO::write_field_to_file( path_to_dipole_matrices.value(), fft_plan_dipole.real_ptr );
+    }
+}
+
+void Hamiltonian_Heisenberg::FFT_Dipole_Matrices( FFT::FFT_Plan & fft_plan_dipole, int img_a, int img_b, int img_c )
+{
     FFT::batch_Four_3D( fft_plan_dipole );
 }
 
@@ -1567,7 +1632,6 @@ void Hamiltonian_Heisenberg::Prepare_DDI()
     field<int *> temp_s = { &spin_stride.comp, &spin_stride.basis, &spin_stride.a, &spin_stride.b, &spin_stride.c };
     field<int *> temp_d
         = { &dipole_stride.comp, &dipole_stride.basis, &dipole_stride.a, &dipole_stride.b, &dipole_stride.c };
-    ;
     FFT::get_strides(
         temp_s, { 3, this->geometry->n_cell_atoms, n_cells_padded[0], n_cells_padded[1], n_cells_padded[2] } );
     FFT::get_strides( temp_d, { 6, n_inter_sublattice, n_cells_padded[0], n_cells_padded[1], n_cells_padded[2] } );
@@ -1577,7 +1641,6 @@ void Hamiltonian_Heisenberg::Prepare_DDI()
     field<int *> temp_s = { &spin_stride.a, &spin_stride.b, &spin_stride.c, &spin_stride.comp, &spin_stride.basis };
     field<int *> temp_d
         = { &dipole_stride.a, &dipole_stride.b, &dipole_stride.c, &dipole_stride.comp, &dipole_stride.basis };
-    ;
     FFT::get_strides(
         temp_s, { n_cells_padded[0], n_cells_padded[1], n_cells_padded[2], 3, this->geometry->n_cell_atoms } );
     FFT::get_strides( temp_d, { n_cells_padded[0], n_cells_padded[1], n_cells_padded[2], 6, n_inter_sublattice } );
@@ -1590,6 +1653,7 @@ void Hamiltonian_Heisenberg::Prepare_DDI()
     int img_b = boundary_conditions[1] == 0 ? 0 : ddi_n_periodic_images[1];
     int img_c = boundary_conditions[2] == 0 ? 0 : ddi_n_periodic_images[2];
 
+    Compute_Dipole_Matrices( fft_plan_dipole, img_a, img_b, img_c );
     FFT_Dipole_Matrices( fft_plan_dipole, img_a, img_b, img_c );
     transformed_dipole_matrices = std::move( fft_plan_dipole.cpx_ptr );
 
