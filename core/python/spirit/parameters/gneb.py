@@ -305,10 +305,9 @@ _GNEB_Set_Fix_Left_Endpoint.restype = None
 
 def set_fix_left_endpoint(p_state, fix, idx_chain=-1):
     _GNEB_Set_Fix_Left_Endpoint(
-        ctypes.c_void_p(p_state),
-        ctypes.c_bool(fix),
-        ctypes.c_int(idx_chain)
+        ctypes.c_void_p(p_state), ctypes.c_bool(fix), ctypes.c_int(idx_chain)
     )
+
 
 _GNEB_Set_Fix_Right_Endpoint = _spirit.Parameters_GNEB_Set_Fix_Right_Endpoint
 _GNEB_Set_Fix_Right_Endpoint.argtypes = [
@@ -321,9 +320,7 @@ _GNEB_Set_Fix_Right_Endpoint.restype = None
 
 def set_fix_right_endpoint(p_state, fix, idx_chain=-1):
     _GNEB_Set_Fix_Right_Endpoint(
-        ctypes.c_void_p(p_state),
-        ctypes.c_bool(fix),
-        ctypes.c_int(idx_chain)
+        ctypes.c_void_p(p_state), ctypes.c_bool(fix), ctypes.c_int(idx_chain)
     )
 
 
@@ -450,6 +447,50 @@ def set_rotational_coeff(p_state, coeff, idx_chain=-1):
 
 ### ---------------------------------- Get ----------------------------------
 
+_GNEB_Get_Parallel_Coeff = _spirit.Parameters_GNEB_Get_Parallel_Coeff
+_GNEB_Get_Parallel_Coeff.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_int,
+]
+_GNEB_Get_Parallel_Coeff.restype = scalar
+
+
+def get_parallel_coeff(p_state, idx_chain=-1):
+    """Get the parallel coefficient"""
+    coeff = _GNEB_Get_Parallel_Coeff(ctypes.c_void_p(p_state), ctypes.c_int(idx_chain))
+    return float(coeff)
+
+
+_GNEB_Get_Orthogonal_Coeff = _spirit.Parameters_GNEB_Get_Orthogonal_Coeff
+_GNEB_Get_Orthogonal_Coeff.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_int,
+]
+_GNEB_Get_Orthogonal_Coeff.restype = scalar
+
+
+def get_orthogonal_coeff(p_state, idx_chain=-1):
+    """Get the orthogonal coefficient"""
+    coeff = _GNEB_Get_Orthogonal_Coeff(
+        ctypes.c_void_p(p_state), ctypes.c_int(idx_chain)
+    )
+    return float(coeff)
+
+
+_GNEB_Get_Rotational_Coeff = _spirit.Parameters_GNEB_Get_Rotational_Coeff
+_GNEB_Get_Rotational_Coeff.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_int,
+]
+_GNEB_Get_Rotational_Coeff.restype = scalar
+
+
+def get_rotational_coeff(p_state, idx_chain=-1):
+    """Get the rotational coefficient"""
+    coeff = _GNEB_Get_Rotational_Coeff(ctypes.c_void_p(p_state), ctypes.c_int(idx_chain))
+    return float(coeff)
+
+
 _GNEB_Get_N_Iterations = _spirit.Parameters_GNEB_Get_N_Iterations
 _GNEB_Get_N_Iterations.argtypes = [
     ctypes.c_void_p,
@@ -540,6 +581,30 @@ def get_moving_endpoints(p_state, idx_chain=-1):
     """Return if moving endpoints are used."""
     return bool(
         _GNEB_Get_Moving_Endpoints(ctypes.c_void_p(p_state), ctypes.c_int(idx_chain))
+    )
+
+
+_GNEB_Get_Fix_Left_Endpoint = _spirit.Parameters_GNEB_Get_Fix_Left_Endpoint
+_GNEB_Get_Fix_Left_Endpoint.argtypes = [ctypes.c_void_p, ctypes.c_int]
+_GNEB_Get_Fix_Left_Endpoint.restype = ctypes.c_bool
+
+
+def get_fix_left_endpoint(p_state, idx_chain=-1):
+    """Return if left endpoint is fixed."""
+    return bool(
+        _GNEB_Get_Fix_Left_Endpoint(ctypes.c_void_p(p_state), ctypes.c_int(idx_chain))
+    )
+
+
+_GNEB_Get_Fix_Right_Endpoint = _spirit.Parameters_GNEB_Get_Fix_Right_Endpoint
+_GNEB_Get_Fix_Right_Endpoint.argtypes = [ctypes.c_void_p, ctypes.c_int]
+_GNEB_Get_Fix_Right_Endpoint.restype = ctypes.c_bool
+
+
+def get_fix_right_endpoint(p_state, idx_chain=-1):
+    """Return if right endpoint is fixed."""
+    return bool(
+        _GNEB_Get_Fix_Right_Endpoint(ctypes.c_void_p(p_state), ctypes.c_int(idx_chain))
     )
 
 
