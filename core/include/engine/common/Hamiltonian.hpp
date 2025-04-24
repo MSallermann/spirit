@@ -188,12 +188,7 @@ public:
             []( auto &... interaction )
             {
                 auto active = std::vector<InteractionInterface *>( 0 );
-                ( ...,
-                  [&interaction, &active]
-                  {
-                      if( interaction.is_contributing() )
-                          active.push_back( &interaction );
-                  }() );
+                ( ..., ( interaction.is_contributing() ? active.push_back( &interaction ) : void() ) );
                 return active;
             },
             interactions );
@@ -205,12 +200,7 @@ public:
             []( const auto &... interaction )
             {
                 auto active = std::vector<const InteractionInterface *>( 0 );
-                ( ...,
-                  [&interaction, &active]
-                  {
-                      if( interaction.is_contributing() )
-                          active.push_back( &interaction );
-                  }() );
+                ( ..., ( interaction.is_contributing() ? active.push_back( &interaction ) : void() ) );
                 return active;
             },
             interactions );
