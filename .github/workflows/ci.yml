@@ -320,6 +320,14 @@ jobs:
         echo "/opt/nvidia/hpc_sdk/Linux_x86_64/24.5/compilers/bin" >> $GITHUB_PATH
         echo "/opt/nvidia/hpc_sdk/Linux_x86_64/24.5/math_libs/lib64" >> $GITHUB_PATH
 
+    - name: Free up space
+      shell: bash
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/share/boost
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
     - uses: actions/setup-python@v5
       with:
         python-version: '3.x'
