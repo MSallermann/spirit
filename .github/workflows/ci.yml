@@ -677,7 +677,7 @@ jobs:
     - name: 📚 Install Qt5
       run: |
         sudo apt-get update
-        sudo apt-get install -y qt5-default libqt5charts5-dev
+        sudo apt-get install -y qtbase5-dev libqt5charts5-dev
 
     - name: 📁 Create build folder
       run: cmake -E make_directory ${{runner.workspace}}/build
