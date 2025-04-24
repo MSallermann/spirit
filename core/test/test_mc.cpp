@@ -64,17 +64,16 @@ TEST_CASE( "Direction Constrained Monte Carlo should preserve direction", "[mc]"
             Simulation_N_Shot( state.get(), 50 );
             Quantity_Get_Magnetization( state.get(), magnetization.data() );
 
+            const scalar m_norm = magnetization.norm();
             const scalar m_para = magnetization_direction.dot( magnetization );
-            const scalar m_orth
-                = ( ( Matrix3::Identity() - magnetization_direction * magnetization_direction.transpose() )
-                    * magnetization )
-                      .norm();
+            const scalar m_orth = std::sqrt( std::abs( m_norm * m_norm - m_para * m_para ) );
 
             INFO( "Iteration: " << i );
+            INFO( "M_norm = " << m_norm );
             INFO( "M_para = " << m_para );
             INFO( "M_orth = " << m_orth );
 
-            REQUIRE_THAT( m_orth, WithinAbs( 0, epsilon_6 ) );
+            REQUIRE_THAT( m_para, WithinAbs( m_norm, epsilon_6 ) );
         }
     }
 

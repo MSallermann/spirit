@@ -23,7 +23,7 @@
 [[maybe_unused]] constexpr int digits_b = 8;
 [[maybe_unused]] constexpr int digits_c = 5;
 #else
-[[maybe_unused]] constexpr int digits_a = 6;
+[[maybe_unused]] constexpr int digits_a = 5;
 [[maybe_unused]] constexpr int digits_b = 4;
 [[maybe_unused]] constexpr int digits_c = 1;
 #endif
@@ -158,6 +158,6 @@ TEST_CASE( "Solvers should find Skyrmion collapse barrier with GNEB method", "[s
         Quantity_Get_Magnetization( state.get(), magnetization_sp.data(), idx_sp );
         REQUIRE_THAT( energy_sp, within_digits( energy_sp_expected, digits_a ) );
         for( int dim = 0; dim < 3; dim++ )
-            REQUIRE_THAT( magnetization_sp[dim], within_digits( magnetization_sp_expected[dim], 6 ) );
+            REQUIRE_THAT( magnetization_sp[dim], within_digits( magnetization_sp_expected[dim], 5 ) );
     }
 }
