@@ -187,14 +187,14 @@ public:
         return Backend::apply(
             []( auto &... interaction )
             {
-                auto active_interactions = std::vector<InteractionInterface *>( 0 );
+                auto active = std::vector<InteractionInterface *>( 0 );
                 ( ...,
-                  [&interaction, &active_interactions]
+                  [&interaction, &active]
                   {
                       if( interaction.is_contributing() )
-                          active_interactions.push_back( &interaction );
+                          active.push_back( &interaction );
                   }() );
-                return active_interactions;
+                return active;
             },
             interactions );
     };
@@ -204,14 +204,14 @@ public:
         return Backend::apply(
             []( const auto &... interaction )
             {
-                auto active_interactions = std::vector<const InteractionInterface *>( 0 );
+                auto active = std::vector<const InteractionInterface *>( 0 );
                 ( ...,
-                  [&interaction, &active_interactions]
+                  [&interaction, &active]
                   {
                       if( interaction.is_contributing() )
-                          active_interactions.push_back( &interaction );
+                          active.push_back( &interaction );
                   }() );
-                return active_interactions;
+                return active;
             },
             interactions );
     };
