@@ -9,14 +9,11 @@
 #include <fmt/color.h>
 #include <fmt/ostream.h>
 
-#include <iostream>
-#include <type_traits>
-
 template<>
 struct fmt::formatter<Utility::Log_Sender> : formatter<string_view>
 {
     template<typename FmtContext>
-    auto format( Utility::Log_Sender sender, FmtContext & ctx )
+    auto format( Utility::Log_Sender sender, FmtContext & ctx ) const
     {
         using namespace Utility;
         string_view name = "???";
@@ -56,7 +53,7 @@ template<>
 struct fmt::formatter<Utility::Log_Level> : formatter<string_view>
 {
     template<typename FmtContext>
-    auto format( Utility::Log_Level level, FmtContext & ctx )
+    auto format( Utility::Log_Level level, FmtContext & ctx ) const
     {
         using namespace Utility;
 
@@ -90,7 +87,7 @@ template<>
 struct fmt::formatter<Utility::LogEntry> : formatter<string_view>
 {
     template<typename FmtContext>
-    auto format( Utility::LogEntry entry, FmtContext & ctx )
+    auto format( Utility::LogEntry entry, FmtContext & ctx ) const
     {
         using namespace Utility;
 
