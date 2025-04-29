@@ -18,6 +18,7 @@
 #include <utility/Version.hpp>
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 
 #include <memory>
 #include <string>
