@@ -21,6 +21,8 @@ Spirit - Spin Simulation Framework
     Custom Interaction           <core/docs/Custom_Interaction>
     Definitions                  <core/docs/Definitions>
     Additional features          <core/docs/Features>
+    Methods                      <core/docs/Methods>
+
 
 .. toctree::
     :maxdepth: 2
