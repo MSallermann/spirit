@@ -1,6 +1,23 @@
 # Contributors
 
 
+### Thorben Pürling
+* RWTH Aachen
+* PGI-1/IAS-1 at Forschungszentrum Jülich
+
+Implementation of
+- Modular Hamiltonian
+- Biaxial Anisotropies
+- ...
+
+email: t.puerling@fz-juelich.de
+
+(May 2024 - ongoing)
+
+-----------------
+
+
+
 ### Moritz Sallermann
 * RWTH Aachen
 * PGI-1/IAS-1 at Forschungszentrum Jülich
@@ -8,6 +25,9 @@
 Implementation of
 - the dipole-dipole interaction using FFT convolutions
 - the NCG and LBFGS solvers
+- Sparse HSTST
+- Moving endpoints NEB
+- ...
 
 email: m.sallermann@fz-juelich.de
 
