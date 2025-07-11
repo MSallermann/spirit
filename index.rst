@@ -20,6 +20,8 @@ Spirit - Spin Simulation Framework
     Definitions                  <core/docs/Definitions>
     Additional features          <core/docs/Features>
     Hamiltonian                  <core/docs/Hamiltonian>
+    Methods                      <core/docs/Methods>
+
 
 .. toctree::
     :maxdepth: 2

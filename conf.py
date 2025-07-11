@@ -65,6 +65,7 @@ source_suffix = {
 
 myst_enable_extensions = [
     'dollarmath',
+    'colon_fence'
 ]
 
 

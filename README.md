@@ -87,6 +87,7 @@ control over system parameters.
 - Direct **Energy minimisation** with different solvers
 - **Minimum Energy Path calculations** for transitions between different
   spin configurations, using the GNEB method
+- And a variety of other [Methods](core/docs/Methods.md)
 
 ### *Highlights of the Framework*
 
