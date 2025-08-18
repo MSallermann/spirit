@@ -253,6 +253,12 @@ If the `Jij` or `Dij` keywords used for shells are present the associated column
 ::::
 
 
+### Visualisation of pair interactions
+
+Since it is a frequent point of confusion, the following image depicts the an example pair configuration with, where the resulting interactions (for the first bravais cell) are marked by colored arrows:
+
+![Visualisation of pair interactions](img/pair_interactions.png)
+
 
 ## Dipole-Dipole Interaction
 
